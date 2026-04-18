@@ -2,6 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { nearbyCourts, quickFilters } from '@/data/courts'
 
+const sportVideoEmbeds = {
+  football: 'https://www.youtube.com/embed/qv7vP0Hf8xQ',
+  badminton: 'https://www.youtube.com/embed/F4l3s8Qf2n8',
+  tennis: 'https://www.youtube.com/embed/5v8lA6K6s6Q',
+  pickleball: 'https://www.youtube.com/embed/7xjH4fS4Rr4',
+}
+
 const courtFeatures = [
   { icon: '🏟️', label: 'Sân tiêu chuẩn', desc: 'Đạt tiêu chuẩn thi đấu' },
   { icon: '💡', label: 'Sáng đủ', desc: 'Hệ thống chiếu sáng hiện đại' },
@@ -25,9 +32,10 @@ function BookingDetailPage() {
   const [selectedSlots, setSelectedSlots] = useState([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedFacility, setSelectedFacility] = useState(1)
+  const [selectedMedia, setSelectedMedia] = useState('image')
 
   const totalPrice = useMemo(() => {
-    return selectedSlots.length * court.avgPriceNumber
+    return selectedSlots.length * (court?.avgPriceNumber ?? 0)
   }, [court?.avgPriceNumber, selectedSlots.length])
 
   const formatPrice = (value) => {
@@ -59,6 +67,10 @@ function BookingDetailPage() {
   const sportLabel =
     quickFilters.find((filter) => filter.key === court.sportType)?.label ||
     'Thể thao'
+  const mapQuery = encodeURIComponent(`${court.name}, ${court.subArea}, ${court.province}`)
+  const mapEmbedUrl = `https://www.google.com/maps?q=${mapQuery}&output=embed`
+  const mapOpenUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`
+  const videoEmbedUrl = sportVideoEmbeds[court.sportType] || sportVideoEmbeds.badminton
 
   return (
     <section className="booking-detail-page" aria-label="Chi tiết đặt lịch sân">
@@ -107,6 +119,79 @@ function BookingDetailPage() {
                 </div>
               </div>
 
+              <div className="booking-detail-media">
+                <div className="booking-detail-media-head">
+                  <h3>Hình ảnh, video và vị trí sân</h3>
+                  <a
+                    href={mapOpenUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="booking-map-link"
+                  >
+                    Mở trên Google Maps
+                  </a>
+                </div>
+
+                <div className="booking-media-tabs" role="tablist" aria-label="Nội dung media">
+                  <button
+                    type="button"
+                    role="tab"
+                    className={selectedMedia === 'image' ? 'booking-media-tab active' : 'booking-media-tab'}
+                    onClick={() => setSelectedMedia('image')}
+                  >
+                    Ảnh sân
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={selectedMedia === 'video' ? 'booking-media-tab active' : 'booking-media-tab'}
+                    onClick={() => setSelectedMedia('video')}
+                  >
+                    Video
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={selectedMedia === 'map' ? 'booking-media-tab active' : 'booking-media-tab'}
+                    onClick={() => setSelectedMedia('map')}
+                  >
+                    Bản đồ
+                  </button>
+                </div>
+
+                <div className="booking-media-panel">
+                  {selectedMedia === 'image' && (
+                    <img
+                      src={court.image}
+                      alt={`Hình ảnh ${court.name}`}
+                      className="booking-media-frame"
+                    />
+                  )}
+
+                  {selectedMedia === 'video' && (
+                    <iframe
+                      title={`Video ${court.name}`}
+                      src={videoEmbedUrl}
+                      className="booking-media-frame"
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  )}
+
+                  {selectedMedia === 'map' && (
+                    <iframe
+                      title={`Bản đồ ${court.name}`}
+                      src={mapEmbedUrl}
+                      className="booking-media-frame"
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  )}
+                </div>
+              </div>
+
               <div className="booking-detail-features">
                 <h3>Tiện ích</h3>
                 <div className="booking-features-grid">
@@ -122,7 +207,6 @@ function BookingDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
 
         <div className="booking-detail-sidebar">
           <div className="booking-facilities-panel">
@@ -139,12 +223,10 @@ function BookingDetailPage() {
                   <span className="facility-name">{facility.name}</span>
                 </button>
               ))}
+            </div>
+          </div>
 
           <div className="booking-detail-booking-card">
-                          </div>
-                        </div>
-
-                        <div className="booking-detail-booking-card">
               <h2>Đặt lịch</h2>
               
               <label className="booking-form-label">

@@ -658,12 +658,99 @@
 .booking-detail-meta-icon {
   font-size: 24px;
   line-height: 1;
-  width: 100%;
+  min-width: 28px;
+}
+
+.booking-detail-meta-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.booking-detail-meta-value {
+  margin: 6px 0 0;
   font-family: 'Cal Sans', Inter, sans-serif;
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.2;
+}
+
+.booking-detail-media {
+  margin-bottom: 32px;
+  padding: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.booking-detail-media-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.booking-detail-media-head h3 {
+  margin: 0;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.booking-map-link {
+  padding: 8px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+  background: #eff6ff;
+}
+
+.booking-media-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.booking-media-tab {
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 9999px;
+  background: #ffffff;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.booking-media-tab.active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.booking-media-panel {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: #ffffff;
+}
+
+.booking-media-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  border: 0;
 }
 
 .booking-detail-features {
@@ -913,16 +1000,14 @@
     padding: 20px;
   }
 
-  .booking-facilities-panel {
-    display: none;
-  }
-
   .booking-detail-container {
     grid-template-columns: 1fr;
   }
 
   .booking-detail-sidebar {
     position: static;
+    display: grid;
+    gap: 16px;
   }
 
   .booking-detail-meta {
@@ -1033,6 +1118,24 @@
     padding-bottom: 20px;
   }
 
+  .booking-detail-media {
+    padding: 14px;
+  }
+
+  .booking-detail-media-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .booking-map-link {
+    width: 100%;
+    text-align: center;
+  }
+
+  .booking-media-tabs {
+    flex-wrap: wrap;
+  }
+
   .booking-feature-item {
     padding: 12px;
   }
@@ -1050,7 +1153,7 @@
   }
 
   .booking-detail-sidebar {
-    display: none;
+    display: grid;
   }
 }
 
