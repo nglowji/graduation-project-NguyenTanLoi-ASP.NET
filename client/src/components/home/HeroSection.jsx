@@ -11,40 +11,22 @@ function HeroSection() {
           </p>
           <div className="hero-actions">
             <button type="button" className="btn btn-primary">
-              Bắt đầu miễn phí
-            </button>
-            <button type="button" className="btn btn-ghost">
-              Xem bản demo
+              Đặt sân ngay
             </button>
           </div>
         </div>
-        <div className="hero-panel" aria-label="Xem trước lịch đặt sân">
-          <div className="panel-head">
-            <p>Lịch đặt hôm nay</p>
-            <span>12 sân hoạt động</span>
+        <div className="hero-photo-card" aria-label="Hình ảnh bóng đá thật">
+          <div className="hero-photo-wrap">
+            <img
+              className="hero-photo"
+              src="https://images.pexels.com/photos/274422/pexels-photo-274422.jpeg?auto=compress&cs=tinysrgb&w=1600"
+              alt="Cầu thủ đang tranh bóng trên sân cỏ"
+              loading="eager"
+            />
           </div>
-          <div className="panel-list">
-            <article className="panel-item">
-              <div>
-                <h3>Sân bóng đá A1</h3>
-                <p>19:00 - 20:30</p>
-              </div>
-              <span className="panel-tag">Đã xác nhận</span>
-            </article>
-            <article className="panel-item">
-              <div>
-                <h3>Sân cầu lông B3</h3>
-                <p>18:30 - 20:00</p>
-              </div>
-              <span className="panel-tag">Chờ thanh toán</span>
-            </article>
-            <article className="panel-item">
-              <div>
-                <h3>Sân pickleball C2</h3>
-                <p>20:00 - 21:00</p>
-              </div>
-              <span className="panel-tag">Còn trống</span>
-            </article>
+          <div className="hero-photo-meta">
+            <p>Sân 11 người - Cỏ tự nhiên</p>
+            <span>Khung giờ hot: 19:00 - 21:00</span>
           </div>
         </div>
       </div>

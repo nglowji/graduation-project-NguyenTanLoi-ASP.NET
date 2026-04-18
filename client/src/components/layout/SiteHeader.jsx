@@ -1,27 +1,42 @@
+import { Link, NavLink } from 'react-router-dom'
+
 const navItems = [
-  'Trang chủ',
-  'Đặt sân',
-  'Tính năng',
-  'Bảng giá',
-  'Liên hệ',
+  { label: 'Trang chủ', to: '/' },
+  { label: 'Đặt sân', to: '/dat-san' },
+  { label: 'Dịch vụ', href: '#' },
+  { label: 'Liên hệ', href: '#' },
+  { label: 'Đối tác', href: '#' },
 ]
 
 function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-nav-wrap">
-        <a className="brand" href="/" aria-label="Trang chủ SmartSport">
+        <Link className="brand" to="/" aria-label="Trang chủ SmartSport">
           SmartSport
-        </a>
+        </Link>
         <nav className="site-nav" aria-label="Điều hướng chính">
           {navItems.map((item) => (
-            <a key={item} href="#" className="site-nav-link">
-              {item}
-            </a>
+            item.to ? (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  isActive ? 'site-nav-link active' : 'site-nav-link'
+                }
+              >
+                {item.label}
+              </NavLink>
+            ) : (
+              <a key={item.label} href={item.href} className="site-nav-link">
+                {item.label}
+              </a>
+            )
           ))}
         </nav>
         <button type="button" className="btn btn-primary">
-          Dùng thử miễn phí
+          Đăng nhập
         </button>
       </div>
     </header>
