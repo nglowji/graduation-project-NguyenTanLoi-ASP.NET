@@ -1,15 +1,15 @@
 import { Outlet } from 'react-router-dom'
+import SiteFooter from './SiteFooter'
+import SiteHeader from './SiteHeader'
 
 function MainLayout() {
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <p className="app-kicker">Graduation Project</p>
-        <h1>Client - ASP.NET API Integration</h1>
-      </header>
-      <main className="app-main">
+    <div className="page-wrap">
+      <SiteHeader />
+      <main>
         <Outlet />
       </main>
+      <SiteFooter />
     </div>
   )
 }
