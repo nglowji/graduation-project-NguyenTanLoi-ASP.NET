@@ -4,7 +4,7 @@ const navItems = [
   { label: 'Trang chủ', to: '/' },
   { label: 'Đặt sân', to: '/dat-san' },
   { label: 'Dịch vụ', to: '/dich-vu' },
-  { label: 'Liên hệ', href: '#' },
+  { label: 'Liên hệ', to: '/lien-he' },
   { label: 'Đối tác', href: '#' },
 ]
 

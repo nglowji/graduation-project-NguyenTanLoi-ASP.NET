@@ -1,0 +1,420 @@
+.booking-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.booking-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.booking-header h1,
+.booking-header h2 {
+  margin: 0;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  color: var(--text-primary);
+  line-height: 1.1;
+  font-weight: 600;
+}
+
+.booking-header h1 {
+  font-size: 48px;
+}
+
+.booking-header h2 {
+  font-size: 32px;
+}
+
+.booking-header p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.quick-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  border: 0;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  background: #242424;
+  color: #ffffff;
+}
+
+.filter-chip.active .filter-icon {
+  background: #ffffff;
+}
+
+.filter-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  box-shadow: var(--ring-shadow);
+}
+
+.filter-panel {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-field span {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.filter-field input,
+.filter-field select {
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+  padding: 0 12px;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.filter-field input::placeholder {
+  color: #a3a3a3;
+}
+
+.filter-toggle {
+  height: 40px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  align-self: end;
+}
+
+.filter-toggle input {
+  margin: 0;
+}
+
+.filter-toggle span {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.court-carousel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.court-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.court-image {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  display: block;
+}
+
+.court-content {
+  padding: 14px;
+}
+
+.court-content h3 {
+  margin: 0;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.court-content p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.court-meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.court-cta {
+  margin-top: 12px;
+  display: inline-flex;
+}
+
+.court-empty {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.court-empty h3 {
+  margin: 0;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.court-empty p {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pagination {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.page-btn,
+.page-number {
+  border: 0;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+  height: 36px;
+  min-width: 36px;
+  border-radius: 8px;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.page-btn {
+  padding: 0 12px;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.page-number.active {
+  background: #242424;
+  color: #ffffff;
+}
+
+.booking-detail-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.booking-detail-image {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.booking-detail-content h1,
+.booking-detail-content h2 {
+  margin: 0;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.booking-detail-content h1 {
+  font-size: 38px;
+  margin-top: 8px;
+}
+
+.booking-detail-content h2 {
+  font-size: 24px;
+  margin-top: 20px;
+}
+
+.booking-detail-type {
+  margin: 0;
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  box-shadow: var(--ring-shadow);
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.booking-detail-text {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.booking-slots {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.slot-chip {
+  border: 0;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-family: Inter, sans-serif;
+  cursor: pointer;
+}
+
+.slot-chip.active {
+  background: #242424;
+  color: #ffffff;
+}
+
+.booking-total {
+  margin-top: 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: var(--ring-shadow), var(--soft-shadow);
+  padding: 12px;
+}
+
+.booking-total p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.booking-total strong {
+  display: block;
+  margin-top: 4px;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.booking-detail-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.booking-detail-actions .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .court-carousel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .booking-page {
+    padding-top: 20px;
+    padding-bottom: 48px;
+    gap: 28px;
+  }
+
+  .booking-header h1 {
+    font-size: 36px;
+  }
+
+  .booking-header h2 {
+    font-size: 28px;
+  }
+
+  .court-carousel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-detail-card {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-detail-image {
+    min-height: 220px;
+  }
+
+  .booking-detail-content h1 {
+    font-size: 30px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
+}

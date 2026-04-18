@@ -1,0 +1,115 @@
+.partner-register-page .auth-page {
+  padding-top: 32px;
+}
+
+.partner-register-shell {
+  align-items: start;
+}
+
+.partner-register-copy h1 {
+  max-width: 700px;
+}
+
+.partner-register-copy .auth-benefits {
+  margin-top: 18px;
+  padding-left: 0;
+  list-style: none;
+  gap: 12px;
+}
+
+.partner-benefit-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.partner-benefit-item span:last-child {
+  display: block;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.partner-benefit-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.partner-benefit-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.partner-benefit-icon-form {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.partner-benefit-icon-map {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.partner-benefit-icon-percent {
+  background: #ecfdf3;
+  color: #16a34a;
+}
+
+.partner-register-card {
+  position: relative;
+}
+
+.partner-terms-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f7f7f7;
+  box-shadow: var(--ring-shadow);
+}
+
+.partner-terms-card strong {
+  display: block;
+  font-family: 'Cal Sans', Inter, sans-serif;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.partner-terms-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.partner-terms-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ecfdf3;
+  color: #16a34a;
+}
+
+.partner-terms-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.partner-terms-card p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .partner-terms-card {
+    border-radius: 12px;
+  }
+}

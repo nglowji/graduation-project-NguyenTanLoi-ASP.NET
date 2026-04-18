@@ -4,6 +4,7 @@ const quickLinks = [
   { label: 'Trang chủ', to: '/' },
   { label: 'Đặt sân', to: '/dat-san' },
   { label: 'Dịch vụ đối tác', to: '/dich-vu' },
+  { label: 'Liên hệ', to: '/lien-he' },
   { label: 'Đăng ký đối tác', to: '/dang-ky-doi-tac' },
 ]
 

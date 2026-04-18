@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import partnerDashboardMockup from '../../assets/partner-dashboard-mockup.svg'
+import partnerDashboardMockup from '@/assets/partner-dashboard-mockup.svg'
+import { nearbyCourts } from '@/data/courts'
 
 const benefits = [
   {
@@ -62,6 +63,20 @@ const partnerPrinciples = [
   'Hiển thị theo tỉnh và quận/huyện',
   'Theo dõi booking trực quan trên dashboard',
 ]
+
+const atmosphereSports = [
+  { key: 'football', label: 'Bóng đá' },
+  { key: 'badminton', label: 'Cầu lông' },
+  { key: 'pickleball', label: 'Pickleball' },
+].map((sport) => {
+  const sampleCourt = nearbyCourts.find((court) => court.sportType === sport.key)
+
+  return {
+    ...sport,
+    image: sampleCourt?.image || '',
+    name: sampleCourt?.name || sport.label,
+  }
+})
 
 const icons = {
   map: (
@@ -148,6 +163,26 @@ function ServicesPage() {
                 <h3>{benefit.title}</h3>
               </article>
             ))}
+          </div>
+
+          <article className="partner-atmosphere reveal-on-scroll" style={{ '--reveal-delay': '220ms' }}>
+            <p className="partner-atmosphere-label">SmartSport Partner Network</p>
+            <h3>Vùng phủ booking theo thời gian thực, nổi bật ngay tại khu vực sân của bạn.</h3>
+          </article>
+
+          <div
+            className="partner-sports-strip reveal-on-scroll"
+            aria-label="Ba môn thể thao nổi bật"
+            style={{ '--reveal-delay': '280ms' }}
+          >
+            <div className="partner-atmosphere-sports">
+              {atmosphereSports.map((sport) => (
+                <figure key={sport.key} className="partner-sport-thumb">
+                  <img src={sport.image} alt={sport.name} loading="lazy" />
+                  <figcaption>{sport.label}</figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         </div>
 

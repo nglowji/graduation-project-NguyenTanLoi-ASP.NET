@@ -1,8 +1,45 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import vietnamLocations from '../../data/vietnam-locations.json'
+import vietnamLocations from '@/data/vietnam-locations.json'
 
 const courtTypeOptions = ['Sân bóng đá', 'Sân cầu lông', 'Sân bóng rổ', 'Sân pickleball', 'Loại khác']
+
+const partnerBenefitItems = [
+  {
+    key: 'form',
+    text: 'Điền một lần, dùng cho cả hồ sơ sân và liên hệ quản lý',
+  },
+  {
+    key: 'map',
+    text: 'Chọn đúng tỉnh / quận để khách tìm sân chính xác hơn',
+  },
+  {
+    key: 'percent',
+    text: 'Đồng ý điều khoản hoa hồng 10% cho mỗi booking hợp lệ',
+  },
+]
+
+const partnerIcons = {
+  form: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 4h9l3 3v13H6z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M15 4v3h3M9 11h6M9 15h6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  ),
+  map: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 6.5 9 4l6 2.5L20 4v13.5L15 20l-6-2.5L4 20V6.5Z" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M9 4v13.5M15 6.5V20" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  ),
+  percent: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m7 17 10-10" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="16" cy="16" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  ),
+}
 
 function PartnerRegisterPage() {
   const provinceOptions = useMemo(() => vietnamLocations, [])
@@ -60,9 +97,12 @@ function PartnerRegisterPage() {
             hoạt quy trình hiển thị trên hệ thống.
           </p>
           <ul className="auth-benefits">
-            <li>Điền một lần, dùng cho cả hồ sơ sân và liên hệ quản lý</li>
-            <li>Chọn đúng tỉnh / quận để khách tìm sân chính xác hơn</li>
-            <li>Đồng ý điều khoản hoa hồng 10% cho mỗi booking hợp lệ</li>
+            {partnerBenefitItems.map((item) => (
+              <li key={item.key} className="partner-benefit-item">
+                <span className={`partner-benefit-icon partner-benefit-icon-${item.key}`}>{partnerIcons[item.key]}</span>
+                <span>{item.text}</span>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -179,7 +219,10 @@ function PartnerRegisterPage() {
             </label>
 
             <div className="partner-terms-card">
-              <strong>Điều khoản hoa hồng 10%</strong>
+              <div className="partner-terms-header">
+                <span className="partner-terms-icon" aria-hidden="true">{partnerIcons.percent}</span>
+                <strong>Điều khoản hoa hồng 10%</strong>
+              </div>
               <p>
                 Tôi hiểu rằng khi sân được hiển thị trên hệ thống và phát sinh booking hợp lệ, nền tảng sẽ áp dụng mức
                 hoa hồng 10% theo điều khoản hợp tác.
