@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router-dom'
 const navItems = [
   { label: 'Trang chủ', to: '/' },
   { label: 'Đặt sân', to: '/dat-san' },
-  { label: 'Dịch vụ', href: '#' },
+  { label: 'Dịch vụ', to: '/dich-vu' },
   { label: 'Liên hệ', href: '#' },
   { label: 'Đối tác', href: '#' },
 ]
@@ -35,9 +35,14 @@ function SiteHeader() {
             )
           ))}
         </nav>
-        <button type="button" className="btn btn-primary">
+        <NavLink
+          to="/dang-nhap"
+          className={({ isActive }) =>
+            isActive ? 'btn btn-ghost site-auth-link active' : 'btn btn-ghost site-auth-link'
+          }
+        >
           Đăng nhập
-        </button>
+        </NavLink>
       </div>
     </header>
   )
