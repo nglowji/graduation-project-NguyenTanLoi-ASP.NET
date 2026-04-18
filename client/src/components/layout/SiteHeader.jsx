@@ -5,7 +5,7 @@ const navItems = [
   { label: 'Đặt sân', to: '/dat-san' },
   { label: 'Dịch vụ', to: '/dich-vu' },
   { label: 'Liên hệ', to: '/lien-he' },
-  { label: 'Đối tác', href: '#' },
+  { label: 'Đối tác', to: '/doi-tac' },
 ]
 
 function SiteHeader() {

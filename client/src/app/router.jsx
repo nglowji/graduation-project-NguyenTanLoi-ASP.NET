@@ -4,7 +4,7 @@ import { LoginPage, RegisterPage } from '@/features/auth'
 import { BookingDetailPage, BookingPage } from '@/features/booking'
 import { ContactPage } from '@/features/contact'
 import { HomePage } from '@/features/home'
-import { PartnerRegisterPage } from '@/features/partner'
+import { PartnerPage, PartnerRegisterPage } from '@/features/partner'
 import { ServicesPage } from '@/features/services'
 
 export const router = createBrowserRouter([
@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
         element: <BookingPage />,
       },
       {
-        path: 'dat-san/:courtId',
+        path: 'dat-san/chi-tiet-san',
         element: <BookingDetailPage />,
       },
       {
@@ -39,6 +39,10 @@ export const router = createBrowserRouter([
       {
         path: 'dang-ky-doi-tac',
         element: <PartnerRegisterPage />,
+      },
+      {
+        path: 'doi-tac',
+        element: <PartnerPage />,
       },
       {
         path: 'dang-ky',

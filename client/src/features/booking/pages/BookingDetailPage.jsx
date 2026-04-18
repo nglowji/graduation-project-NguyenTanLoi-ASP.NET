@@ -1,11 +1,30 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { nearbyCourts, quickFilters } from '@/data/courts'
 
+const courtFeatures = [
+  { icon: '🏟️', label: 'Sân tiêu chuẩn', desc: 'Đạt tiêu chuẩn thi đấu' },
+  { icon: '💡', label: 'Sáng đủ', desc: 'Hệ thống chiếu sáng hiện đại' },
+  { icon: '🚿', label: 'Nhà vệ sinh', desc: 'Sạch sẽ, đầy đủ tiện nghi' },
+  { icon: '🅿️', label: 'Bãi đỗ', desc: 'Miễn phí cho khách hàng' },
+]
+
+const facilityList = [
+  { id: 1, name: 'Sân 1' },
+  { id: 2, name: 'Sân 2' },
+  { id: 3, name: 'Sân 3' },
+  { id: 4, name: 'Sân 4' },
+  { id: 5, name: 'Sân 5' },
+  { id: 6, name: 'Sân 6' },
+]
+
 function BookingDetailPage() {
-  const { courtId } = useParams()
+  const [searchParams] = useSearchParams()
+  const courtId = searchParams.get('id')
   const court = nearbyCourts.find((item) => item.id === Number(courtId))
   const [selectedSlots, setSelectedSlots] = useState([])
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedFacility, setSelectedFacility] = useState(1)
 
   const totalPrice = useMemo(() => {
     return selectedSlots.length * court.avgPriceNumber
@@ -42,48 +61,144 @@ function BookingDetailPage() {
     'Thể thao'
 
   return (
-    <section className="booking-page" aria-label="Chi tiết đặt lịch sân">
-      <div className="booking-detail-card">
-        <img src={court.image} alt={court.name} className="booking-detail-image" />
-        <div className="booking-detail-content">
-          <p className="booking-detail-type">{sportLabel}</p>
-          <h1>{court.name}</h1>
-          <p className="booking-detail-text">{`${court.subArea}, ${court.province} - Cách ${court.distanceKm} km`}</p>
-          <p className="booking-detail-text">{`Giá trung bình: ${court.avgPrice}`}</p>
-          <p className="booking-detail-text">{`Đánh giá: ${court.rating} ★`}</p>
-
-          <h2>Chọn khung giờ</h2>
-          <div className="booking-slots">
-            {court.availableHours.map((hour) => (
-              <button
-                key={hour}
-                type="button"
-                className={
-                  selectedSlots.includes(hour) ? 'slot-chip active' : 'slot-chip'
-                }
-                onClick={() => toggleSlot(hour)}
-              >
-                {hour}
-              </button>
-            ))}
+    <section className="booking-detail-page" aria-label="Chi tiết đặt lịch sân">
+      <div className="booking-detail-layout">
+        <div className="booking-detail-main">
+          <div className="booking-detail-breadcrumb-simple">
+            <Link to="/dat-san">Danh sách sân</Link>
+            <span>/</span>
+            <span>{court.name}</span>
           </div>
 
-          <div className="booking-total">
-            <p>{`Đã chọn ${selectedSlots.length} khung giờ`}</p>
-            <strong>{`Tổng tiền tạm tính: ${formatPrice(totalPrice)}`}</strong>
+          <div className="booking-detail-info-card">
+              <div className="booking-detail-header">
+                <div>
+                  <span className="booking-detail-sport-badge">{sportLabel}</span>
+                  <h1>{court.name}</h1>
+                  <p className="booking-detail-address">{court.subArea}, {court.province}</p>
+                </div>
+                <div className="booking-detail-rating">
+                  <span className="booking-detail-rating-number">{court.rating}</span>
+                  <span className="booking-detail-rating-star">★</span>
+                </div>
+              </div>
+
+              <div className="booking-detail-meta">
+                <div className="booking-detail-meta-item">
+                  <span className="booking-detail-meta-icon">📍</span>
+                  <div>
+                    <p className="booking-detail-meta-label">Khoảng cách</p>
+                    <p className="booking-detail-meta-value">Cách {court.distanceKm} km</p>
+                  </div>
+                </div>
+                <div className="booking-detail-meta-item">
+                  <span className="booking-detail-meta-icon">💰</span>
+                  <div>
+                    <p className="booking-detail-meta-label">Giá trung bình</p>
+                    <p className="booking-detail-meta-value">{court.avgPrice}</p>
+                  </div>
+                </div>
+                <div className="booking-detail-meta-item">
+                  <span className="booking-detail-meta-icon">⏰</span>
+                  <div>
+                    <p className="booking-detail-meta-label">Giờ mở cửa</p>
+                    <p className="booking-detail-meta-value">{court.availableHours[0]} - {court.availableHours[court.availableHours.length - 1]}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="booking-detail-features">
+                <h3>Tiện ích</h3>
+                <div className="booking-features-grid">
+                  {courtFeatures.map((feature) => (
+                    <div key={feature.label} className="booking-feature-item">
+                      <span className="booking-feature-icon">{feature.icon}</span>
+                      <div>
+                        <p className="booking-feature-label">{feature.label}</p>
+                        <p className="booking-feature-desc">{feature.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="booking-detail-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={selectedSlots.length === 0}
-            >
-              Xác nhận đặt lịch
-            </button>
-            <Link to="/dat-san" className="btn btn-ghost">
-              Quay lại
-            </Link>
+        <div className="booking-detail-sidebar">
+          <div className="booking-facilities-panel">
+            <h3>Danh sách sân</h3>
+            <div className="booking-facilities-list">
+              {facilityList.map((facility) => (
+                <button
+                  key={facility.id}
+                  type="button"
+                  className={selectedFacility === facility.id ? 'facility-btn active' : 'facility-btn'}
+                  onClick={() => setSelectedFacility(facility.id)}
+                >
+                  <span className="facility-number">{facility.id}</span>
+                  <span className="facility-name">{facility.name}</span>
+                </button>
+              ))}
+
+          <div className="booking-detail-booking-card">
+                          </div>
+                        </div>
+
+                        <div className="booking-detail-booking-card">
+              <h2>Đặt lịch</h2>
+              
+              <label className="booking-form-label">
+                <span>Ngày đặt</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="booking-date-input"
+                />
+              </label>
+
+              <label className="booking-form-label">
+                <span>Chọn sân: {selectedFacility}</span>
+              </label>
+
+              <label className="booking-form-label">
+                <span>Khung giờ</span>
+                <p className="booking-booking-subtitle">Có sẵn hôm nay</p>
+              </label>
+
+              <div className="booking-slots">
+                {court.availableHours.map((hour) => (
+                  <button
+                    key={hour}
+                    type="button"
+                    className={
+                      selectedSlots.includes(hour) ? 'slot-chip active' : 'slot-chip'
+                    }
+                    onClick={() => toggleSlot(hour)}
+                  >
+                    {hour}
+                  </button>
+                ))}
+              </div>
+
+              <div className="booking-total">
+                <p>{`Đã chọn ${selectedSlots.length} khung giờ`}</p>
+                <strong>{`Tổng tiền tạm tính: ${formatPrice(totalPrice)}`}</strong>
+              </div>
+
+              <div className="booking-detail-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={selectedSlots.length === 0}
+                >
+                  Xác nhận đặt lịch
+                </button>
+                <Link to="/dat-san" className="btn btn-ghost">
+                  Quay lại
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

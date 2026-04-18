@@ -257,25 +257,35 @@ function BookingPage() {
           </p>
         </div>
 
-        <div className="court-carousel" aria-label="Danh sách sân gần bạn">
+        <div className="booking-courts-grid" aria-label="Danh sách sân gần bạn">
           {paginatedCourts.map((court) => (
-            <article key={court.id} className="court-card">
-              <img src={court.image} alt={court.name} className="court-image" />
-              <div className="court-content">
-                <h3>{court.name}</h3>
-                <p>{`${court.subArea}, ${court.province} - Cách ${court.distanceKm} km`}</p>
-                <div className="court-meta">
-                  <span>Giá TB: {court.avgPrice}</span>
-                  <span>{court.rating} ★</span>
+            <Link key={court.id} to={`/dat-san/chi-tiet-san?id=${court.id}`} className="booking-court-card-link">
+              <article className="booking-court-card">
+                <div className="booking-court-image" style={{ backgroundImage: `url('${court.image}')` }}>
+                  <span className="booking-court-type-badge">{court.sportType === 'football' ? 'Bóng đá' : court.sportType === 'badminton' ? 'Cầu lông' : 'Pickleball'}</span>
                 </div>
-                <Link to={`/dat-san/${court.id}`} className="btn btn-primary small court-cta">
-                  Đặt sân
-                </Link>
-              </div>
-            </article>
+                <div className="booking-court-content">
+                  <h3>{court.name}</h3>
+                  <p className="booking-court-location">
+                    {court.subArea}, {court.province} · Cách {court.distanceKm} km
+                  </p>
+                  <div className="booking-court-footer">
+                    <div className="booking-court-info">
+                      <span className="booking-court-price">{court.avgPrice}</span>
+                      <span className="booking-court-rating">
+                        ★ {court.rating}
+                      </span>
+                    </div>
+                    <span className="booking-court-btn">
+                      Đặt sân
+                    </span>
+                  </div>
+                </div>
+              </article>
+            </Link>
           ))}
           {filteredCourts.length === 0 && (
-            <article className="court-empty">
+            <article className="booking-court-empty">
               <h3>Không tìm thấy sân phù hợp</h3>
               <p>Thử điều chỉnh bộ lọc để xem thêm kết quả.</p>
             </article>
