@@ -1,0 +1,108 @@
+:root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #12202f;
+  background: radial-gradient(circle at top left, #f6fbff 0%, #eef5ff 45%, #f7f7ff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.app-header h1 {
+  margin: 8px 0 0;
+  font-size: 2rem;
+}
+
+.app-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: #3d5a80;
+}
+
+.app-main {
+  margin-top: 24px;
+}
+
+.home-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.status-card {
+  background: #ffffffcc;
+  backdrop-filter: blur(8px);
+  border: 1px solid #dbe7f4;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(25, 55, 95, 0.08);
+}
+
+.status-card h2 {
+  margin-top: 0;
+}
+
+.status-description {
+  color: #4f6175;
+}
+
+.status-loading {
+  color: #1e6bb8;
+}
+
+.status-error {
+  color: #bc2f2f;
+}
+
+.status-success {
+  color: #1d3a52;
+}
+
+.refresh-button {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1672f3, #0e4fc4);
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.refresh-button:hover {
+  filter: brightness(1.05);
+}
+
+code {
+  background: #eff4fb;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
