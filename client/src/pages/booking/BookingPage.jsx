@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { nearbyCourts, quickFilters } from '../data/courts'
-import vietnamLocations from '../data/vietnam-locations.json'
+import { nearbyCourts, quickFilters } from '../../data/courts'
+import vietnamLocations from '../../data/vietnam-locations.json'
 
 const priceOptions = [
   { label: 'Mọi mức giá', value: 'all' },

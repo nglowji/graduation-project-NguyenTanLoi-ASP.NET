@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { nearbyCourts, quickFilters } from '../data/courts'
+import { nearbyCourts, quickFilters } from '../../data/courts'
 
 function BookingDetailPage() {
   const { courtId } = useParams()

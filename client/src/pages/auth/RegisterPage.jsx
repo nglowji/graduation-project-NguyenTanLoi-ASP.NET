@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import vietnamLocations from '../data/vietnam-locations.json'
+import vietnamLocations from '../../data/vietnam-locations.json'
 
 function RegisterPage() {
   const provinceOptions = useMemo(() => vietnamLocations, [])

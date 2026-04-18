@@ -1,12 +1,12 @@
 import { createBrowserRouter } from 'react-router-dom'
 import MainLayout from '../components/layout/MainLayout'
-import BookingDetailPage from '../pages/BookingDetailPage'
-import BookingPage from '../pages/BookingPage'
-import HomePage from '../pages/HomePage'
-import LoginPage from '../pages/LoginPage'
-import PartnerRegisterPage from '../pages/PartnerRegisterPage'
-import RegisterPage from '../pages/RegisterPage'
-import ServicesPage from '../pages/ServicesPage'
+import LoginPage from '../pages/auth/LoginPage'
+import RegisterPage from '../pages/auth/RegisterPage'
+import BookingDetailPage from '../pages/booking/BookingDetailPage'
+import BookingPage from '../pages/booking/BookingPage'
+import HomePage from '../pages/home/HomePage'
+import PartnerRegisterPage from '../pages/partner/PartnerRegisterPage'
+import ServicesPage from '../pages/services/ServicesPage'
 
 export const router = createBrowserRouter([
   {

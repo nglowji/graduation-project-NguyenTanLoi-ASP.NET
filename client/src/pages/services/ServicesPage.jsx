@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import heroPreview from '../assets/hero.png'
+import partnerDashboardMockup from '../../assets/partner-dashboard-mockup.svg'
 
 const benefits = [
   {
@@ -37,6 +38,24 @@ const onboardingSteps = [
   },
 ]
 
+const partnerVisuals = [
+  {
+    title: 'Sân cỏ 7',
+    note: 'Khung giờ 18:00 - 20:00 đang có nhu cầu cao',
+    tone: 'emerald',
+  },
+  {
+    title: 'Sân trong nhà',
+    note: 'Tỷ lệ lấp đầy cao vào cuối tuần',
+    tone: 'amber',
+  },
+  {
+    title: 'Sân đối kháng',
+    note: 'Nhóm khách trẻ đặt nhanh qua mobile',
+    tone: 'violet',
+  },
+]
+
 const partnerPrinciples = [
   'Form ngắn gọn, gửi hồ sơ nhanh',
   'Hoa hồng 10% minh bạch theo booking hợp lệ',
@@ -66,8 +85,41 @@ const icons = {
 }
 
 function ServicesPage() {
+  const sectionRef = useRef(null)
+
+  useEffect(() => {
+    const root = sectionRef.current
+    if (!root) {
+      return undefined
+    }
+
+    const targets = root.querySelectorAll('.reveal-on-scroll')
+    if (targets.length === 0) {
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      {
+        threshold: 0.2,
+        rootMargin: '0px 0px -40px 0px',
+      },
+    )
+
+    targets.forEach((target) => observer.observe(target))
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section className="services-page">
+    <section className="services-page" ref={sectionRef}>
       <div className="services-hero partner-hero">
         <div className="services-copy partner-copy">
           <p className="services-kicker">Dành cho chủ sân - đối tác</p>
@@ -86,9 +138,13 @@ function ServicesPage() {
           </div>
 
           <div className="partner-quick-benefits" id="quyen-loi">
-            {benefits.map((benefit) => (
-              <article key={benefit.title}>
-                <span className="benefit-icon">{icons[benefit.icon]}</span>
+            {benefits.map((benefit, index) => (
+              <article
+                key={benefit.title}
+                className="reveal-on-scroll"
+                style={{ '--reveal-delay': `${index * 70}ms` }}
+              >
+                <span className={`benefit-icon benefit-${benefit.icon}`}>{icons[benefit.icon]}</span>
                 <h3>{benefit.title}</h3>
               </article>
             ))}
@@ -105,7 +161,16 @@ function ServicesPage() {
           </div>
 
           <div className="partner-dashboard-visual">
-            <img src={heroPreview} alt="Mockup dashboard quản lý sân đối tác" loading="eager" />
+            <img src={partnerDashboardMockup} alt="Mockup dashboard quản lý sân đối tác" loading="eager" />
+          </div>
+
+          <div className="partner-visual-grid">
+            {partnerVisuals.map((visual) => (
+              <article key={visual.title} className={`partner-visual-card ${visual.tone}`}>
+                <strong>{visual.title}</strong>
+                <p>{visual.note}</p>
+              </article>
+            ))}
           </div>
 
           <div className="partner-dashboard-grid">
@@ -130,17 +195,26 @@ function ServicesPage() {
             <div>
               <span>19:00</span>
               <strong>Sân 1 - Đội A</strong>
-              <small>Đã xác nhận</small>
+              <small>
+                <i className="status-dot confirmed" />
+                Đã xác nhận
+              </small>
             </div>
             <div>
               <span>20:00</span>
               <strong>Sân 2 - Đội B</strong>
-              <small>Đang chờ thanh toán</small>
+              <small>
+                <i className="status-dot pending" />
+                Đang chờ thanh toán
+              </small>
             </div>
             <div>
               <span>21:00</span>
               <strong>Sân 1 - Đội C</strong>
-              <small>Còn trống</small>
+              <small>
+                <i className="status-dot open" />
+                Còn trống
+              </small>
             </div>
           </div>
 
@@ -155,25 +229,6 @@ function ServicesPage() {
           </div>
         </aside>
       </div>
-
-      <section className="services-section">
-        <div className="section-header centered">
-          <div>
-            <h2>Vì sao chủ sân nên tham gia</h2>
-          </div>
-        </div>
-
-        <div className="services-grid">
-          {benefits.map((benefit) => (
-            <article key={benefit.title} className="service-card partner-benefit-card">
-              <p className="service-card-label">Lợi ích</p>
-              <span className="benefit-icon">{icons[benefit.icon]}</span>
-              <h3>{benefit.title}</h3>
-              <p>{benefit.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
 
       <section className="services-section services-process">
         <div className="section-header">
