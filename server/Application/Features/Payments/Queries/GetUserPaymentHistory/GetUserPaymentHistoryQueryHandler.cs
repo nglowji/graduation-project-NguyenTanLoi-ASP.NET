@@ -42,7 +42,7 @@ public class GetUserPaymentHistoryQueryHandler
                 pt.BookingId,
                 pt.Booking.TimeSlot.Pitch.Name,
                 pt.Booking.BookingDate.ToDateTime(TimeOnly.MinValue),
-                $"{pt.Booking.TimeSlot.StartTime:hh\\:mm} - {pt.Booking.TimeSlot.EndTime:hh\\:mm}",
+                $"{pt.Booking.TimeSlot.TimeRange.StartTime:hh\\:mm} - {pt.Booking.TimeSlot.TimeRange.EndTime:hh\\:mm}",
                 pt.Amount.Amount,
                 pt.Amount.Currency,
                 pt.Gateway,

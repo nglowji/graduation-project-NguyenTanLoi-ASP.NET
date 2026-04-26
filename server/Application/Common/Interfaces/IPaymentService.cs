@@ -47,7 +47,7 @@ public record PaymentCallbackResult(
 );
 
 public record PaymentStatusResult(
-    string Status,
-    decimal Amount,
+    string ProviderTxnId,
+    bool IsSuccess,
     string? Message
 );

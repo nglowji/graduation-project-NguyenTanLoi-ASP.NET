@@ -46,7 +46,9 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
             return Result.Failure($"Cannot cancel booking with status {booking.Status}");
 
         // Get minimum cancellation hours from configuration
-        var minimumCancellationHours = _configuration.GetValue<int>("Booking:MinimumCancellationHours", 24);
+        var minimumCancellationHours = int.TryParse(
+            _configuration["Booking:MinimumCancellationHours"], 
+            out var hours) ? hours : 24;
 
         // Validate cancellation policy
         try

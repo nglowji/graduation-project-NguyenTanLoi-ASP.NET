@@ -38,7 +38,7 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
 
             pitches = new PagedResult<Domain.Entities.Pitch>(
                 paginatedPitches.ToList(),
-                filteredPitches.Count,
+                filteredPitches.Count(),
                 request.PageNumber,
                 request.PageSize
             );

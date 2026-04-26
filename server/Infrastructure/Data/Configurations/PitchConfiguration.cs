@@ -88,7 +88,6 @@ public class PitchConfiguration : IEntityTypeConfiguration<Pitch>
         builder.HasIndex(p => p.OwnerId);
         builder.HasIndex(p => p.Type);
         builder.HasIndex(p => p.Status);
-        builder.HasIndex(p => new { p.Latitude, p.Longitude });
 
         builder.HasQueryFilter(p => !p.IsDeleted);
     }

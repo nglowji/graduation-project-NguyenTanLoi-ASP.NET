@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -22,8 +21,44 @@ public class VnpayPaymentService : IPaymentService
     private readonly string _vnpayUrl;
     private readonly string _vnpayTmnCode;
     private readonly string _vnpayHashSecret;
-    private readonly string _vnpayVersion = "2.1.0";
-    private readonly string _vnpayCommand = "pay";
+    
+    #region Constants
+    
+    // VNPAY API Constants
+    private const string VNPAY_VERSION = "2.1.0";
+    private const string COMMAND_PAY = "pay";
+    private const string COMMAND_REFUND = "refund";
+    private const string COMMAND_QUERY = "querydr";
+    
+    // Transaction Types
+    private const string TRANSACTION_TYPE_FULL_REFUND = "02";
+    private const string TRANSACTION_TYPE_PARTIAL_REFUND = "03";
+    
+    // Response Codes
+    private const string RESPONSE_CODE_SUCCESS = "00";
+    private const string RESPONSE_CODE_SUSPICIOUS = "07";
+    private const string RESPONSE_CODE_NOT_REGISTERED = "09";
+    private const string RESPONSE_CODE_WRONG_INFO = "10";
+    private const string RESPONSE_CODE_TIMEOUT = "11";
+    private const string RESPONSE_CODE_LOCKED = "12";
+    private const string RESPONSE_CODE_WRONG_OTP = "13";
+    private const string RESPONSE_CODE_USER_CANCELLED = "24";
+    private const string RESPONSE_CODE_INSUFFICIENT_BALANCE = "51";
+    private const string RESPONSE_CODE_DAILY_LIMIT = "65";
+    private const string RESPONSE_CODE_BANK_MAINTENANCE = "75";
+    private const string RESPONSE_CODE_WRONG_PASSWORD = "79";
+    
+    // Other Constants
+    private const string CURRENCY_VND = "VND";
+    private const string LOCALE_VN = "vn";
+    private const string ORDER_TYPE_OTHER = "other";
+    private const string DEFAULT_IP_ADDRESS = "127.0.0.1";
+    private const string SYSTEM_USER = "System";
+    private const int PAYMENT_EXPIRATION_MINUTES = 15;
+    private const int API_TIMEOUT_SECONDS = 30;
+    private const int AMOUNT_MULTIPLIER = 100; // VNPay requires amount in smallest unit
+    
+    #endregion
 
     public VnpayPaymentService(
         IConfiguration configuration,
@@ -42,6 +77,8 @@ public class VnpayPaymentService : IPaymentService
             ?? throw new InvalidOperationException("VnPay:HashSecret is not configured");
     }
 
+    #region Public Methods
+
     public async Task<Result<string>> CreatePaymentUrlAsync(
         Guid bookingId,
         decimal amount,
@@ -51,55 +88,21 @@ public class VnpayPaymentService : IPaymentService
     {
         try
         {
-            // 1. Get booking
-            var booking = await _context.Bookings
-                .Include(b => b.TimeSlot)
-                    .ThenInclude(ts => ts.Pitch)
-                .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
-
+            var booking = await GetBookingWithDetailsAsync(bookingId, cancellationToken);
             if (booking == null)
                 return Result<string>.Failure("Booking not found");
 
-            // 2. Check if already has successful payment
-            var existingTransaction = await _context.PaymentTransactions
-                .FirstOrDefaultAsync(
-                    pt => pt.BookingId == bookingId && pt.Status == PaymentStatus.Success,
-                    cancellationToken
-                );
-
-            if (existingTransaction != null)
+            if (await HasSuccessfulPaymentAsync(bookingId, cancellationToken))
                 return Result<string>.Failure("Booking already paid");
 
-            // 3. Create or get pending transaction
             var transaction = await GetOrCreateTransactionAsync(
                 bookingId,
-                Money.Create(amount, "VND"),
+                Money.Create(amount, CURRENCY_VND),
                 "VNPAY",
                 cancellationToken
             );
 
-            // 4. Build VNPAY payment URL
-            var vnpayData = new SortedDictionary<string, string>
-            {
-                { "vnp_Version", _vnpayVersion },
-                { "vnp_Command", _vnpayCommand },
-                { "vnp_TmnCode", _vnpayTmnCode },
-                { "vnp_Amount", ((long)(amount * 100)).ToString() }, // VNPay requires amount in smallest unit
-                { "vnp_CreateDate", DateTime.Now.ToString("yyyyMMddHHmmss") },
-                { "vnp_CurrCode", "VND" },
-                { "vnp_IpAddr", ipAddress },
-                { "vnp_Locale", "vn" },
-                { "vnp_OrderInfo", $"Thanh toan dat san {booking.TimeSlot?.Pitch?.Name}" },
-                { "vnp_OrderType", "other" },
-                { "vnp_ReturnUrl", returnUrl },
-                { "vnp_TxnRef", transaction.Id.ToString() }, // Use transaction ID as reference
-                { "vnp_ExpireDate", DateTime.Now.AddMinutes(15).ToString("yyyyMMddHHmmss") }
-            };
-
-            // 5. Build query string and secure hash
-            var queryString = BuildQueryString(vnpayData);
-            var secureHash = ComputeHmacSha512(_vnpayHashSecret, queryString);
-            var paymentUrl = $"{_vnpayUrl}?{queryString}&vnp_SecureHash={secureHash}";
+            var paymentUrl = BuildPaymentUrl(booking, transaction, amount, returnUrl, ipAddress);
 
             _logger.LogInformation(
                 "Created payment URL for booking {BookingId}, transaction {TransactionId}",
@@ -122,101 +125,27 @@ public class VnpayPaymentService : IPaymentService
     {
         try
         {
-            // 1. Validate secure hash
-            var secureHash = queryParams.GetValueOrDefault("vnp_SecureHash");
-            queryParams.Remove("vnp_SecureHash");
-            queryParams.Remove("vnp_SecureHashType");
-
-            var sortedParams = new SortedDictionary<string, string>(queryParams);
-            var queryString = BuildQueryString(sortedParams);
-            var computedHash = ComputeHmacSha512(_vnpayHashSecret, queryString);
-
-            if (!secureHash?.Equals(computedHash, StringComparison.OrdinalIgnoreCase) ?? true)
+            if (!ValidateSecureHash(queryParams))
             {
                 _logger.LogWarning("Invalid secure hash in payment callback");
                 return Result<PaymentCallbackResult>.Failure("Invalid payment signature");
             }
 
-            // 2. Parse callback data
-            var transactionId = Guid.Parse(queryParams["vnp_TxnRef"]);
-            var responseCode = queryParams["vnp_ResponseCode"];
-            var providerTxnId = queryParams.GetValueOrDefault("vnp_TransactionNo");
-            var amount = decimal.Parse(queryParams["vnp_Amount"]) / 100; // Convert back from smallest unit
-
-            // 3. Get transaction
-            var transaction = await _context.PaymentTransactions
-                .Include(pt => pt.Booking)
-                .FirstOrDefaultAsync(pt => pt.Id == transactionId, cancellationToken);
+            var callbackData = ParseCallbackData(queryParams);
+            var transaction = await GetTransactionWithBookingAsync(callbackData.TransactionId, cancellationToken);
 
             if (transaction == null)
             {
-                _logger.LogWarning("Transaction {TransactionId} not found", transactionId);
+                _logger.LogWarning("Transaction {TransactionId} not found", callbackData.TransactionId);
                 return Result<PaymentCallbackResult>.Failure("Transaction not found");
             }
 
-            // 4. Check if already processed (idempotency)
-            if (transaction.Status == PaymentStatus.Success)
+            if (IsAlreadyProcessed(transaction))
             {
-                _logger.LogInformation(
-                    "Transaction {TransactionId} already processed successfully",
-                    transactionId
-                );
-
-                return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
-                    transaction.BookingId,
-                    transaction.Id,
-                    true,
-                    "Payment already processed",
-                    transaction.ProviderTxnId
-                ));
+                return CreateAlreadyProcessedResult(transaction);
             }
 
-            // 5. Process payment result
-            var isSuccess = responseCode == "00";
-
-            if (isSuccess)
-            {
-                transaction.MarkAsProcessing(providerTxnId!);
-                transaction.MarkAsSuccess();
-                transaction.Booking.Confirm();
-
-                await _context.SaveChangesAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Payment successful for booking {BookingId}, transaction {TransactionId}",
-                    transaction.BookingId,
-                    transactionId
-                );
-
-                return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
-                    transaction.BookingId,
-                    transaction.Id,
-                    true,
-                    "Payment successful",
-                    providerTxnId
-                ));
-            }
-            else
-            {
-                var failureReason = GetVnpayResponseMessage(responseCode);
-                transaction.MarkAsFailed(failureReason);
-
-                await _context.SaveChangesAsync(cancellationToken);
-
-                _logger.LogWarning(
-                    "Payment failed for booking {BookingId}, reason: {Reason}",
-                    transaction.BookingId,
-                    failureReason
-                );
-
-                return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
-                    transaction.BookingId,
-                    transaction.Id,
-                    false,
-                    failureReason,
-                    providerTxnId
-                ));
-            }
+            return await ProcessPaymentResultAsync(transaction, callbackData, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -236,23 +165,35 @@ public class VnpayPaymentService : IPaymentService
             var transaction = await _context.PaymentTransactions
                 .FirstOrDefaultAsync(pt => pt.Id == transactionId, cancellationToken);
 
-            if (transaction == null)
-                return Result.Failure("Transaction not found");
+            var validationResult = ValidateRefundTransaction(transaction);
+            if (!validationResult.IsSuccess)
+                return validationResult;
 
-            if (transaction.Status != PaymentStatus.Success)
-                return Result.Failure("Only successful transactions can be refunded");
+            var refundResult = await CallVnpayRefundApiAsync(
+                transaction!.ProviderTxnId!,
+                amount,
+                reason,
+                cancellationToken
+            );
+
+            if (!refundResult.IsSuccess)
+            {
+                _logger.LogError(
+                    "VNPAY refund API failed for transaction {TransactionId}: {Error}",
+                    transactionId,
+                    refundResult.ErrorMessage
+                );
+                return refundResult;
+            }
 
             transaction.Refund(reason);
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Refund processed for transaction {TransactionId}, amount: {Amount}",
+                "Refund processed successfully for transaction {TransactionId}, amount: {Amount}",
                 transactionId,
                 amount
             );
-
-            // TODO: Call VNPAY refund API if needed
-            // For now, we just mark as refunded in our system
 
             return Result.Success();
         }
@@ -263,12 +204,71 @@ public class VnpayPaymentService : IPaymentService
         }
     }
 
-    public Task<Result<PaymentStatusResult>> QueryPaymentStatusAsync(
+    public async Task<Result<PaymentStatusResult>> QueryPaymentStatusAsync(
         string providerTxnId,
         CancellationToken cancellationToken = default)
     {
-        // TODO: Implement VNPAY query API
-        throw new NotImplementedException("VNPAY query API not implemented yet");
+        try
+        {
+            if (string.IsNullOrEmpty(providerTxnId))
+                return Result<PaymentStatusResult>.Failure("Provider transaction ID is required");
+
+            var transaction = await _context.PaymentTransactions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(pt => pt.ProviderTxnId == providerTxnId, cancellationToken);
+
+            if (transaction == null)
+                return Result<PaymentStatusResult>.Failure("Transaction not found");
+
+            var queryResult = await CallVnpayQueryApiAsync(
+                providerTxnId,
+                transaction.CreatedAt,
+                cancellationToken
+            );
+
+            if (!queryResult.IsSuccess)
+            {
+                _logger.LogError(
+                    "VNPAY query API failed for transaction {ProviderTxnId}: {Error}",
+                    providerTxnId,
+                    queryResult.ErrorMessage
+                );
+                return queryResult;
+            }
+
+            _logger.LogInformation(
+                "Payment status queried successfully for transaction {ProviderTxnId}",
+                providerTxnId
+            );
+
+            return queryResult;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error querying payment status for transaction {ProviderTxnId}", providerTxnId);
+            return Result<PaymentStatusResult>.Failure("Failed to query payment status");
+        }
+    }
+
+    #endregion
+
+    #region Private Helper Methods - Database Operations
+
+    private async Task<Booking?> GetBookingWithDetailsAsync(Guid bookingId, CancellationToken cancellationToken)
+    {
+        return await _context.Bookings
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+            .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
+    }
+
+    private async Task<bool> HasSuccessfulPaymentAsync(Guid bookingId, CancellationToken cancellationToken)
+    {
+        return await _context.PaymentTransactions
+            .AnyAsync(
+                pt => pt.BookingId == bookingId && pt.Status == PaymentStatus.Success,
+                cancellationToken
+            );
     }
 
     private async Task<PaymentTransaction> GetOrCreateTransactionAsync(
@@ -277,7 +277,6 @@ public class VnpayPaymentService : IPaymentService
         string gateway,
         CancellationToken cancellationToken)
     {
-        // Check for existing pending transaction
         var existingTransaction = await _context.PaymentTransactions
             .FirstOrDefaultAsync(
                 pt => pt.BookingId == bookingId && 
@@ -288,12 +287,415 @@ public class VnpayPaymentService : IPaymentService
         if (existingTransaction != null)
             return existingTransaction;
 
-        // Create new transaction
         var transaction = PaymentTransaction.Create(bookingId, amount, gateway);
         await _context.PaymentTransactions.AddAsync(transaction, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return transaction;
+    }
+
+    private async Task<PaymentTransaction?> GetTransactionWithBookingAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.PaymentTransactions
+            .Include(pt => pt.Booking)
+            .FirstOrDefaultAsync(pt => pt.Id == transactionId, cancellationToken);
+    }
+
+    #endregion
+
+    #region Private Helper Methods - Payment URL Building
+
+    private string BuildPaymentUrl(
+        Booking booking,
+        PaymentTransaction transaction,
+        decimal amount,
+        string returnUrl,
+        string ipAddress)
+    {
+        var vnpayData = BuildPaymentRequestData(booking, transaction, amount, returnUrl, ipAddress);
+        var queryString = BuildQueryString(vnpayData);
+        var secureHash = ComputeHmacSha512(_vnpayHashSecret, queryString);
+        
+        return $"{_vnpayUrl}?{queryString}&vnp_SecureHash={secureHash}";
+    }
+
+    private SortedDictionary<string, string> BuildPaymentRequestData(
+        Booking booking,
+        PaymentTransaction transaction,
+        decimal amount,
+        string returnUrl,
+        string ipAddress)
+    {
+        return new SortedDictionary<string, string>
+        {
+            { "vnp_Version", VNPAY_VERSION },
+            { "vnp_Command", COMMAND_PAY },
+            { "vnp_TmnCode", _vnpayTmnCode },
+            { "vnp_Amount", ConvertToVnpayAmount(amount).ToString() },
+            { "vnp_CreateDate", GetVnpayDateTimeFormat() },
+            { "vnp_CurrCode", CURRENCY_VND },
+            { "vnp_IpAddr", ipAddress },
+            { "vnp_Locale", LOCALE_VN },
+            { "vnp_OrderInfo", BuildOrderInfo(booking) },
+            { "vnp_OrderType", ORDER_TYPE_OTHER },
+            { "vnp_ReturnUrl", returnUrl },
+            { "vnp_TxnRef", transaction.Id.ToString() },
+            { "vnp_ExpireDate", GetVnpayExpirationDate() }
+        };
+    }
+
+    #endregion
+
+    #region Private Helper Methods - Callback Processing
+
+    private bool ValidateSecureHash(Dictionary<string, string> queryParams)
+    {
+        var secureHash = queryParams.GetValueOrDefault("vnp_SecureHash");
+        queryParams.Remove("vnp_SecureHash");
+        queryParams.Remove("vnp_SecureHashType");
+
+        var sortedParams = new SortedDictionary<string, string>(queryParams);
+        var queryString = BuildQueryString(sortedParams);
+        var computedHash = ComputeHmacSha512(_vnpayHashSecret, queryString);
+
+        return secureHash?.Equals(computedHash, StringComparison.OrdinalIgnoreCase) ?? false;
+    }
+
+    private CallbackData ParseCallbackData(Dictionary<string, string> queryParams)
+    {
+        return new CallbackData(
+            Guid.Parse(queryParams["vnp_TxnRef"]),
+            queryParams["vnp_ResponseCode"],
+            queryParams.GetValueOrDefault("vnp_TransactionNo"),
+            ConvertFromVnpayAmount(queryParams["vnp_Amount"])
+        );
+    }
+
+    private static bool IsAlreadyProcessed(PaymentTransaction transaction)
+    {
+        return transaction.Status == PaymentStatus.Success;
+    }
+
+    private static Result<PaymentCallbackResult> CreateAlreadyProcessedResult(PaymentTransaction transaction)
+    {
+        return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
+            transaction.BookingId,
+            transaction.Id,
+            true,
+            "Payment already processed",
+            transaction.ProviderTxnId
+        ));
+    }
+
+    private async Task<Result<PaymentCallbackResult>> ProcessPaymentResultAsync(
+        PaymentTransaction transaction,
+        CallbackData callbackData,
+        CancellationToken cancellationToken)
+    {
+        var isSuccess = IsSuccessResponseCode(callbackData.ResponseCode);
+
+        if (isSuccess)
+        {
+            return await ProcessSuccessfulPaymentAsync(transaction, callbackData, cancellationToken);
+        }
+        else
+        {
+            return await ProcessFailedPaymentAsync(transaction, callbackData, cancellationToken);
+        }
+    }
+
+    private async Task<Result<PaymentCallbackResult>> ProcessSuccessfulPaymentAsync(
+        PaymentTransaction transaction,
+        CallbackData callbackData,
+        CancellationToken cancellationToken)
+    {
+        transaction.MarkAsProcessing(callbackData.ProviderTxnId!);
+        transaction.MarkAsSuccess();
+        transaction.Booking.Confirm();
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Payment successful for booking {BookingId}, transaction {TransactionId}",
+            transaction.BookingId,
+            transaction.Id
+        );
+
+        return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
+            transaction.BookingId,
+            transaction.Id,
+            true,
+            "Payment successful",
+            callbackData.ProviderTxnId
+        ));
+    }
+
+    private async Task<Result<PaymentCallbackResult>> ProcessFailedPaymentAsync(
+        PaymentTransaction transaction,
+        CallbackData callbackData,
+        CancellationToken cancellationToken)
+    {
+        var failureReason = GetVnpayResponseMessage(callbackData.ResponseCode);
+        transaction.MarkAsFailed(failureReason);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogWarning(
+            "Payment failed for booking {BookingId}, reason: {Reason}",
+            transaction.BookingId,
+            failureReason
+        );
+
+        return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
+            transaction.BookingId,
+            transaction.Id,
+            false,
+            failureReason,
+            callbackData.ProviderTxnId
+        ));
+    }
+
+    #endregion
+
+    #region Private Helper Methods - Refund Validation
+
+    private static Result ValidateRefundTransaction(PaymentTransaction? transaction)
+    {
+        if (transaction == null)
+            return Result.Failure("Transaction not found");
+
+        if (transaction.Status != PaymentStatus.Success)
+            return Result.Failure("Only successful transactions can be refunded");
+
+        if (string.IsNullOrEmpty(transaction.ProviderTxnId))
+            return Result.Failure("Transaction does not have provider transaction ID");
+
+        return Result.Success();
+    }
+
+    #endregion
+
+    #region Private Helper Methods - VNPAY API Calls
+
+    private async Task<Result> CallVnpayRefundApiAsync(
+        string providerTxnId,
+        decimal amount,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var refundUrl = GetVnpayApiUrl("RefundUrl");
+            var refundData = BuildRefundRequestData(providerTxnId, amount, reason);
+            
+            var responseContent = await CallVnpayApiAsync(refundUrl, refundData, cancellationToken);
+            
+            if (IsSuccessResponse(responseContent))
+            {
+                _logger.LogInformation(
+                    "VNPAY refund successful for transaction {ProviderTxnId}",
+                    providerTxnId
+                );
+                return Result.Success();
+            }
+
+            _logger.LogWarning(
+                "VNPAY refund failed for transaction {ProviderTxnId}: {Response}",
+                providerTxnId,
+                responseContent
+            );
+            return Result.Failure("VNPAY refund request was rejected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling VNPAY refund API for transaction {ProviderTxnId}", providerTxnId);
+            return Result.Failure("Failed to call VNPAY refund API");
+        }
+    }
+
+    private async Task<Result<PaymentStatusResult>> CallVnpayQueryApiAsync(
+        string providerTxnId,
+        DateTime transactionDate,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var queryUrl = GetVnpayApiUrl("QueryUrl");
+            var queryData = BuildQueryRequestData(providerTxnId, transactionDate);
+            
+            var responseContent = await CallVnpayApiAsync(queryUrl, queryData, cancellationToken);
+            
+            if (IsSuccessResponse(responseContent))
+            {
+                var isSuccess = IsTransactionSuccess(responseContent);
+                var message = isSuccess ? "Transaction successful" : "Transaction failed or pending";
+
+                _logger.LogInformation(
+                    "VNPAY query successful for transaction {ProviderTxnId}: {Status}",
+                    providerTxnId,
+                    message
+                );
+
+                return Result<PaymentStatusResult>.Success(new PaymentStatusResult(
+                    providerTxnId,
+                    isSuccess,
+                    message
+                ));
+            }
+
+            _logger.LogWarning(
+                "VNPAY query failed for transaction {ProviderTxnId}: {Response}",
+                providerTxnId,
+                responseContent
+            );
+            return Result<PaymentStatusResult>.Failure("VNPAY query request was rejected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling VNPAY query API for transaction {ProviderTxnId}", providerTxnId);
+            return Result<PaymentStatusResult>.Failure("Failed to call VNPAY query API");
+        }
+    }
+
+    private string GetVnpayApiUrl(string configKey)
+    {
+        return _configuration[$"VnPay:{configKey}"] 
+            ?? "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+    }
+
+    private async Task<string> CallVnpayApiAsync(
+        string apiUrl,
+        SortedDictionary<string, string> requestData,
+        CancellationToken cancellationToken)
+    {
+        using var httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(API_TIMEOUT_SECONDS)
+        };
+
+        var content = new FormUrlEncodedContent(requestData);
+        var response = await httpClient.PostAsync(apiUrl, content, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError(
+                "VNPAY API returned error status: {StatusCode}",
+                response.StatusCode
+            );
+            throw new HttpRequestException($"VNPAY API request failed with status {response.StatusCode}");
+        }
+
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    private SortedDictionary<string, string> BuildRefundRequestData(
+        string providerTxnId,
+        decimal amount,
+        string reason)
+    {
+        var requestId = Guid.NewGuid().ToString();
+        var createDate = GetVnpayDateTimeFormat();
+
+        var refundData = new SortedDictionary<string, string>
+        {
+            { "vnp_RequestId", requestId },
+            { "vnp_Version", VNPAY_VERSION },
+            { "vnp_Command", COMMAND_REFUND },
+            { "vnp_TmnCode", _vnpayTmnCode },
+            { "vnp_TransactionType", TRANSACTION_TYPE_FULL_REFUND },
+            { "vnp_TxnRef", providerTxnId },
+            { "vnp_Amount", ConvertToVnpayAmount(amount).ToString() },
+            { "vnp_OrderInfo", reason },
+            { "vnp_TransactionNo", providerTxnId },
+            { "vnp_TransactionDate", createDate },
+            { "vnp_CreateDate", createDate },
+            { "vnp_CreateBy", SYSTEM_USER },
+            { "vnp_IpAddr", DEFAULT_IP_ADDRESS }
+        };
+
+        AddSecureHash(refundData);
+        return refundData;
+    }
+
+    private SortedDictionary<string, string> BuildQueryRequestData(
+        string providerTxnId,
+        DateTime transactionDate)
+    {
+        var requestId = Guid.NewGuid().ToString();
+        var createDate = GetVnpayDateTimeFormat();
+        var txnDate = GetVnpayDateTimeFormat(transactionDate);
+
+        var queryData = new SortedDictionary<string, string>
+        {
+            { "vnp_RequestId", requestId },
+            { "vnp_Version", VNPAY_VERSION },
+            { "vnp_Command", COMMAND_QUERY },
+            { "vnp_TmnCode", _vnpayTmnCode },
+            { "vnp_TxnRef", providerTxnId },
+            { "vnp_OrderInfo", "Query transaction status" },
+            { "vnp_TransactionNo", providerTxnId },
+            { "vnp_TransactionDate", txnDate },
+            { "vnp_CreateDate", createDate },
+            { "vnp_IpAddr", DEFAULT_IP_ADDRESS }
+        };
+
+        AddSecureHash(queryData);
+        return queryData;
+    }
+
+    private void AddSecureHash(SortedDictionary<string, string> data)
+    {
+        var queryString = BuildQueryString(data);
+        var secureHash = ComputeHmacSha512(_vnpayHashSecret, queryString);
+        data.Add("vnp_SecureHash", secureHash);
+    }
+
+    #endregion
+
+    #region Private Helper Methods - Utilities
+
+    private static long ConvertToVnpayAmount(decimal amount)
+    {
+        return (long)(amount * AMOUNT_MULTIPLIER);
+    }
+
+    private static decimal ConvertFromVnpayAmount(string vnpayAmount)
+    {
+        return decimal.Parse(vnpayAmount) / AMOUNT_MULTIPLIER;
+    }
+
+    private static string GetVnpayDateTimeFormat(DateTime? dateTime = null)
+    {
+        var dt = dateTime ?? DateTime.Now;
+        return dt.ToString("yyyyMMddHHmmss");
+    }
+
+    private static string GetVnpayExpirationDate()
+    {
+        return DateTime.Now.AddMinutes(PAYMENT_EXPIRATION_MINUTES).ToString("yyyyMMddHHmmss");
+    }
+
+    private static string BuildOrderInfo(Booking booking)
+    {
+        var pitchName = booking.TimeSlot?.Pitch?.Name ?? "Unknown";
+        return $"Thanh toan dat san {pitchName}";
+    }
+
+    private static bool IsSuccessResponseCode(string responseCode)
+    {
+        return responseCode == RESPONSE_CODE_SUCCESS;
+    }
+
+    private static bool IsSuccessResponse(string responseContent)
+    {
+        return responseContent.Contains($"\"vnp_ResponseCode\":\"{RESPONSE_CODE_SUCCESS}\"");
+    }
+
+    private static bool IsTransactionSuccess(string responseContent)
+    {
+        return responseContent.Contains($"\"vnp_TransactionStatus\":\"{RESPONSE_CODE_SUCCESS}\"");
     }
 
     private static string BuildQueryString(SortedDictionary<string, string> data)
@@ -329,19 +731,32 @@ public class VnpayPaymentService : IPaymentService
     {
         return responseCode switch
         {
-            "00" => "Giao dịch thành công",
-            "07" => "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường)",
-            "09" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng",
-            "10" => "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
-            "11" => "Giao dịch không thành công do: Đã hết hạn chờ thanh toán",
-            "12" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa",
-            "13" => "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP)",
-            "24" => "Giao dịch không thành công do: Khách hàng hủy giao dịch",
-            "51" => "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch",
-            "65" => "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày",
-            "75" => "Ngân hàng thanh toán đang bảo trì",
-            "79" => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định",
+            RESPONSE_CODE_SUCCESS => "Giao dịch thành công",
+            RESPONSE_CODE_SUSPICIOUS => "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường)",
+            RESPONSE_CODE_NOT_REGISTERED => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng",
+            RESPONSE_CODE_WRONG_INFO => "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
+            RESPONSE_CODE_TIMEOUT => "Giao dịch không thành công do: Đã hết hạn chờ thanh toán",
+            RESPONSE_CODE_LOCKED => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa",
+            RESPONSE_CODE_WRONG_OTP => "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP)",
+            RESPONSE_CODE_USER_CANCELLED => "Giao dịch không thành công do: Khách hàng hủy giao dịch",
+            RESPONSE_CODE_INSUFFICIENT_BALANCE => "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch",
+            RESPONSE_CODE_DAILY_LIMIT => "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày",
+            RESPONSE_CODE_BANK_MAINTENANCE => "Ngân hàng thanh toán đang bảo trì",
+            RESPONSE_CODE_WRONG_PASSWORD => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định",
             _ => $"Giao dịch thất bại (Mã lỗi: {responseCode})"
         };
     }
+
+    #endregion
+
+    #region Private Record Types
+
+    private record CallbackData(
+        Guid TransactionId,
+        string ResponseCode,
+        string? ProviderTxnId,
+        decimal Amount
+    );
+
+    #endregion
 }
