@@ -8,9 +8,11 @@ namespace Domain.Entities;
 public class Pitch : BaseEntity, IAggregateRoot
 {
     private const int MaxNameLength = 200;
+    private const int MaxDescriptionLength = 2000;
     private const decimal MinRating = 0m;
     private const decimal MaxRating = 5m;
-    
+    private const int RatingDecimalPlaces = 2;
+
     private readonly List<TimeSlot> _timeSlots = new();
     private readonly List<PitchImage> _images = new();
 
@@ -42,14 +44,15 @@ public class Pitch : BaseEntity, IAggregateRoot
 
     public static Pitch Create(Guid ownerId, string name, PitchType type, Address address, string? description = null)
     {
-        ValidateCreationParameters(ownerId, name);
+        ValidateCreationParameters(ownerId, name, description);
         return new Pitch(ownerId, name, type, address, description);
     }
 
     public void UpdateInfo(string name, PitchType type, Address address, string? description)
     {
         ValidateName(name);
-        
+        ValidateDescription(description);
+
         Name = name;
         Type = type;
         Address = address;
@@ -65,13 +68,17 @@ public class Pitch : BaseEntity, IAggregateRoot
 
     public void Activate()
     {
-        EnsureStatusIsNot(PitchStatus.Active, "Pitch is already active");
+        if (Status == PitchStatus.Active)
+            throw new DomainException("Pitch is already active");
+
         TransitionToStatus(PitchStatus.Active);
     }
 
     public void Deactivate()
     {
-        EnsureStatusIsNot(PitchStatus.Inactive, "Pitch is already inactive");
+        if (Status == PitchStatus.Inactive)
+            throw new DomainException("Pitch is already inactive");
+
         TransitionToStatus(PitchStatus.Inactive);
     }
 
@@ -80,7 +87,7 @@ public class Pitch : BaseEntity, IAggregateRoot
     public void AddTimeSlot(TimeRange timeRange, Money price)
     {
         EnsureNoTimeSlotOverlap(timeRange);
-        
+
         var timeSlot = TimeSlot.Create(Id, timeRange, price);
         _timeSlots.Add(timeSlot);
         MarkAsUpdated();
@@ -89,9 +96,9 @@ public class Pitch : BaseEntity, IAggregateRoot
     public void AddImage(string imageUrl, bool isPrimary = false)
     {
         ValidateImageUrl(imageUrl);
-        
+
         if (isPrimary)
-            SetAllImagesAsSecondary();
+            UnsetAllPrimaryImages();
 
         var image = PitchImage.Create(Id, imageUrl, isPrimary);
         _images.Add(image);
@@ -109,12 +116,13 @@ public class Pitch : BaseEntity, IAggregateRoot
     public bool IsActive() => Status == PitchStatus.Active;
     public bool IsAvailableForBooking() => IsActive() && HasActiveTimeSlots();
 
-    private static void ValidateCreationParameters(Guid ownerId, string name)
+    private static void ValidateCreationParameters(Guid ownerId, string name, string? description)
     {
         if (ownerId == Guid.Empty)
             throw new DomainException("Owner ID is required");
 
         ValidateName(name);
+        ValidateDescription(description);
     }
 
     private static void ValidateName(string name)
@@ -126,15 +134,27 @@ public class Pitch : BaseEntity, IAggregateRoot
             throw new DomainException($"Pitch name cannot exceed {MaxNameLength} characters");
     }
 
+    private static void ValidateDescription(string? description)
+    {
+        if (description?.Length > MaxDescriptionLength)
+            throw new DomainException($"Description cannot exceed {MaxDescriptionLength} characters");
+    }
+
+    private static void ValidateRating(decimal rating)
+    {
+        if (rating < MinRating || rating > MaxRating)
+            throw new DomainException($"Rating must be between {MinRating} and {MaxRating}");
+    }
+
+    private static void ValidateImageUrl(string imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            throw new DomainException("Image URL is required");
+    }
+
     private void EnsureStatusIs(PitchStatus expectedStatus, string errorMessage)
     {
         if (Status != expectedStatus)
-            throw new DomainException(errorMessage);
-    }
-
-    private void EnsureStatusIsNot(PitchStatus unexpectedStatus, string errorMessage)
-    {
-        if (Status == unexpectedStatus)
             throw new DomainException(errorMessage);
     }
 
@@ -151,29 +171,19 @@ public class Pitch : BaseEntity, IAggregateRoot
             throw new DomainException("Time slot overlaps with existing active time slot");
     }
 
-    private static void ValidateImageUrl(string imageUrl)
+    private void UnsetAllPrimaryImages()
     {
-        if (string.IsNullOrWhiteSpace(imageUrl))
-            throw new DomainException("Image URL is required");
-    }
-
-    private void SetAllImagesAsSecondary()
-    {
-        foreach (var image in _images)
+        foreach (var image in _images.Where(img => img.IsPrimary))
+        {
             image.SetAsSecondary();
-    }
-
-    private static void ValidateRating(decimal rating)
-    {
-        if (rating < MinRating || rating > MaxRating)
-            throw new DomainException($"Rating must be between {MinRating} and {MaxRating}");
+        }
     }
 
     private void RecalculateAverageRating(decimal newRating)
     {
         var totalRatingPoints = AverageRating * TotalReviews + newRating;
         TotalReviews++;
-        AverageRating = totalRatingPoints / TotalReviews;
+        AverageRating = Math.Round(totalRatingPoints / TotalReviews, RatingDecimalPlaces);
     }
 
     private bool HasActiveTimeSlots() => _timeSlots.Any(ts => ts.IsActive);

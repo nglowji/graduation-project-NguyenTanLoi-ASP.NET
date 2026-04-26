@@ -3,13 +3,16 @@ using Application.Features.Bookings.Commands.CreateBooking;
 using Application.Features.Bookings.DTOs;
 using Application.Features.Bookings.Queries.GetBookingById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 [Produces("application/json")]
+[Authorize]
 public class BookingsController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -27,6 +30,7 @@ public class BookingsController : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetBookingByIdQuery(id);
@@ -51,10 +55,21 @@ public class BookingsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create(
-        [FromBody] CreateBookingCommand command,
+        [FromBody] CreateBookingRequest request,
         CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new CreateBookingCommand(
+            userId,
+            request.TimeSlotId,
+            request.BookingDate
+        );
+
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
@@ -81,12 +96,17 @@ public class BookingsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Cancel(
         Guid id,
         [FromBody] CancelBookingRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new CancelBookingCommand(id, request.UserId, request.Reason);
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new CancelBookingCommand(id, userId, request.Reason);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
@@ -101,6 +121,21 @@ public class BookingsController : ControllerBase
 
         return NoContent();
     }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return userId;
+        }
+        return Guid.Empty;
+    }
 }
 
-public record CancelBookingRequest(Guid UserId, string Reason);
+public record CreateBookingRequest(
+    Guid TimeSlotId,
+    DateOnly BookingDate
+);
+
+public record CancelBookingRequest(string Reason);

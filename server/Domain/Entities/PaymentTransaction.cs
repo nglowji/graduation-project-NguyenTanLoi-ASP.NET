@@ -7,6 +7,13 @@ namespace Domain.Entities;
 
 public class PaymentTransaction : BaseEntity
 {
+    private const int MaxGatewayNameLength = 50;
+    private const int MaxProviderTxnIdLength = 200;
+    private const int MaxReasonLength = 500;
+
+    private static readonly PaymentStatus[] ProcessableStatuses = { PaymentStatus.Pending, PaymentStatus.Processing };
+    private static readonly PaymentStatus[] FailableStatuses = { PaymentStatus.Pending, PaymentStatus.Processing };
+
     private PaymentTransaction() { } // EF Core constructor
 
     private PaymentTransaction(Guid bookingId, Money amount, string gateway)
@@ -33,25 +40,14 @@ public class PaymentTransaction : BaseEntity
 
     public static PaymentTransaction Create(Guid bookingId, Money amount, string gateway)
     {
-        if (bookingId == Guid.Empty)
-            throw new DomainException("Booking ID is required");
-
-        if (amount.Amount <= 0)
-            throw new DomainException("Amount must be greater than zero");
-
-        if (string.IsNullOrWhiteSpace(gateway))
-            throw new DomainException("Payment gateway is required");
-
+        ValidateCreationParameters(bookingId, amount, gateway);
         return new PaymentTransaction(bookingId, amount, gateway);
     }
 
     public void MarkAsProcessing(string providerTxnId)
     {
-        if (Status != PaymentStatus.Pending)
-            throw new DomainException($"Cannot mark as processing transaction with status {Status}");
-
-        if (string.IsNullOrWhiteSpace(providerTxnId))
-            throw new DomainException("Provider transaction ID is required");
+        EnsureStatusIs(PaymentStatus.Pending, "mark as processing");
+        ValidateProviderTxnId(providerTxnId);
 
         Status = PaymentStatus.Processing;
         ProviderTxnId = providerTxnId;
@@ -60,8 +56,7 @@ public class PaymentTransaction : BaseEntity
 
     public void MarkAsSuccess()
     {
-        if (Status != PaymentStatus.Processing && Status != PaymentStatus.Pending)
-            throw new DomainException($"Cannot mark as success transaction with status {Status}");
+        EnsureStatusIsOneOf(ProcessableStatuses, "mark as success");
 
         Status = PaymentStatus.Success;
         CompletedAt = DateTime.UtcNow;
@@ -70,14 +65,8 @@ public class PaymentTransaction : BaseEntity
 
     public void MarkAsFailed(string reason)
     {
-        if (Status == PaymentStatus.Success)
-            throw new DomainException("Cannot mark successful transaction as failed");
-
-        if (Status == PaymentStatus.Refunded)
-            throw new DomainException("Cannot mark refunded transaction as failed");
-
-        if (string.IsNullOrWhiteSpace(reason))
-            throw new DomainException("Failure reason is required");
+        EnsureStatusIsOneOf(FailableStatuses, "mark as failed");
+        ValidateReason(reason, "Failure reason");
 
         Status = PaymentStatus.Failed;
         FailureReason = reason;
@@ -87,11 +76,8 @@ public class PaymentTransaction : BaseEntity
 
     public void Refund(string reason)
     {
-        if (Status != PaymentStatus.Success)
-            throw new DomainException("Only successful transactions can be refunded");
-
-        if (string.IsNullOrWhiteSpace(reason))
-            throw new DomainException("Refund reason is required");
+        EnsureStatusIs(PaymentStatus.Success, "refund");
+        ValidateReason(reason, "Refund reason");
 
         Status = PaymentStatus.Refunded;
         RefundReason = reason;
@@ -100,7 +86,52 @@ public class PaymentTransaction : BaseEntity
     }
 
     public bool IsSuccessful() => Status == PaymentStatus.Success;
-    public bool IsPending() => Status == PaymentStatus.Pending || Status == PaymentStatus.Processing;
+    public bool IsPending() => Status is PaymentStatus.Pending or PaymentStatus.Processing;
     public bool IsFailed() => Status == PaymentStatus.Failed;
     public bool IsRefunded() => Status == PaymentStatus.Refunded;
+
+    private static void ValidateCreationParameters(Guid bookingId, Money amount, string gateway)
+    {
+        if (bookingId == Guid.Empty)
+            throw new DomainException("Booking ID is required");
+
+        if (!amount.IsPositive)
+            throw new DomainException("Amount must be greater than zero");
+
+        if (string.IsNullOrWhiteSpace(gateway))
+            throw new DomainException("Payment gateway is required");
+
+        if (gateway.Length > MaxGatewayNameLength)
+            throw new DomainException($"Gateway name cannot exceed {MaxGatewayNameLength} characters");
+    }
+
+    private static void ValidateProviderTxnId(string providerTxnId)
+    {
+        if (string.IsNullOrWhiteSpace(providerTxnId))
+            throw new DomainException("Provider transaction ID is required");
+
+        if (providerTxnId.Length > MaxProviderTxnIdLength)
+            throw new DomainException($"Provider transaction ID cannot exceed {MaxProviderTxnIdLength} characters");
+    }
+
+    private static void ValidateReason(string reason, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException($"{fieldName} is required");
+
+        if (reason.Length > MaxReasonLength)
+            throw new DomainException($"{fieldName} cannot exceed {MaxReasonLength} characters");
+    }
+
+    private void EnsureStatusIs(PaymentStatus expectedStatus, string operation)
+    {
+        if (Status != expectedStatus)
+            throw new DomainException($"Cannot {operation} transaction with status {Status}");
+    }
+
+    private void EnsureStatusIsOneOf(PaymentStatus[] allowedStatuses, string operation)
+    {
+        if (!allowedStatuses.Contains(Status))
+            throw new DomainException($"Cannot {operation} transaction with status {Status}");
+    }
 }

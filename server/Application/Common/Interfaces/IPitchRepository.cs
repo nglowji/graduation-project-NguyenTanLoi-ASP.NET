@@ -13,7 +13,9 @@ public interface IPitchRepository : IRepository<Pitch>
         PitchStatus? status = null,
         CancellationToken cancellationToken = default);
     
-    Task<IReadOnlyList<Pitch>> GetByOwnerIdAsync(Guid ownerId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Pitch>> GetByOwnerIdAsync(
+        Guid ownerId, 
+        CancellationToken cancellationToken = default);
     
     Task<IReadOnlyList<Pitch>> SearchNearbyAsync(
         double latitude, 
@@ -22,5 +24,16 @@ public interface IPitchRepository : IRepository<Pitch>
         PitchType? type = null,
         CancellationToken cancellationToken = default);
     
-    Task<Pitch?> GetWithTimeSlotsAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Pitch?> GetWithTimeSlotsAsync(
+        Guid id, 
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<Pitch>> SearchAsync(
+        string? searchTerm,
+        PitchType? type,
+        decimal? minPrice,
+        decimal? maxPrice,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

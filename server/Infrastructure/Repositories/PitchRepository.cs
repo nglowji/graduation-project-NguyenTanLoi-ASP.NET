@@ -128,4 +128,50 @@ public class PitchRepository : IPitchRepository
             .Include(p => p.Images)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
+
+    public async Task<PagedResult<Pitch>> SearchAsync(
+        string? searchTerm,
+        PitchType? type,
+        decimal? minPrice,
+        decimal? maxPrice,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Pitches
+            .AsNoTracking()
+            .Include(p => p.Images)
+            .Include(p => p.TimeSlots)
+            .Where(p => p.Status == PitchStatus.Active);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(p => p.Name.Contains(searchTerm));
+        }
+
+        if (type.HasValue)
+        {
+            query = query.Where(p => p.Type == type.Value);
+        }
+
+        // Price filtering based on TimeSlots
+        if (minPrice.HasValue || maxPrice.HasValue)
+        {
+            query = query.Where(p => p.TimeSlots.Any(ts =>
+                (!minPrice.HasValue || ts.Price.Amount >= minPrice.Value) &&
+                (!maxPrice.HasValue || ts.Price.Amount <= maxPrice.Value)
+            ));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(p => p.AverageRating)
+            .ThenByDescending(p => p.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Pitch>(items, totalCount, pageNumber, pageSize);
+    }
 }

@@ -6,6 +6,11 @@ namespace Domain.Entities;
 
 public class User : BaseEntity, IAggregateRoot
 {
+    private const int MaxEmailLength = 255;
+    private const int MaxFullNameLength = 200;
+    private const int MaxPhoneNumberLength = 20;
+    private const int MaxPasswordHashLength = 500;
+
     private User() { } // EF Core constructor
 
     private User(string email, string fullName, string phoneNumber, string passwordHash, UserRole role)
@@ -36,7 +41,7 @@ public class User : BaseEntity, IAggregateRoot
     {
         ValidateFullName(fullName);
         ValidatePhoneNumber(phoneNumber);
-        
+
         FullName = fullName;
         PhoneNumber = phoneNumber;
         MarkAsUpdated();
@@ -45,6 +50,7 @@ public class User : BaseEntity, IAggregateRoot
     public void ChangePassword(string newPasswordHash)
     {
         ValidatePasswordHash(newPasswordHash);
+
         PasswordHash = newPasswordHash;
         MarkAsUpdated();
     }
@@ -72,7 +78,6 @@ public class User : BaseEntity, IAggregateRoot
     public bool IsPitchOwner() => Role == UserRole.PitchOwner;
     public bool IsAdmin() => Role == UserRole.Admin;
     public bool IsCustomer() => Role == UserRole.Customer;
-    public bool HasRole(UserRole role) => Role == role;
 
     private static void ValidateCreationParameters(string email, string fullName, string phoneNumber, string passwordHash)
     {
@@ -86,24 +91,36 @@ public class User : BaseEntity, IAggregateRoot
     {
         if (string.IsNullOrWhiteSpace(email))
             throw new DomainException("Email is required");
+
+        if (email.Length > MaxEmailLength)
+            throw new DomainException($"Email cannot exceed {MaxEmailLength} characters");
     }
 
     private static void ValidateFullName(string fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new DomainException("Full name is required");
+
+        if (fullName.Length > MaxFullNameLength)
+            throw new DomainException($"Full name cannot exceed {MaxFullNameLength} characters");
     }
 
     private static void ValidatePhoneNumber(string phoneNumber)
     {
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw new DomainException("Phone number is required");
+
+        if (phoneNumber.Length > MaxPhoneNumberLength)
+            throw new DomainException($"Phone number cannot exceed {MaxPhoneNumberLength} characters");
     }
 
     private static void ValidatePasswordHash(string passwordHash)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Password hash is required");
+
+        if (passwordHash.Length > MaxPasswordHashLength)
+            throw new DomainException($"Password hash cannot exceed {MaxPasswordHashLength} characters");
     }
 
     private void EnsureIsActive()

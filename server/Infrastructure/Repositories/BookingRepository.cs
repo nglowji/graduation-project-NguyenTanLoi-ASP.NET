@@ -54,14 +54,7 @@ public class BookingRepository : IBookingRepository
         BookingStatus? status = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Bookings
-            .AsNoTracking()
-            .Where(b => b.UserId == userId);
-
-        if (status.HasValue)
-        {
-            query = query.Where(b => b.Status == status.Value);
-        }
+        var query = BuildUserBookingsQuery(userId, status);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -111,5 +104,19 @@ public class BookingRepository : IBookingRepository
                 .ThenInclude(ts => ts.Pitch)
             .Include(b => b.Transaction)
             .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+    }
+
+    private IQueryable<Booking> BuildUserBookingsQuery(Guid userId, BookingStatus? status)
+    {
+        var query = _context.Bookings
+            .AsNoTracking()
+            .Where(b => b.UserId == userId);
+
+        if (status.HasValue)
+        {
+            query = query.Where(b => b.Status == status.Value);
+        }
+
+        return query;
     }
 }
