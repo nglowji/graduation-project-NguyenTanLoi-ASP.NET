@@ -119,6 +119,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Background Services
+builder.Services.AddHostedService<BackgroundServices.BookingLockCleanupService>();
+builder.Services.AddHostedService<BackgroundServices.PaymentTimeoutService>();
+
 // Health Checks
 builder.Services.AddHealthChecks();
 

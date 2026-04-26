@@ -1,5 +1,7 @@
 using Application.Features.Bookings.Commands.CancelBooking;
 using Application.Features.Bookings.Commands.CreateBooking;
+using Application.Features.Bookings.Commands.LockTimeSlot;
+using Application.Features.Bookings.Commands.ReleaseLock;
 using Application.Features.Bookings.DTOs;
 using Application.Features.Bookings.Queries.GetBookingById;
 using MediatR;
@@ -22,6 +24,74 @@ public class BookingsController : ControllerBase
     {
         _mediator = mediator;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Lock a time slot before booking (prevents double booking)
+    /// </summary>
+    [HttpPost("lock")]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> LockTimeSlot(
+        [FromBody] LockTimeSlotRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new LockTimeSlotCommand(
+            userId,
+            request.TimeSlotId,
+            request.BookingDate,
+            request.LockDurationMinutes
+        );
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to lock time slot",
+                Detail = result.ErrorMessage,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        return Ok(new { LockId = result.Value, Message = "Time slot locked successfully" });
+    }
+
+    /// <summary>
+    /// Release a time slot lock
+    /// </summary>
+    [HttpPost("release-lock/{lockId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ReleaseLock(
+        Guid lockId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new ReleaseLockCommand(lockId, userId);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Failed to release lock",
+                Detail = result.ErrorMessage,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        return NoContent();
     }
 
     /// <summary>
@@ -50,7 +120,7 @@ public class BookingsController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new booking
+    /// Create a new booking (requires active lock)
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
@@ -132,6 +202,12 @@ public class BookingsController : ControllerBase
         return Guid.Empty;
     }
 }
+
+public record LockTimeSlotRequest(
+    Guid TimeSlotId,
+    DateOnly BookingDate,
+    int LockDurationMinutes = 10
+);
 
 public record CreateBookingRequest(
     Guid TimeSlotId,

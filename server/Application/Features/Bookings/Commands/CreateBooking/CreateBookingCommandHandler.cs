@@ -1,7 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Common.Models;
 using Domain.Entities;
-using Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +11,7 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly IBookingRepository _bookingRepository;
     private readonly ITimeSlotRepository _timeSlotRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IBookingLockRepository _lockRepository;
     private readonly IApplicationDbContext _context;
     private readonly ILogger<CreateBookingCommandHandler> _logger;
 
@@ -19,58 +19,111 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         IBookingRepository bookingRepository,
         ITimeSlotRepository timeSlotRepository,
         IUserRepository userRepository,
+        IBookingLockRepository lockRepository,
         IApplicationDbContext context,
         ILogger<CreateBookingCommandHandler> logger)
     {
         _bookingRepository = bookingRepository;
         _timeSlotRepository = timeSlotRepository;
         _userRepository = userRepository;
+        _lockRepository = lockRepository;
         _context = context;
         _logger = logger;
     }
 
     public async Task<Result<Guid>> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
     {
-        var userExists = await _userRepository.ExistsAsync(request.UserId, cancellationToken);
-        if (!userExists)
-            return Result<Guid>.Failure("User not found");
+        // Use execution strategy for retry logic
+        var strategy = _context.Database.CreateExecutionStrategy();
 
-        var timeSlot = await _timeSlotRepository.GetByIdAsync(request.TimeSlotId, cancellationToken);
-        if (timeSlot == null)
-            return Result<Guid>.Failure("Time slot not found");
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.Serializable,
+                cancellationToken
+            );
 
-        if (!timeSlot.IsActive)
-            return Result<Guid>.Failure("Time slot is not active");
+            try
+            {
+                // 1. Verify user exists
+                var userExists = await _userRepository.ExistsAsync(request.UserId, cancellationToken);
+                if (!userExists)
+                    return Result<Guid>.Failure("User not found");
 
-        var isAvailable = await _bookingRepository.IsTimeSlotAvailableAsync(
-            request.TimeSlotId,
-            request.BookingDate,
-            cancellationToken
-        );
+                // 2. Verify time slot exists and is active
+                var timeSlot = await _timeSlotRepository.GetByIdAsync(request.TimeSlotId, cancellationToken);
+                if (timeSlot == null)
+                    return Result<Guid>.Failure("Time slot not found");
 
-        if (!isAvailable)
-            return Result<Guid>.Failure("Time slot is not available for the selected date");
+                if (!timeSlot.IsActive)
+                    return Result<Guid>.Failure("Time slot is not active");
 
-        var depositAmount = timeSlot.CalculateDepositAmount();
-        var booking = Booking.Create(
-            request.UserId,
-            request.TimeSlotId,
-            request.BookingDate,
-            timeSlot.Price,
-            depositAmount
-        );
+                // 3. Check for active lock by this user
+                var userLock = await _lockRepository.GetUserLockAsync(
+                    request.TimeSlotId,
+                    request.BookingDate,
+                    request.UserId,
+                    cancellationToken
+                );
 
-        await _bookingRepository.AddAsync(booking, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+                if (userLock == null || !userLock.IsActive())
+                {
+                    return Result<Guid>.Failure(
+                        "No active lock found. Please lock the time slot first before booking."
+                    );
+                }
 
-        _logger.LogInformation(
-            "Booking {BookingId} created for user {UserId} on {BookingDate} for time slot {TimeSlotId}",
-            booking.Id,
-            request.UserId,
-            request.BookingDate,
-            request.TimeSlotId
-        );
+                // 4. Double-check availability (race condition protection)
+                var isAvailable = await _bookingRepository.IsTimeSlotAvailableAsync(
+                    request.TimeSlotId,
+                    request.BookingDate,
+                    cancellationToken
+                );
 
-        return Result<Guid>.Success(booking.Id);
+                if (!isAvailable)
+                {
+                    // Release the lock since booking failed
+                    userLock.Release();
+                    await _context.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    return Result<Guid>.Failure("Time slot is no longer available");
+                }
+
+                // 5. Create booking
+                var depositAmount = timeSlot.CalculateDepositAmount();
+                var booking = Booking.Create(
+                    request.UserId,
+                    request.TimeSlotId,
+                    request.BookingDate,
+                    timeSlot.Price,
+                    depositAmount
+                );
+
+                await _bookingRepository.AddAsync(booking, cancellationToken);
+
+                // 6. Release the lock
+                userLock.Release();
+
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Booking {BookingId} created for user {UserId} on {BookingDate} for time slot {TimeSlotId}",
+                    booking.Id,
+                    request.UserId,
+                    request.BookingDate,
+                    request.TimeSlotId
+                );
+
+                return Result<Guid>.Success(booking.Id);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                _logger.LogError(ex, "Error creating booking");
+                return Result<Guid>.Failure("Failed to create booking. Please try again.");
+            }
+        });
     }
 }

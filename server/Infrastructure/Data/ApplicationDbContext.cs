@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<PitchImage> PitchImages => Set<PitchImage>();
+    public DbSet<BookingLock> BookingLocks => Set<BookingLock>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
