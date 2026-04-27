@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Domain.Common;
 using Domain.Enums;
 using Domain.Exceptions;
@@ -8,7 +9,6 @@ namespace Domain.Entities;
 public class Booking : BaseEntity, IAggregateRoot
 {
     private const decimal MinimumDepositPercentage = 30m;
-    private static readonly BookingStatus[] CancellableStatuses = { BookingStatus.PendingDeposit, BookingStatus.Confirmed };
     
     private Booking() { } // EF Core constructor
 
@@ -42,15 +42,23 @@ public class Booking : BaseEntity, IAggregateRoot
 
     public void Confirm()
     {
-        EnsureStatusIs(BookingStatus.PendingDeposit, "confirm");
+        if (Status != BookingStatus.PendingDeposit)
+            throw new DomainException($"Cannot confirm booking with status {Status}");
+        
         Status = BookingStatus.Confirmed;
         MarkAsUpdated();
     }
 
     public void Cancel(string reason)
     {
-        EnsureCanBeCancelled();
-        ValidateCancellationReason(reason);
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException("Cancellation reason is required");
+
+        if (Status == BookingStatus.Completed)
+            throw new DomainException("Cannot cancel completed booking");
+
+        if (Status == BookingStatus.Cancelled)
+            throw new DomainException("Booking is already cancelled");
         
         Status = BookingStatus.Cancelled;
         CancellationReason = reason;
@@ -60,8 +68,11 @@ public class Booking : BaseEntity, IAggregateRoot
 
     public void Complete()
     {
-        EnsureStatusIs(BookingStatus.Confirmed, "complete");
-        EnsureIsNotFutureBooking();
+        if (Status != BookingStatus.Confirmed)
+            throw new DomainException($"Cannot complete booking with status {Status}");
+
+        if (BookingDate > GetToday())
+            throw new DomainException("Cannot complete future booking");
         
         Status = BookingStatus.Completed;
         MarkAsUpdated();
@@ -69,19 +80,26 @@ public class Booking : BaseEntity, IAggregateRoot
 
     public void MarkAsNoShow()
     {
-        EnsureStatusIs(BookingStatus.Confirmed, "mark as no-show");
-        EnsureIsPastBooking();
+        if (Status != BookingStatus.Confirmed)
+            throw new DomainException($"Cannot mark as no-show booking with status {Status}");
+
+        if (BookingDate >= GetToday())
+            throw new DomainException("Cannot mark future booking as no-show");
         
         Status = BookingStatus.NoShow;
         MarkAsUpdated();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Money CalculateRemainingAmount() => TotalPrice.Subtract(DepositAmount);
 
-    public bool CanBeCancelled() => CancellableStatuses.Contains(Status);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool CanBeCancelled() => Status is BookingStatus.PendingDeposit or BookingStatus.Confirmed;
 
-    public bool IsUpcoming() => BookingDate >= GetToday() && CancellableStatuses.Contains(Status);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsUpcoming() => BookingDate >= GetToday() && CanBeCancelled();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsPast() => BookingDate < GetToday();
 
     private static void ValidateCreationParameters(Guid userId, Guid timeSlotId, DateOnly bookingDate, Money totalPrice, Money depositAmount)
@@ -109,38 +127,6 @@ public class Booking : BaseEntity, IAggregateRoot
             throw new DomainException("Deposit amount cannot exceed total price");
     }
 
-    private void EnsureStatusIs(BookingStatus expectedStatus, string operation)
-    {
-        if (Status != expectedStatus)
-            throw new DomainException($"Cannot {operation} booking with status {Status}");
-    }
-
-    private void EnsureCanBeCancelled()
-    {
-        if (Status == BookingStatus.Completed)
-            throw new DomainException("Cannot cancel completed booking");
-
-        if (Status == BookingStatus.Cancelled)
-            throw new DomainException("Booking is already cancelled");
-    }
-
-    private static void ValidateCancellationReason(string reason)
-    {
-        if (string.IsNullOrWhiteSpace(reason))
-            throw new DomainException("Cancellation reason is required");
-    }
-
-    private void EnsureIsNotFutureBooking()
-    {
-        if (BookingDate > GetToday())
-            throw new DomainException("Cannot complete future booking");
-    }
-
-    private void EnsureIsPastBooking()
-    {
-        if (BookingDate >= GetToday())
-            throw new DomainException("Cannot mark future booking as no-show");
-    }
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DateOnly GetToday() => DateOnly.FromDateTime(DateTime.UtcNow);
 }

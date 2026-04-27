@@ -11,7 +11,7 @@ public class GeneratePasswordHash
 
     public static void Main(string[] args)
     {
-        Console.WriteLine("=== BCrypt Password Hash Generator ===\n");
+        Console.WriteLine("=== Password Hash Generator ===\n");
 
         var passwords = new[]
         {
@@ -33,7 +33,7 @@ public class GeneratePasswordHash
         {
             var hash = BCrypt.Net.BCrypt.HashPassword(password, WorkFactor);
             var isValid = BCrypt.Net.BCrypt.Verify(password, hash);
-            Console.WriteLine($"{role}: {(isValid ? "✓ VALID" : "✗ INVALID")}");
+            Console.WriteLine($"{role}: {(isValid ? "✓ PASS" : "✗ FAIL")}");
         }
     }
 }

@@ -30,10 +30,16 @@ public static class DependencyInjection
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<ITimeSlotRepository, TimeSlotRepository>();
         services.AddScoped<IBookingLockRepository, BookingLockRepository>();
+        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+        services.AddScoped<IChatConversationRepository, ChatConversationRepository>();
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPaymentService, VnpayPaymentService>();
+        
+        // AI & Maps Services
+        services.AddHttpClient<IGeminiAIService, GeminiAIService>();
+        services.AddHttpClient<IMapService, GoogleMapsService>();
 
         return services;
     }
