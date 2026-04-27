@@ -1,3 +1,4 @@
+using Application.Common.Models;
 using Application.Features.Payments.Commands.CreatePayment;
 using Application.Features.Payments.Commands.ProcessCallback;
 using Application.Features.Payments.Queries.GetPaymentTransaction;

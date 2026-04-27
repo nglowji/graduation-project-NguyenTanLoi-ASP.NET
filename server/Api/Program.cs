@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using Api.BackgroundServices;
 using Api.Middlewares;
 using Application;
 using Infrastructure;
@@ -120,8 +121,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Background Services
-builder.Services.AddHostedService<BackgroundServices.BookingLockCleanupService>();
-builder.Services.AddHostedService<BackgroundServices.PaymentTimeoutService>();
+builder.Services.AddHostedService<BookingLockCleanupService>();
 
 // Health Checks
 builder.Services.AddHealthChecks();
