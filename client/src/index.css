@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap");
+
+@config "../tailwind.config.js";
+
+@theme {
+  --color-primary: oklch(60% 0.25 250);
+  --color-secondary: oklch(70% 0.25 50);
+  --color-surface-light: oklch(98% 0.01 250);
+  --color-surface-dark: oklch(15% 0.02 250);
+  
+  --font-heading: "Outfit", sans-serif;
+  --font-body: "Inter", sans-serif;
+  
+  --radius-xl: 12px;
+}
+
+@layer base {
+  :root {
+    --primary: 60% 0.25 250;
+    --secondary: 70% 0.25 50;
+    --surface: 98% 0.01 250; /* Mặc định là Light Mode */
+    --text: 15% 0.02 250;    /* Chữ màu đậm */
+  }
+
+  @media (prefers-color-scheme: dark) {
+    /* Tạm thời vô hiệu hóa hoặc đảo ngược Dark mode nếu cần, ở đây tôi ưu tiên Light theme nên giữ nguyên cho đồng nhất */
+    :root {
+      --surface: 98% 0.01 250;
+      --text: 15% 0.02 250;
+    }
+  }
+
+  html {
+    @apply antialiased scroll-smooth;
+    font-family: var(--font-body);
+  }
+
+  body {
+    background-color: oklch(var(--surface));
+    color: oklch(var(--text));
+    @apply min-h-screen overflow-x-hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    @apply font-bold tracking-tight text-slate-900;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-slate-50 px-6 py-3 rounded-xl font-semibold 
+           transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
+           shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
+           focus-visible:ring-offset-2 focus-visible:ring-offset-surface-light;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-light text-slate-700 px-6 py-3 rounded-xl font-semibold 
+           border border-slate-200 transition-all duration-200
+           hover:border-slate-300 hover:text-slate-900 hover:bg-slate-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30
+           focus-visible:ring-offset-2 focus-visible:ring-offset-surface-light;
+  }
+
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-slate-200/60 rounded-[2rem] p-8 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-slate-300/60 transition-all duration-500;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
