@@ -21,11 +21,20 @@ export default {
         }
       },
       fontFamily: {
-        heading: ['"Outfit"', "sans-serif"],
-        body: ['"Inter"', "sans-serif"],
+        heading: ['"Montserrat"', "sans-serif"],
+        body: ['"Plus Jakarta Sans"', "sans-serif"],
       },
       borderRadius: {
         'xl': '12px',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        }
+      },
+      animation: {
+        marquee: 'marquee 30s linear infinite',
       }
     },
   },

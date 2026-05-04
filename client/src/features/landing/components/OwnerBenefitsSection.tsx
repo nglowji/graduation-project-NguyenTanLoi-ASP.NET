@@ -1,90 +1,78 @@
 import React from 'react';
-import { BarChart3, CalendarClock, Users, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 const OwnerBenefitsSection: React.FC = () => {
-  const navigate = useNavigate();
-
   return (
-    <section className="py-28 bg-slate-50 relative" id="owner">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-120px] right-[15%] w-[260px] h-[260px] rounded-full bg-primary/10 blur-[90px]" />
-      </div>
-      <div className="container mx-auto px-6 relative">
-        <div className="grid lg:grid-cols-12 gap-10 items-center">
-          <div className="lg:col-span-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Lợi ích chủ sân</p>
-            <h2 className="text-4xl md:text-5xl font-black mb-6">Quản lý sân và doanh thu tập trung</h2>
-            <p className="text-lg text-slate-600 mb-8">
-              Dashboard thống kê, lịch sân rõ ràng và tự động nhắc khách. Tăng tỷ lệ lấp đầy với waitlist và giá linh hoạt.
-            </p>
-            <button
-              onClick={() => navigate('/register')}
-              className="btn-primary inline-flex items-center gap-2 px-7 py-4 text-base"
-            >
-              Đăng ký làm chủ sân <ArrowRight size={18} />
-            </button>
-          </div>
-          <div className="lg:col-span-7">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <BenefitRow
-                  icon={<BarChart3 size={22} />}
-                  title="Báo cáo doanh thu"
-                  desc="Theo dõi tỷ lệ lấp đầy, doanh thu theo ngày, tuần, tháng."
-                />
-                <BenefitRow
-                  icon={<CalendarClock size={22} />}
-                  title="Lịch sân đồng bộ"
-                  desc="Cập nhật tình trạng đặt sân theo thời gian thực."
-                />
-                <BenefitRow
-                  icon={<Users size={22} />}
-                  title="Giảm tỉ lệ bỏ hẹn"
-                  desc="Đặt cọc và thông báo giúp giảm tình trạng boom sân."
-                />
-              </div>
-              <div className="rounded-[24px] border border-slate-200 bg-surface-light p-6">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">Dashboard mẫu</p>
-                <h3 className="text-xl font-semibold mb-4">Tối ưu doanh thu theo khung giờ</h3>
-                <div className="space-y-4">
-                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-2">Tỷ lệ lấp đầy hôm nay</p>
-                    <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div className="h-full w-[68%] bg-primary/60" />
-                    </div>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-2">Giờ cao điểm</p>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">17:00 - 21:00</span>
-                      <span className="font-semibold text-secondary">+30%</span>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-2">Waitlist</p>
-                    <p className="text-sm font-semibold">Tự động lấp đầy khi có huỷ</p>
-                  </div>
-                </div>
-              </div>
+    <section className="py-32 bg-white relative">
+      <div className="container mx-auto px-6">
+        <div className="text-center mb-20">
+          <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase">
+            Tại sao nên hợp tác <br/> cùng SmartSport?
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          
+          {/* Benefit 1 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="md:col-span-2 bg-slate-50 rounded-[2rem] p-10 flex flex-col justify-between overflow-hidden relative group"
+          >
+            <div className="relative z-10 w-2/3">
+              <h3 className="text-3xl font-black mb-4">Lấp đầy <br/> Công suất sân</h3>
+              <p className="text-slate-500 text-lg">Tiếp cận hàng ngàn người chơi đang có nhu cầu đặt sân mỗi ngày ngay trên nền tảng. Tối đa hóa doanh thu của bạn.</p>
             </div>
-          </div>
+            <img 
+              src="https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=800" 
+              alt="Stadium" 
+              className="absolute right-0 bottom-0 w-1/2 h-[120%] object-cover object-left opacity-30 group-hover:opacity-60 transition-opacity duration-500"
+            />
+          </motion.div>
+
+          {/* Benefit 2 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="md:col-span-1 bg-slate-900 text-white rounded-[2rem] p-10 flex flex-col justify-end overflow-hidden relative group"
+          >
+            <div className="relative z-10">
+              <h3 className="text-3xl font-black mb-4 text-primary">Tự động hóa 100%</h3>
+              <p className="text-slate-400">Không còn phải gọi điện kiểm tra, xếp lịch thủ công hay lo sợ trùng giờ.</p>
+            </div>
+            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          </motion.div>
+
+          {/* Benefit 3 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="md:col-span-3 bg-slate-100 rounded-[2rem] p-12 flex flex-col md:flex-row items-center gap-12 overflow-hidden"
+          >
+            <div className="md:w-1/2">
+              <h3 className="text-4xl font-black mb-6">Chống rủi ro <br/> "Bùng lịch"</h3>
+              <p className="text-slate-600 text-xl leading-relaxed">
+                Hệ thống đặt cọc và thanh toán trước được tích hợp sẵn. Khách hàng phải thanh toán qua VNPAY hoặc ví điện tử để giữ chỗ, đảm bảo doanh thu an toàn tuyệt đối cho bạn.
+              </p>
+            </div>
+            <div className="md:w-1/2 w-full h-64 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden relative">
+              <img 
+                src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=800" 
+                alt="Payment Security" 
+                className="w-full h-full object-cover opacity-80"
+              />
+            </div>
+          </motion.div>
+
         </div>
       </div>
     </section>
   );
 };
-
-const BenefitRow: React.FC<{ icon: React.ReactNode; title: string; desc: string }> = ({ icon, title, desc }) => (
-  <div className="flex items-start gap-4 rounded-[24px] border border-slate-200 bg-surface-light p-5">
-    <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-      {icon}
-    </div>
-    <div>
-      <h3 className="text-lg font-semibold mb-1">{title}</h3>
-      <p className="text-slate-500 text-sm">{desc}</p>
-    </div>
-  </div>
-);
 
 export default OwnerBenefitsSection;

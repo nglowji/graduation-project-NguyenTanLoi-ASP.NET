@@ -46,7 +46,7 @@ const Footer: React.FC = () => {
             <ul className="space-y-4">
               <li className="text-slate-500">Email: support@smartsport.vn</li>
               <li className="text-slate-500">Hotline: 1900 6868</li>
-              <li className="text-slate-500">Địa chỉ: KĐT ĐHQG, TP. Thủ Đức</li>
+              <li className="text-slate-500">Địa chỉ: Đại học Trà Vinh</li>
             </ul>
           </div>
         </div>

@@ -1,80 +1,73 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Check } from 'lucide-react';
 
 const PricingSection: React.FC = () => {
   return (
-    <section className="py-28 bg-surface-light relative" id="pricing">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-120px] left-[5%] w-[260px] h-[260px] rounded-full bg-secondary/10 blur-[100px]" />
-      </div>
-      <div className="container mx-auto px-6 relative">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-16">
-          <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Bảng giá & khuyến mãi</p>
-            <h2 className="text-4xl md:text-5xl font-black mb-5">Chọn gói phù hợp với quy mô</h2>
-            <p className="text-lg text-slate-600">
-              Gói linh hoạt cho người chơi và chủ sân, ưu đãi mở tài khoản mới và bảo trì trong 30 ngày đầu.
-            </p>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <span>Ưu đãi đăng ký:</span>
-            <span className="rounded-full bg-secondary/15 px-3 py-1 text-secondary font-semibold">Giảm 20% tháng đầu</span>
-          </div>
-        </div>
+    <section className="py-32 bg-slate-900 text-white relative overflow-hidden">
+      {/* Decorative Blur */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[120px]" />
 
-        <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 rounded-[28px] border border-slate-200 bg-slate-50 p-8">
-            <h3 className="text-2xl font-bold mb-4">Người chơi</h3>
-            <p className="text-slate-500 mb-6">Miễn phí tìm kiếm và đặt sân, thanh toán theo từng giao dịch.</p>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-500 mb-6">
-              <span className="rounded-full bg-slate-100 px-3 py-1">Phù hợp nhóm bạn</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Không phí duy trì</span>
-            </div>
-            <div className="text-4xl font-black mb-6">0đ</div>
-            <ul className="space-y-3 mb-8">
-              <li className="flex items-center gap-2 text-sm text-slate-600"><CheckCircle2 size={16} className="text-primary" />Tìm sân, giữ slot, nhận QR check-in</li>
-              <li className="flex items-center gap-2 text-sm text-slate-600"><CheckCircle2 size={16} className="text-primary" />Thanh toán VNPAY minh bạch</li>
-              <li className="flex items-center gap-2 text-sm text-slate-600"><CheckCircle2 size={16} className="text-primary" />Hỗ trợ chat & thông báo realtime</li>
-            </ul>
-            <button className="btn-secondary w-full">Bắt đầu đặt sân</button>
-            <p className="text-xs text-slate-500 mt-4">Không thu phí ẩn, chỉ thanh toán khi đặt sân.</p>
-          </div>
+      <div className="container mx-auto px-6 relative z-10 flex flex-col md:flex-row items-center justify-between max-w-6xl">
+        
+        {/* Left: Info */}
+        <motion.div 
+          initial={{ opacity: 0, x: -50 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          className="md:w-1/2 mb-16 md:mb-0"
+        >
+          <span className="text-primary font-bold tracking-widest uppercase mb-4 block">Đầu tư 0 Đồng</span>
+          <h2 className="text-5xl md:text-6xl font-black uppercase mb-6 leading-tight">
+            Chỉ trả phí <br/> khi có khách
+          </h2>
+          <p className="text-xl text-slate-400 mb-8 font-light">
+            Đăng ký và đưa sân của bạn lên nền tảng hoàn toàn miễn phí. Chúng tôi đồng hành cùng sự phát triển của bạn.
+          </p>
+          
+          <ul className="space-y-4">
+            <li className="flex items-center gap-3 text-lg text-slate-300">
+              <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0">
+                <Check size={14} strokeWidth={3} />
+              </div>
+              Bảo vệ rủi ro trống sân
+            </li>
+            <li className="flex items-center gap-3 text-lg text-slate-300">
+              <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0">
+                <Check size={14} strokeWidth={3} />
+              </div>
+              Hỗ trợ kỹ thuật 24/7
+            </li>
+          </ul>
+        </motion.div>
 
-          <div className="lg:col-span-7 rounded-[28px] border border-primary/30 bg-surface-light p-8 shadow-[0_30px_70px_rgba(13,138,188,0.15)]">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">Chủ sân</h3>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Phổ biến</span>
+        {/* Right: The 10% Badge */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="md:w-5/12 w-full"
+        >
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-[3rem] text-center shadow-2xl relative">
+            <h3 className="text-2xl text-slate-300 mb-2 font-medium">Chiết khấu hệ thống</h3>
+            <div className="text-[8rem] font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 leading-none mb-6">
+              10<span className="text-[4rem] text-primary">%</span>
             </div>
-            <p className="text-slate-500 mb-6">Công cụ quản lý lịch sân, doanh thu và CSKH tập trung.</p>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-500 mb-6">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">Dành cho 1 - 10 sân</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Báo cáo chuyên sâu</span>
+            <p className="text-lg text-slate-400">Trên mỗi lượt đặt sân thành công</p>
+            
+            <div className="mt-8 pt-8 border-t border-white/10 text-left">
+              <p className="text-sm text-slate-500 italic">
+                * Chỉ tính trên tiền thuê sân. <br/>
+                * KHÔNG thu phí đối với các dịch vụ đi kèm (nước uống, thuê bóng, giày...).
+              </p>
             </div>
-            <div className="flex items-end gap-2 mb-6">
-              <div className="text-4xl font-black">299.000đ</div>
-              <div className="text-sm text-slate-500">/tháng/sân</div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4 mb-8">
-              <FeatureLine text="Dashboard doanh thu và báo cáo" />
-              <FeatureLine text="Quản lý khung giờ & giá linh hoạt" />
-              <FeatureLine text="Thông báo email, QR check-in" />
-              <FeatureLine text="Hỗ trợ kỹ thuật 24/7" />
-            </div>
-            <button className="btn-primary w-full inline-flex items-center justify-center gap-2">
-              Đăng ký chủ sân <ArrowRight size={18} />
-            </button>
           </div>
-        </div>
+        </motion.div>
+
       </div>
     </section>
   );
 };
-
-const FeatureLine: React.FC<{ text: string }> = ({ text }) => (
-  <div className="flex items-start gap-2 text-sm text-slate-600">
-    <CheckCircle2 size={16} className="text-secondary mt-0.5" />
-    <span>{text}</span>
-  </div>
-);
 
 export default PricingSection;

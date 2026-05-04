@@ -1,102 +1,72 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, QrCode, Clock, Radar, ArrowUpRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const FieldTypesSection: React.FC = () => {
-  const navigate = useNavigate();
+  const targetRef = useRef<HTMLDivElement>(null);
+  
+  // Create horizontal scroll effect based on vertical scroll
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+  });
+  
+  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-65%"]);
 
   return (
-    <section className="py-28 bg-surface-light relative" id="features">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-24 right-[-120px] w-[320px] h-[320px] rounded-full bg-secondary/15 blur-[80px]" />
-      </div>
-      <div className="container mx-auto px-6 relative">
-        <div className="flex flex-col lg:flex-row justify-between items-end mb-14 gap-8">
-          <div className="max-w-2xl">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500 mb-4">Tính năng nổi bật</p>
-            <h2 className="text-4xl md:text-5xl font-black mb-5 tracking-tight text-slate-900">
-              Đặt sân nhanh, quản lý thông minh,
-              <span className="text-primary"> trải nghiệm liền mạch</span>
-            </h2>
-            <p className="text-slate-600 text-lg">
-              Từ gợi ý sân phù hợp đến trạng thái thời gian thực, SmartSport giúp bạn đặt sân chuẩn xác và chủ sân vận hành hiệu quả.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/explore')}
-            className="group inline-flex items-center gap-2 font-semibold text-primary hover:text-slate-900 transition-colors"
-          >
-            Khám phá ngay <ArrowUpRight className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
-          </button>
+    <section ref={targetRef} className="relative h-[300vh] bg-white">
+      <div className="sticky top-0 h-screen flex flex-col items-center overflow-hidden">
+        
+        {/* Minimalist Header */}
+        <div className="w-full container mx-auto px-6 py-12 flex justify-between items-end shrink-0 z-10">
+          <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter">
+            Địa Điểm <br/> Hàng Đầu
+          </h2>
+          <p className="text-slate-500 max-w-sm text-right hidden md:block">
+            Lướt qua để chiêm ngưỡng những cụm sân thể thao chất lượng nhất nằm trong hệ sinh thái của chúng tôi.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <motion.div
-            whileHover={{ y: -4 }}
-            className="lg:col-span-7 rounded-[28px] border border-slate-200 bg-surface-light p-10 shadow-[0_20px_60px_rgba(15,23,42,0.08)]"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center">
-                <Sparkles size={22} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold">AI gợi ý sân hợp gu</h3>
-                <p className="text-slate-500">Phân tích lịch sử chơi và vị trí để đề xuất khung giờ phù hợp.</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <FeatureRow
-                icon={<Radar size={18} />}
-                title="Lọc đa tiêu chí"
-                desc="Giá, loại sân, tiện ích, đánh giá đều có sẵn trong 1 lần tìm."
-              />
-              <FeatureRow
-                icon={<Clock size={18} />}
-                title="Trạng thái realtime"
-                desc="Slot trống, đang giữ, đã đặt cập nhật tức thì qua SignalR."
-              />
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2 text-xs text-slate-500">
-              <span className="rounded-full bg-slate-100 px-3 py-1">Waitlist tự động</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Giữ chỗ 10 phút</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Thông báo tức thì</span>
-            </div>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ y: -4 }}
-            className="lg:col-span-5 rounded-[28px] border border-slate-200 bg-gradient-to-br from-surface-light via-surface-light to-secondary/10 p-10"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-secondary/20 text-secondary flex items-center justify-center mb-6">
-              <QrCode size={22} />
-            </div>
-            <h3 className="text-2xl font-bold mb-4">QR Check-in & thông báo tự động</h3>
-            <p className="text-slate-600 mb-8">
-              Sau khi đặt sân, mã QR và email xác nhận được gửi ngay. Chủ sân dễ dàng kiểm soát lưu lượng.
-            </p>
-            <div className="flex items-center justify-between rounded-2xl bg-surface-light border border-slate-200 px-4 py-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Thời gian đặt trung bình</p>
-                <p className="text-lg font-semibold">Dưới 60 giây</p>
-              </div>
-              <button className="btn-secondary px-4 py-2 text-sm">Xem demo</button>
-            </div>
-          </motion.div>
-        </div>
+        {/* Horizontal Scroll Gallery */}
+        <motion.div style={{ x }} className="flex gap-8 px-6 mt-10 h-[60vh] md:h-[70vh]">
+          
+          <VenueCard 
+            image="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1600"
+            title="Sân Bóng Đá 11 Người"
+            subtitle="Cụm Sân Thống Nhất"
+          />
+          <VenueCard 
+            image="https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1600"
+            title="Sân Cầu Lông Tiêu Chuẩn"
+            subtitle="Badminton World"
+          />
+          <VenueCard 
+            image="https://images.unsplash.com/photo-1595435066359-6286386730b9?q=80&w=1600"
+            title="Sân Quần Vợt Đất Nện"
+            subtitle="Tennis Central"
+          />
+          <VenueCard 
+            image="https://images.unsplash.com/photo-1519861531473-9200262188bf?q=80&w=1600"
+            title="Nhà Thi Đấu Bóng Rổ"
+            subtitle="SSA Arena"
+          />
+          
+        </motion.div>
       </div>
     </section>
   );
 };
 
-const FeatureRow: React.FC<{ icon: React.ReactNode; title: string; desc: string }> = ({ icon, title, desc }) => (
-  <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-surface-light px-5 py-4">
-    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-      {icon}
-    </div>
-    <div>
-      <h4 className="font-semibold mb-1">{title}</h4>
-      <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
+const VenueCard: React.FC<{ image: string, title: string, subtitle: string }> = ({ image, title, subtitle }) => (
+  <div className="w-[85vw] md:w-[60vw] lg:w-[50vw] h-full shrink-0 relative group overflow-hidden bg-slate-100">
+    <img 
+      src={image} 
+      alt={title} 
+      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+    />
+    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-500" />
+    
+    <div className="absolute bottom-10 left-10 text-white">
+      <p className="text-sm font-bold tracking-widest uppercase mb-2 opacity-80">{subtitle}</p>
+      <h3 className="text-3xl md:text-5xl font-black">{title}</h3>
     </div>
   </div>
 );
