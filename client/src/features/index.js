@@ -1,6 +1,0 @@
-﻿export * from './auth'
-export * from './booking'
-export * from './contact'
-export * from './home'
-export * from './partner'
-export * from './services'

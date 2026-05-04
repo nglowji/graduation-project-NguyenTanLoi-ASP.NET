@@ -28,6 +28,7 @@ public class BookingLock : BaseEntity
     public DateTime ExpiresAt { get; private set; }
     public bool IsReleased { get; private set; }
     public DateTime? ReleasedAt { get; private set; }
+    public TimeSlot TimeSlot { get; private set; } = null!;
 
     public static BookingLock Create(
         Guid timeSlotId, 

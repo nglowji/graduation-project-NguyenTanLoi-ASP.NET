@@ -13,6 +13,11 @@ public interface IApplicationDbContext
     DbSet<PaymentTransaction> PaymentTransactions { get; }
     DbSet<PitchImage> PitchImages { get; }
     DbSet<BookingLock> BookingLocks { get; }
+    DbSet<UserPreference> UserPreferences { get; }
+    DbSet<ChatConversation> ChatConversations { get; }
+    DbSet<Review> Reviews { get; }
+    DbSet<WaitlistEntry> WaitlistEntries { get; }
+    DbSet<Notification> Notifications { get; }
 
     DatabaseFacade Database { get; }
 

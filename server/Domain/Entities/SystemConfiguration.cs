@@ -3,7 +3,7 @@ using Domain.Exceptions;
 
 namespace Domain.Entities;
 
-public class SystemConfiguration : BaseEntity
+public class SystemConfiguration : BaseEntity, IAggregateRoot
 {
     private const decimal MinDepositPercentage = 0m;
     private const decimal MaxDepositPercentage = 100m;

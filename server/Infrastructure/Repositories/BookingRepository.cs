@@ -106,6 +106,25 @@ public class BookingRepository : IBookingRepository
             .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Booking>> GetByPitchesAndDateRangeAsync(
+        IEnumerable<Guid> pitchIds,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings
+            .AsNoTracking()
+            .Include(b => b.User)
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+            .Where(b => pitchIds.Contains(b.TimeSlot.PitchId) &&
+                        b.BookingDate >= startDate &&
+                        b.BookingDate <= endDate)
+            .OrderByDescending(b => b.BookingDate)
+            .ThenByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     private IQueryable<Booking> BuildUserBookingsQuery(Guid userId, BookingStatus? status)
     {
         var query = _context.Bookings

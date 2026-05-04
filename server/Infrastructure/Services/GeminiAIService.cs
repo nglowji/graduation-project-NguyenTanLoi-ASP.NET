@@ -99,8 +99,9 @@ public class GeminiAIService : IGeminiAIService
         {
             // Lấy preferences và booking history
             var preference = await _preferenceRepository.GetByUserIdAsync(userId);
-            var recentBookings = await _bookingRepository.GetUserBookingsAsync(userId, pageSize: 10);
-            var allPitches = await _pitchRepository.GetAllAsync();
+            var recentBookingsResult = await _bookingRepository.GetByUserIdAsync(userId, 1, 10);
+            var recentBookings = recentBookingsResult.Items.ToList();
+            var allPitches = (await _pitchRepository.GetAllAsync()).ToList();
 
             // Build context cho AI
             var context = BuildRecommendationContext(preference, recentBookings, userQuery);
@@ -138,7 +139,8 @@ public class GeminiAIService : IGeminiAIService
         try
         {
             var preference = await _preferenceRepository.GetByUserIdAsync(userId);
-            var bookings = await _bookingRepository.GetUserBookingsAsync(userId, pageSize: 50);
+            var bookingsResult = await _bookingRepository.GetByUserIdAsync(userId, 1, 50);
+            var bookings = bookingsResult.Items.ToList();
 
             var context = BuildBehaviorAnalysisContext(preference, bookings);
 
@@ -228,8 +230,8 @@ Phong cách giao tiếp:
         foreach (var pitch in pitches.Take(20)) // Limit to avoid token limit
         {
             sb.AppendLine($"- ID: {pitch.Id}, Tên: {pitch.Name}, " +
-                         $"Loại: {pitch.PitchType}, Giá: {pitch.PricePerHour:N0} VND/giờ, " +
-                         $"Địa chỉ: {pitch.Address}");
+                         $"Loại: {pitch.Type}, " +
+                         $"Địa chỉ: {pitch.Address.GetFullAddress()}");
         }
         return sb.ToString();
     }
@@ -278,7 +280,7 @@ Phong cách giao tiếp:
                                     PitchName = pitch.Name,
                                     Score = score,
                                     Reasons = reasons,
-                                    EstimatedPrice = pitch.PricePerHour
+                                    EstimatedPrice = null // Will be calculated from time slots
                                 });
                             }
                         }
@@ -300,7 +302,7 @@ Phong cách giao tiếp:
                 PitchName = p.Name,
                 Score = 70m,
                 Reasons = new List<string> { "Sân phổ biến", "Giá hợp lý" },
-                EstimatedPrice = p.PricePerHour
+                EstimatedPrice = null
             }).ToList();
         }
 
@@ -383,7 +385,7 @@ Phong cách giao tiếp:
             PitchName = p.Name,
             Score = 70m,
             Reasons = new List<string> { "Sân phổ biến", "Vị trí thuận tiện" },
-            EstimatedPrice = p.PricePerHour
+            EstimatedPrice = null
         }).ToList();
 
         return new PitchRecommendationResponse

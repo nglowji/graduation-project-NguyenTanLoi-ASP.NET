@@ -47,3 +47,12 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# AI Agent & Internal Logs
+.agents/
+.gemini/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+scratch/

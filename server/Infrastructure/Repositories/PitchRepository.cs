@@ -129,6 +129,11 @@ public class PitchRepository : IPitchRepository
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
+    public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Pitches.AnyAsync(p => p.Id == id, cancellationToken);
+    }
+
     public async Task<PagedResult<Pitch>> SearchAsync(
         string? searchTerm,
         PitchType? type,

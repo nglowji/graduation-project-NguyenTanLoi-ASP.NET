@@ -20,6 +20,7 @@ public class Booking : BaseEntity, IAggregateRoot
         TotalPrice = totalPrice;
         DepositAmount = depositAmount;
         Status = BookingStatus.PendingDeposit;
+        CheckInCode = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(); // Simple 8-char code
     }
 
     public Guid UserId { get; private set; }
@@ -30,7 +31,9 @@ public class Booking : BaseEntity, IAggregateRoot
     public BookingStatus Status { get; private set; }
     public string? CancellationReason { get; private set; }
     public DateTime? CancelledAt { get; private set; }
+    public string? CheckInCode { get; private set; }
 
+    public User User { get; private set; } = null!;
     public TimeSlot TimeSlot { get; private set; } = null!;
     public PaymentTransaction? Transaction { get; private set; }
 

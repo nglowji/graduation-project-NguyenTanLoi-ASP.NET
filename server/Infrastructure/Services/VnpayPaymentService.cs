@@ -16,6 +16,7 @@ public class VnpayPaymentService : IPaymentService
 {
     private readonly IConfiguration _configuration;
     private readonly IApplicationDbContext _context;
+    private readonly IBookingNotificationService _notificationService;
     private readonly ILogger<VnpayPaymentService> _logger;
 
     private readonly string _vnpayUrl;
@@ -63,10 +64,12 @@ public class VnpayPaymentService : IPaymentService
     public VnpayPaymentService(
         IConfiguration configuration,
         IApplicationDbContext context,
+        IBookingNotificationService notificationService,
         ILogger<VnpayPaymentService> logger)
     {
         _configuration = configuration;
         _context = context;
+        _notificationService = notificationService;
         _logger = logger;
 
         _vnpayUrl = configuration["VnPay:Url"] 
@@ -416,6 +419,15 @@ public class VnpayPaymentService : IPaymentService
         transaction.Booking.Confirm();
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Notify real-time status update
+        await _notificationService.NotifyTimeSlotStatusChangedAsync(
+            transaction.Booking.TimeSlot.PitchId,
+            transaction.Booking.TimeSlotId,
+            "Confirmed",
+            transaction.Booking.BookingDate,
+            cancellationToken
+        );
 
         _logger.LogInformation(
             "Payment successful for booking {BookingId}, transaction {TransactionId}",

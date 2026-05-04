@@ -19,6 +19,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<PitchImage> PitchImages => Set<PitchImage>();
     public DbSet<BookingLock> BookingLocks => Set<BookingLock>();
+    public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+    public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

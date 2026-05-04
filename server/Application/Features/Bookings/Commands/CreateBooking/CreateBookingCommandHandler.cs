@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Application.Common.Models;
 using Domain.Entities;
+using Domain.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -13,6 +14,12 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly IUserRepository _userRepository;
     private readonly IBookingLockRepository _lockRepository;
     private readonly IApplicationDbContext _context;
+    private readonly ISystemConfigurationRepository _systemConfigRepository;
+    private readonly PricingDomainService _pricingService;
+    private readonly IBookingNotificationService _notificationService;
+    private readonly ICacheService _cacheService;
+    private readonly IEmailService _emailService;
+    private readonly IQRService _qrService;
     private readonly ILogger<CreateBookingCommandHandler> _logger;
 
     public CreateBookingCommandHandler(
@@ -21,6 +28,12 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         IUserRepository userRepository,
         IBookingLockRepository lockRepository,
         IApplicationDbContext context,
+        ISystemConfigurationRepository systemConfigRepository,
+        PricingDomainService pricingService,
+        IBookingNotificationService notificationService,
+        ICacheService cacheService,
+        IEmailService emailService,
+        IQRService qrService,
         ILogger<CreateBookingCommandHandler> logger)
     {
         _bookingRepository = bookingRepository;
@@ -28,6 +41,12 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         _userRepository = userRepository;
         _lockRepository = lockRepository;
         _context = context;
+        _systemConfigRepository = systemConfigRepository;
+        _pricingService = pricingService;
+        _notificationService = notificationService;
+        _cacheService = cacheService;
+        _emailService = emailService;
+        _qrService = qrService;
         _logger = logger;
     }
 
@@ -82,13 +101,25 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
                 return Result<Guid>.Failure("Time slot is no longer available");
             }
 
-            // 5. Create booking
-            var depositAmount = timeSlot.CalculateDepositAmount();
+            // 5. Create booking with Dynamic Pricing & System Config
+            var effectivePrice = _pricingService.CalculateEffectivePrice(timeSlot, request.BookingDate);
+            
+            // Get deposit percentage from configuration
+            var depositPercentStr = await _systemConfigRepository.GetValueAsync(
+                Domain.Entities.SystemConfiguration.Keys.DepositPercentage,
+                "30",
+                cancellationToken);
+            
+            var depositPercent = decimal.Parse(depositPercentStr);
+            
+            // Re-calculate deposit based on effective price
+            var depositAmount = effectivePrice.CalculatePercentage(depositPercent);
+
             var booking = Booking.Create(
                 request.UserId,
                 request.TimeSlotId,
                 request.BookingDate,
-                timeSlot.Price,
+                effectivePrice,
                 depositAmount
             );
 
@@ -99,6 +130,43 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            // Notify real-time status update
+            await _notificationService.NotifyBookingCreatedAsync(
+                timeSlot.PitchId,
+                request.TimeSlotId,
+                request.BookingDate,
+                cancellationToken
+            );
+
+            // Invalidate Cache
+            var cacheKey = $"available_slots_{timeSlot.PitchId}_{request.BookingDate:yyyyMMdd}";
+            await _cacheService.RemoveAsync(cacheKey, cancellationToken);
+
+            // Send Email Notification
+            var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+            if (user != null && !string.IsNullOrEmpty(user.Email))
+            {
+                var qrCodeBase64 = _qrService.GenerateQRCodeBase64(booking.CheckInCode!);
+                
+                var subject = "Xác nhận đặt sân thành công - SmartSport";
+                var body = $@"
+                    <h1>Chúc mừng {user.FullName}!</h1>
+                    <p>Bạn đã đặt sân thành công tại SmartSport.</p>
+                    <p><b>Thông tin đơn hàng:</b></p>
+                    <ul>
+                        <li>Sân: {timeSlot.Pitch.Name}</li>
+                        <li>Ngày: {request.BookingDate:dd/MM/yyyy}</li>
+                        <li>Khung giờ: {timeSlot.TimeRange}</li>
+                        <li>Mã Check-in: <b>{booking.CheckInCode}</b></li>
+                        <li>Tổng tiền: {booking.TotalPrice.Amount:N0} VND</li>
+                    </ul>
+                    <p>Vui lòng xuất trình mã QR dưới đây khi đến sân:</p>
+                    <img src=""data:image/png;base64,{qrCodeBase64}"" alt=""QR Check-in"" />
+                    <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</p>";
+                
+                await _emailService.SendEmailAsync(user.Email, subject, body, cancellationToken);
+            }
 
             _logger.LogInformation(
                 "Booking {BookingId} created for user {UserId} on {BookingDate} for time slot {TimeSlotId}",

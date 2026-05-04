@@ -1,5 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Common.Models;
+using Domain.Entities;
 using Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -11,23 +12,35 @@ namespace Application.Features.Bookings.Commands.CancelBooking;
 public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand, Result>
 {
     private readonly IBookingRepository _bookingRepository;
+    private readonly IWaitlistRepository _waitlistRepository;
+    private readonly ISystemConfigurationRepository _systemConfigRepository;
     private readonly IPaymentService _paymentService;
     private readonly IApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IBookingNotificationService _notificationService;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<CancelBookingCommandHandler> _logger;
     private readonly BookingDomainService _bookingDomainService;
 
     public CancelBookingCommandHandler(
         IBookingRepository bookingRepository,
+        IWaitlistRepository waitlistRepository,
+        ISystemConfigurationRepository systemConfigRepository,
         IPaymentService paymentService,
         IApplicationDbContext context,
         IConfiguration configuration,
+        IBookingNotificationService notificationService,
+        ICacheService cacheService,
         ILogger<CancelBookingCommandHandler> logger)
     {
         _bookingRepository = bookingRepository;
+        _waitlistRepository = waitlistRepository;
+        _systemConfigRepository = systemConfigRepository;
         _paymentService = paymentService;
         _context = context;
         _configuration = configuration;
+        _notificationService = notificationService;
+        _cacheService = cacheService;
         _logger = logger;
         _bookingDomainService = new BookingDomainService();
     }
@@ -45,10 +58,13 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
         if (!booking.CanBeCancelled())
             return Result.Failure($"Cannot cancel booking with status {booking.Status}");
 
-        // Get minimum cancellation hours from configuration
-        var minimumCancellationHours = int.TryParse(
-            _configuration["Booking:MinimumCancellationHours"], 
-            out var hours) ? hours : 24;
+        // Get minimum cancellation hours from system configuration (Database)
+        var minCancellationHoursStr = await _systemConfigRepository.GetValueAsync(
+            Domain.Entities.SystemConfiguration.Keys.MinimumCancellationHours, 
+            "24", 
+            cancellationToken);
+
+        var minimumCancellationHours = int.Parse(minCancellationHoursStr);
 
         // Validate cancellation policy
         try
@@ -101,7 +117,44 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            // Notify waitlist users
+            var waitlistEntries = await _waitlistRepository.GetWaitingEntriesAsync(
+                booking.TimeSlotId, 
+                booking.BookingDate, 
+                cancellationToken);
+
+            if (waitlistEntries.Any())
+            {
+                var firstEntry = waitlistEntries.First();
+                firstEntry.MarkAsNotified();
+                
+                var notification = Notification.Create(
+                    firstEntry.UserId,
+                    Domain.Enums.NotificationType.WaitlistAvailable,
+                    "Sân đã có chỗ trống!",
+                    $"Khung giờ {firstEntry.TimeSlot.TimeRange.ToString()} ngày {firstEntry.BookingDate} tại sân {firstEntry.TimeSlot.Pitch.Name} hiện đã trống. Hãy đặt ngay!"
+                );
+
+                await _context.Notifications.AddAsync(notification, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                
+                _logger.LogInformation("Waitlist user {UserId} notified for booking {BookingId} cancellation", firstEntry.UserId, booking.Id);
+            }
+
             await transaction.CommitAsync(cancellationToken);
+
+            // Notify real-time status update
+            await _notificationService.NotifyBookingCancelledAsync(
+                booking.TimeSlot.PitchId,
+                booking.TimeSlotId,
+                booking.BookingDate,
+                cancellationToken
+            );
+
+            // Invalidate Cache
+            var cacheKey = $"available_slots_{booking.TimeSlot.PitchId}_{booking.BookingDate:yyyyMMdd}";
+            await _cacheService.RemoveAsync(cacheKey, cancellationToken);
 
             _logger.LogInformation(
                 "Booking {BookingId} cancelled by user {UserId}. Reason: {Reason}",

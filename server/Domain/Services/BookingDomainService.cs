@@ -51,7 +51,10 @@ public class BookingDomainService
 
     private static double CalculateHoursUntilBooking(Booking booking)
     {
-        var bookingDateTime = booking.BookingDate.ToDateTime(TimeOnly.MinValue);
+        // Use the actual start time of the time slot
+        var startTime = booking.TimeSlot?.TimeRange.StartTime ?? TimeSpan.Zero;
+        var bookingDateTime = booking.BookingDate.ToDateTime(TimeOnly.FromTimeSpan(startTime));
+        
         var now = DateTime.UtcNow;
         var timeUntilBooking = bookingDateTime - now;
 

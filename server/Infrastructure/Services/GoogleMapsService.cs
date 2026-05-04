@@ -115,7 +115,7 @@ public class GoogleMapsService : IMapService
                     Pitch = p,
                     Distance = CalculateHaversineDistance(
                         latitude, longitude,
-                        p.Latitude, p.Longitude)
+                        p.Address.Latitude, p.Address.Longitude)
                 })
                 .Where(x => x.Distance <= radiusKm)
                 .OrderBy(x => x.Distance)
@@ -124,8 +124,8 @@ public class GoogleMapsService : IMapService
                     PitchId = x.Pitch.Id,
                     Name = x.Pitch.Name,
                     DistanceKm = Math.Round(x.Distance, 2),
-                    Latitude = x.Pitch.Latitude,
-                    Longitude = x.Pitch.Longitude
+                    Latitude = x.Pitch.Address.Latitude,
+                    Longitude = x.Pitch.Address.Longitude
                 })
                 .ToList();
 

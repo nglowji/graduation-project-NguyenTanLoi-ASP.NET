@@ -5,6 +5,7 @@ using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace Infrastructure;
 
@@ -21,6 +22,22 @@ public static class DependencyInjection
             )
         );
 
+        // Redis Caching
+        var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
+        
+        services.AddSingleton<IConnectionMultiplexer>(sp => 
+            ConnectionMultiplexer.Connect(redisConnectionString));
+
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = redisConnectionString;
+            options.InstanceName = "SmartSport_";
+        });
+
+        services.AddScoped<ICacheService, CacheService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddSingleton<IQRService, QRCodeService>();
+
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>()
         );
@@ -32,6 +49,9 @@ public static class DependencyInjection
         services.AddScoped<IBookingLockRepository, BookingLockRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IChatConversationRepository, ChatConversationRepository>();
+        services.AddScoped<IReviewRepository, ReviewRepository>();
+        services.AddScoped<IWaitlistRepository, WaitlistRepository>();
+        services.AddScoped<ISystemConfigurationRepository, SystemConfigurationRepository>();
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();

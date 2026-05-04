@@ -24,4 +24,13 @@ public interface IBookingRepository : IRepository<Booking>
         CancellationToken cancellationToken = default);
     
     Task<Booking?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách đặt sân theo tập hợp các ID sân và khoảng thời gian (phục vụ thống kê Dashboard)
+    /// </summary>
+    Task<IReadOnlyList<Booking>> GetByPitchesAndDateRangeAsync(
+        IEnumerable<Guid> pitchIds, 
+        DateOnly startDate, 
+        DateOnly endDate, 
+        CancellationToken cancellationToken = default);
 }

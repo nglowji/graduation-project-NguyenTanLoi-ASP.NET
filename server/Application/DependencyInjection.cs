@@ -1,5 +1,6 @@
 using System.Reflection;
 using Application.Common.Behaviours;
+using Domain.Services;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
 
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
+        
+        services.AddScoped<PricingDomainService>();
 
         return services;
     }

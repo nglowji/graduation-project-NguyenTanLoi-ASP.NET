@@ -11,5 +11,6 @@ public enum NotificationType
     RefundProcessed = 7,
     PitchApproved = 8,
     PitchRejected = 9,
-    SystemAnnouncement = 10
+    SystemAnnouncement = 10,
+    WaitlistAvailable = 11
 }

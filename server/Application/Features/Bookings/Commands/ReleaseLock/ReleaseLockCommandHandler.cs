@@ -9,19 +9,23 @@ namespace Application.Features.Bookings.Commands.ReleaseLock;
 public class ReleaseLockCommandHandler : IRequestHandler<ReleaseLockCommand, Result>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IBookingNotificationService _notificationService;
     private readonly ILogger<ReleaseLockCommandHandler> _logger;
 
     public ReleaseLockCommandHandler(
         IApplicationDbContext context,
+        IBookingNotificationService notificationService,
         ILogger<ReleaseLockCommandHandler> logger)
     {
         _context = context;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
     public async Task<Result> Handle(ReleaseLockCommand request, CancellationToken cancellationToken)
     {
         var bookingLock = await _context.BookingLocks
+            .Include(bl => bl.TimeSlot)
             .FirstOrDefaultAsync(bl => bl.Id == request.LockId, cancellationToken);
 
         if (bookingLock == null)
@@ -43,6 +47,18 @@ public class ReleaseLockCommandHandler : IRequestHandler<ReleaseLockCommand, Res
                 request.LockId,
                 request.UserId
             );
+
+            // Notify real-time status update
+            if (bookingLock.TimeSlot != null)
+            {
+                await _notificationService.NotifyTimeSlotStatusChangedAsync(
+                    bookingLock.TimeSlot.PitchId,
+                    bookingLock.TimeSlotId,
+                    "Available",
+                    bookingLock.BookingDate,
+                    cancellationToken
+                );
+            }
 
             return Result.Success();
         }

@@ -13,6 +13,7 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
     private readonly IBookingRepository _bookingRepository;
     private readonly ITimeSlotRepository _timeSlotRepository;
     private readonly IApplicationDbContext _context;
+    private readonly IBookingNotificationService _notificationService;
     private readonly ILogger<LockTimeSlotCommandHandler> _logger;
 
     public LockTimeSlotCommandHandler(
@@ -20,12 +21,14 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
         IBookingRepository bookingRepository,
         ITimeSlotRepository timeSlotRepository,
         IApplicationDbContext context,
+        IBookingNotificationService notificationService,
         ILogger<LockTimeSlotCommandHandler> logger)
     {
         _lockRepository = lockRepository;
         _bookingRepository = bookingRepository;
         _timeSlotRepository = timeSlotRepository;
         _context = context;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -95,6 +98,15 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
             await _lockRepository.AddAsync(bookingLock, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            // Notify real-time status update
+            await _notificationService.NotifyTimeSlotStatusChangedAsync(
+                timeSlot.PitchId,
+                request.TimeSlotId,
+                "Locked",
+                request.BookingDate,
+                cancellationToken
+            );
 
             _logger.LogInformation(
                 "Created lock {LockId} for time slot {TimeSlotId} on {BookingDate} by user {UserId}",

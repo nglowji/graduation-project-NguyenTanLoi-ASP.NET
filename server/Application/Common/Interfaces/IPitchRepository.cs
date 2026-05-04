@@ -13,6 +13,13 @@ public interface IPitchRepository : IRepository<Pitch>
         PitchStatus? status = null,
         CancellationToken cancellationToken = default);
     
+    /// <summary>
+    /// Kiểm tra sự tồn tại của sân theo ID
+    /// </summary>
+    Task<bool> ExistsAsync(
+        Guid id, 
+        CancellationToken cancellationToken = default);
+    
     Task<IReadOnlyList<Pitch>> GetByOwnerIdAsync(
         Guid ownerId, 
         CancellationToken cancellationToken = default);

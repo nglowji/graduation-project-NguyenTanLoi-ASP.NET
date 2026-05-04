@@ -3,7 +3,7 @@ using Domain.Exceptions;
 
 namespace Domain.Entities;
 
-public class Review : BaseEntity
+public class Review : BaseEntity, IAggregateRoot
 {
     private const int MinRating = 1;
     private const int MaxRating = 5;
@@ -11,25 +11,28 @@ public class Review : BaseEntity
 
     private Review() { } // EF Core constructor
 
-    private Review(Guid userId, Guid pitchId, int rating, string? comment)
+    private Review(Guid userId, Guid pitchId, Guid bookingId, int rating, string? comment)
     {
         UserId = userId;
         PitchId = pitchId;
+        BookingId = bookingId;
         Rating = rating;
         Comment = comment;
     }
 
     public Guid UserId { get; private set; }
     public Guid PitchId { get; private set; }
+    public Guid BookingId { get; private set; }
     public int Rating { get; private set; }
     public string? Comment { get; private set; }
 
     public Pitch Pitch { get; private set; } = null!;
+    public User User { get; private set; } = null!;
 
-    public static Review Create(Guid userId, Guid pitchId, int rating, string? comment = null)
+    public static Review Create(Guid userId, Guid pitchId, Guid bookingId, int rating, string? comment = null)
     {
-        ValidateCreationParameters(userId, pitchId, rating, comment);
-        return new Review(userId, pitchId, rating, comment);
+        ValidateCreationParameters(userId, pitchId, bookingId, rating, comment);
+        return new Review(userId, pitchId, bookingId, rating, comment);
     }
 
     public void Update(int rating, string? comment)
@@ -42,13 +45,16 @@ public class Review : BaseEntity
         MarkAsUpdated();
     }
 
-    private static void ValidateCreationParameters(Guid userId, Guid pitchId, int rating, string? comment)
+    private static void ValidateCreationParameters(Guid userId, Guid pitchId, Guid bookingId, int rating, string? comment)
     {
         if (userId == Guid.Empty)
             throw new DomainException("User ID is required");
 
         if (pitchId == Guid.Empty)
             throw new DomainException("Pitch ID is required");
+
+        if (bookingId == Guid.Empty)
+            throw new DomainException("Booking ID is required");
 
         ValidateRating(rating);
         ValidateComment(comment);
