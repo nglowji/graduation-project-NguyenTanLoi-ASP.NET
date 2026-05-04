@@ -53,7 +53,7 @@ const Footer: React.FC = () => {
 
         <div className="pt-8 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-slate-400 text-sm">
-            © 2026 SmartSport. Đồ án tốt nghiệp Nguyễn Tấn Lợi.
+            © 2026 SmartSport. Đồ án tốt nghiệp Nguyễn Tấn Lợi - 110122014 - DA22TTA.
           </p>
           <div className="flex gap-4 text-sm">
             <a href="#" className="text-slate-400 hover:text-slate-900 transition-colors">Chính sách bảo mật</a>

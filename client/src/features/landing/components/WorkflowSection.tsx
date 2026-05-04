@@ -10,17 +10,17 @@ const WorkflowSection: React.FC = () => {
       <div className="container mx-auto px-6 max-w-6xl">
         
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 uppercase mb-4 tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
             Cách thức hoạt động
           </h2>
-          <p className="text-slate-500 text-xl font-medium">Đơn giản, nhanh chóng và minh bạch cho tất cả mọi người.</p>
+          <p className="text-slate-600 text-xl">Đơn giản, nhanh chóng và minh bạch cho tất cả mọi người.</p>
         </div>
 
         {/* Tab Switcher */}
         <div className="flex justify-center mb-16">
           <div className="bg-slate-100 p-2 rounded-full flex gap-2 relative shadow-inner">
             <motion.div 
-              className="absolute inset-y-2 w-[calc(50%-0.5rem)] bg-slate-900 rounded-full shadow-lg"
+              className="absolute inset-y-2 w-[calc(50%-0.5rem)] bg-primary rounded-full shadow-md"
               initial={false}
               animate={{
                 left: activeTab === 'player' ? '0.5rem' : '50%'
@@ -30,13 +30,13 @@ const WorkflowSection: React.FC = () => {
             
             <button 
               onClick={() => setActiveTab('player')}
-              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'player' ? 'text-white' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'player' ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Người chơi
             </button>
             <button 
               onClick={() => setActiveTab('owner')}
-              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'owner' ? 'text-white' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'owner' ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Chủ sân
             </button>
@@ -54,54 +54,42 @@ const WorkflowSection: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-8"
+                className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pb-12 md:pb-16"
               >
-                {/* Bước 1 */}
-                <div className="bg-blue-600 rounded-[2rem] p-10 flex flex-col justify-between shadow-xl shadow-blue-600/20 hover:-translate-y-2 transition-transform duration-300 relative overflow-hidden group">
-                  <div className="absolute -right-8 -bottom-8 text-blue-500/30 group-hover:scale-110 transition-transform duration-500">
-                    <Sparkles size={200} strokeWidth={1} />
+                {/* Bước 1 (Cột Trái - Bình thường) */}
+                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    <Sparkles size={32} />
                   </div>
-                  <div className="relative z-10">
-                    <span className="inline-block bg-white text-blue-600 font-black text-2xl px-4 py-1 rounded-xl mb-6 shadow-sm">01</span>
-                    <h3 className="text-3xl font-black text-white mb-4">Gợi Ý Thông Minh</h3>
-                    <p className="text-blue-50 text-lg font-medium leading-relaxed">Hệ thống AI phân tích thói quen và vị trí để đề xuất sân bóng, sân tennis phù hợp nhất kèm bộ lọc nâng cao.</p>
-                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">01.</span>Gợi Ý Thông Minh</h3>
+                  <p className="text-slate-600 text-lg leading-relaxed">Hệ thống AI phân tích thói quen và vị trí để đề xuất sân bóng, sân tennis phù hợp nhất kèm bộ lọc nâng cao.</p>
                 </div>
 
-                {/* Bước 2 */}
-                <div className="bg-indigo-600 rounded-[2rem] p-10 flex flex-col justify-between shadow-xl shadow-indigo-600/20 hover:-translate-y-2 transition-transform duration-300 relative overflow-hidden group">
-                  <div className="absolute -right-8 -bottom-8 text-indigo-500/30 group-hover:scale-110 transition-transform duration-500">
-                    <ListChecks size={200} strokeWidth={1} />
+                {/* Bước 2 (Cột Phải - Kéo xuống tạo So-le) */}
+                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    <ListChecks size={32} />
                   </div>
-                  <div className="relative z-10">
-                    <span className="inline-block bg-white text-indigo-600 font-black text-2xl px-4 py-1 rounded-xl mb-6 shadow-sm">02</span>
-                    <h3 className="text-3xl font-black text-white mb-4">Đặt Sân & Dịch Vụ</h3>
-                    <p className="text-indigo-50 text-lg font-medium leading-relaxed">Xem chi tiết tình trạng sân, lịch trống và thêm trực tiếp các dịch vụ đi kèm như nước uống, áo bib, thuê bóng.</p>
-                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">02.</span>Đặt Sân & Dịch Vụ</h3>
+                  <p className="text-slate-600 text-lg leading-relaxed">Xem chi tiết tình trạng sân, lịch trống và thêm trực tiếp các dịch vụ đi kèm như nước uống, áo bib, thuê bóng.</p>
                 </div>
 
-                {/* Bước 3 */}
-                <div className="bg-violet-600 rounded-[2rem] p-10 flex flex-col justify-between shadow-xl shadow-violet-600/20 hover:-translate-y-2 transition-transform duration-300 relative overflow-hidden group">
-                  <div className="absolute -right-8 -bottom-8 text-violet-500/30 group-hover:scale-110 transition-transform duration-500">
-                    <CreditCard size={200} strokeWidth={1} />
+                {/* Bước 3 (Cột Trái - Bình thường) */}
+                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    <CreditCard size={32} />
                   </div>
-                  <div className="relative z-10">
-                    <span className="inline-block bg-white text-violet-600 font-black text-2xl px-4 py-1 rounded-xl mb-6 shadow-sm">03</span>
-                    <h3 className="text-3xl font-black text-white mb-4">Thanh Toán An Toàn</h3>
-                    <p className="text-violet-50 text-lg font-medium leading-relaxed">Thanh toán đặt cọc nhanh chóng qua VNPAY, MoMo, thẻ tín dụng với hệ thống bảo mật tuyệt đối.</p>
-                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">03.</span>Thanh Toán An Toàn</h3>
+                  <p className="text-slate-600 text-lg leading-relaxed">Thanh toán đặt cọc nhanh chóng qua VNPAY, MoMo, thẻ tín dụng với hệ thống bảo mật tuyệt đối.</p>
                 </div>
 
-                {/* Bước 4 */}
-                <div className="bg-fuchsia-600 rounded-[2rem] p-10 flex flex-col justify-between shadow-xl shadow-fuchsia-600/20 hover:-translate-y-2 transition-transform duration-300 relative overflow-hidden group">
-                  <div className="absolute -right-8 -bottom-8 text-fuchsia-500/30 group-hover:scale-110 transition-transform duration-500">
-                    <Map size={200} strokeWidth={1} />
+                {/* Bước 4 (Cột Phải - Kéo xuống tạo So-le) */}
+                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    <Map size={32} />
                   </div>
-                  <div className="relative z-10">
-                    <span className="inline-block bg-white text-fuchsia-600 font-black text-2xl px-4 py-1 rounded-xl mb-6 shadow-sm">04</span>
-                    <h3 className="text-3xl font-black text-white mb-4">Bản Đồ Chỉ Đường</h3>
-                    <p className="text-fuchsia-50 text-lg font-medium leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
-                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">04.</span>Bản Đồ Chỉ Đường</h3>
+                  <p className="text-slate-600 text-lg leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
                 </div>
               </motion.div>
             )}

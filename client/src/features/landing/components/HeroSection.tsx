@@ -41,10 +41,10 @@ const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="font-heading text-[5rem] md:text-[8rem] lg:text-[10rem] font-black text-white leading-none tracking-tighter uppercase mb-6 drop-shadow-2xl"
+          className="text-[4rem] md:text-[6rem] lg:text-[7rem] font-bold text-white leading-tight mb-6 drop-shadow-2xl"
         >
-          Thỏa Sức <br />
-          <span className="text-primary">Đam Mê</span>
+          Thỏa sức <br />
+          <span className="text-primary">đam mê</span>
         </motion.h1>
 
         <motion.div 
