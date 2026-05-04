@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2, Star } from 'lucide-react';
 
 const WorkflowSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'player' | 'owner'>('player');
@@ -90,6 +90,37 @@ const WorkflowSection: React.FC = () => {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">04.</span>Bản Đồ Chỉ Đường</h3>
                   <p className="text-slate-600 text-lg leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
+                </div>
+
+                {/* Phần gợi ý sân nổi bật (Mới thêm) */}
+                <div className="md:col-span-2 mt-20 md:mt-32">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+                      <Sparkles className="text-primary" /> Sân bãi gợi ý cho bạn
+                    </h3>
+                    <button className="text-primary font-bold hover:underline">Xem tất cả</button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <FeaturedPitchCard 
+                      name="Sân Thống Nhất"
+                      price="250k"
+                      rating={4.8}
+                      image="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"
+                    />
+                    <FeaturedPitchCard 
+                      name="Badminton Center"
+                      price="180k"
+                      rating={4.9}
+                      image="https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800"
+                    />
+                    <FeaturedPitchCard 
+                      name="Tennis Central"
+                      price="400k"
+                      rating={4.7}
+                      image="https://images.unsplash.com/photo-1595435066359-6286386730b9?q=80&w=800"
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}

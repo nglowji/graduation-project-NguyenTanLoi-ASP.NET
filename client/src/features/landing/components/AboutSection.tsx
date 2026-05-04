@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Target, Users, MapPin, ShieldCheck } from 'lucide-react';
 
 const AboutSection: React.FC = () => {
@@ -35,28 +36,44 @@ const AboutSection: React.FC = () => {
             <div className="absolute inset-0 bg-primary/5 rounded-[3rem] -m-6 -z-10" />
 
             {/* Stat 1 */}
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center translate-y-6">
+            <motion.div 
+              animate={{ y: [24, 0, 24] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center"
+            >
               <span className="text-5xl font-black text-primary mb-2">100+</span>
               <span className="text-slate-600 font-bold text-lg">Cơ sở Sân bãi</span>
-            </div>
+            </motion.div>
 
             {/* Stat 2 */}
-            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center">
+            <motion.div 
+              animate={{ y: [0, 24, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center"
+            >
               <span className="text-5xl font-black text-white mb-2">5K+</span>
               <span className="text-slate-400 font-bold text-lg">Khách Hàng</span>
-            </div>
+            </motion.div>
 
             {/* Stat 3 */}
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center translate-y-6">
+            <motion.div 
+              animate={{ y: [24, 0, 24] }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center"
+            >
               <Users className="text-primary mb-4" size={48} strokeWidth={1.5} />
               <span className="text-slate-600 font-bold text-lg">Cộng Đồng Lớn Mạnh</span>
-            </div>
+            </motion.div>
 
             {/* Stat 4 */}
-            <div className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center">
+            <motion.div 
+              animate={{ y: [0, 24, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center"
+            >
               <span className="text-5xl font-black text-white mb-2">0%</span>
               <span className="text-primary-50 font-bold text-lg">Phí Khởi Tạo</span>
-            </div>
+            </motion.div>
 
           </div>
         </div>

@@ -9,7 +9,7 @@
   --color-surface-light: oklch(98% 0.01 250);
   --color-surface-dark: oklch(15% 0.02 250);
   
-  --font-heading: "Outfit", sans-serif;
+  --font-heading: "Inter", sans-serif;
   --font-body: "Inter", sans-serif;
   
   --radius-xl: 12px;
