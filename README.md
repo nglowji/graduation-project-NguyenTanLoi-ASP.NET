@@ -26,7 +26,7 @@
 
 ---
 
-## 🔥 Tính năng Đẳng cấp (Premium Features)
+## 🔥 Tính năng nổi bật
 
 SmartSport không chỉ là một ứng dụng đặt sân, đây là một hệ sinh thái được tối ưu cho hiệu suất kinh doanh:
 
