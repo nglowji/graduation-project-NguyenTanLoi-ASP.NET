@@ -138,4 +138,44 @@ public class BookingRepository : IBookingRepository
 
         return query;
     }
+
+    public async Task<IReadOnlyList<Booking>> GetAllByDateRangeAsync(
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings
+            .AsNoTracking()
+            .Where(b => b.BookingDate >= startDate && b.BookingDate <= endDate
+                && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<Booking>> GetByOwnerIdPagedAsync(
+        Guid ownerId,
+        int pageNumber,
+        int pageSize,
+        string? status,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Bookings
+            .AsNoTracking()
+            .Include(b => b.User)
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+            .Where(b => b.TimeSlot.Pitch.OwnerId == ownerId);
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<BookingStatus>(status, true, out var statusEnum))
+            query = query.Where(b => b.Status == statusEnum);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(b => b.BookingDate)
+            .ThenByDescending(b => b.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Booking>(items, totalCount, pageNumber, pageSize);
+    }
 }

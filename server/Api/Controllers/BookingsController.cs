@@ -192,6 +192,35 @@ public class BookingsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Get bookings for owner's pitches</summary>
+    [HttpGet("owner")]
+    [Authorize(Roles = "PitchOwner")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOwnerBookings(
+        [FromQuery] string? status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var query = new Application.Features.Dashboard.Queries.GetOwnerBookingsQuery(ownerId, status, pageNumber, pageSize);
+        var result = await _mediator.Send(query, cancellationToken);
+        
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Lấy danh sách đặt sân thất bại",
+                Detail = result.ErrorMessage,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+        
+        return Ok(result.Value);
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);

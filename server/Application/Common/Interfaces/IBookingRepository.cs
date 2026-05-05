@@ -33,4 +33,16 @@ public interface IBookingRepository : IRepository<Booking>
         DateOnly startDate, 
         DateOnly endDate, 
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Booking>> GetAllByDateRangeAsync(
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<Booking>> GetByOwnerIdPagedAsync(
+        Guid ownerId,
+        int pageNumber,
+        int pageSize,
+        string? status,
+        CancellationToken cancellationToken = default);
 }

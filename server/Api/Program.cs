@@ -26,6 +26,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 
+// Prevent BackgroundService crashes from stopping the entire host
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey is not configured");
@@ -146,7 +152,7 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.UseSerilogRequestLogging();
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Commented out for easier local development with HTTP
 
 app.UseCors("AllowAll");
 
@@ -161,6 +167,17 @@ app.MapHealthChecks("/health");
 try
 {
     Log.Information("Starting Sports Pitch Booking API");
+    
+    // Seed Database
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<Infrastructure.Data.ApplicationDbContext>();
+        var passwordHasher = services.GetRequiredService<Application.Common.Interfaces.IPasswordHasher>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        await Infrastructure.Data.ApplicationDbContextSeed.SeedAsync(context, passwordHasher, logger);
+    }
+
     app.Run();
 }
 catch (Exception ex)

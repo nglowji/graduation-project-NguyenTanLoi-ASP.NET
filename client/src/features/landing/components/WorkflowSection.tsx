@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2, Star } from 'lucide-react';
+import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2, Star, MapPin } from 'lucide-react';
 
 const WorkflowSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'player' | 'owner'>('player');
@@ -56,7 +56,7 @@ const WorkflowSection: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pb-12 md:pb-16"
               >
-                {/* Bước 1 (Cột Trái - Bình thường) */}
+                {/* Bước 1 */}
                 <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
                     <Sparkles size={32} />
@@ -65,7 +65,7 @@ const WorkflowSection: React.FC = () => {
                   <p className="text-slate-600 text-lg leading-relaxed">Hệ thống AI phân tích thói quen và vị trí để đề xuất sân bóng, sân tennis phù hợp nhất kèm bộ lọc nâng cao.</p>
                 </div>
 
-                {/* Bước 2 (Cột Phải - Kéo xuống tạo So-le) */}
+                {/* Bước 2 */}
                 <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
                     <ListChecks size={32} />
@@ -74,7 +74,7 @@ const WorkflowSection: React.FC = () => {
                   <p className="text-slate-600 text-lg leading-relaxed">Xem chi tiết tình trạng sân, lịch trống và thêm trực tiếp các dịch vụ đi kèm như nước uống, áo bib, thuê bóng.</p>
                 </div>
 
-                {/* Bước 3 (Cột Trái - Bình thường) */}
+                {/* Bước 3 */}
                 <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
                     <CreditCard size={32} />
@@ -83,7 +83,7 @@ const WorkflowSection: React.FC = () => {
                   <p className="text-slate-600 text-lg leading-relaxed">Thanh toán đặt cọc nhanh chóng qua VNPAY, MoMo, thẻ tín dụng với hệ thống bảo mật tuyệt đối.</p>
                 </div>
 
-                {/* Bước 4 (Cột Phải - Kéo xuống tạo So-le) */}
+                {/* Bước 4 */}
                 <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
                     <Map size={32} />
@@ -92,7 +92,7 @@ const WorkflowSection: React.FC = () => {
                   <p className="text-slate-600 text-lg leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
                 </div>
 
-                {/* Phần gợi ý sân nổi bật (Mới thêm) */}
+                {/* Phần gợi ý sân nổi bật */}
                 <div className="md:col-span-2 mt-20 md:mt-32">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-3xl font-black text-slate-900 flex items-center gap-3">
@@ -159,7 +159,7 @@ const WorkflowSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Khối Giải thích Mô hình 10% (Solid Colors, No Blur) */}
+                {/* Khối Giải thích Mô hình 10% */}
                 <div className="bg-slate-900 rounded-[3rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl">
                   <div className="flex-1">
                     <h3 className="text-3xl md:text-4xl font-black text-white mb-8 uppercase tracking-wide leading-tight">
@@ -209,5 +209,35 @@ const WorkflowSection: React.FC = () => {
     </section>
   );
 };
+
+const FeaturedPitchCard: React.FC<{ name: string, price: string, rating: number, image: string }> = ({ name, price, rating, image }) => (
+  <motion.div 
+    whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+    className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer"
+  >
+    <div className="relative h-44 overflow-hidden">
+      <img src={image} alt={name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+      <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 text-[10px] font-black shadow-lg">
+        <Star size={12} className="text-yellow-500 fill-current" />
+        {rating}
+      </div>
+      <div className="absolute top-3 left-3">
+        <div className="bg-primary text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter shadow-lg">
+          Hot
+        </div>
+      </div>
+    </div>
+    <div className="p-5">
+      <h4 className="font-black text-slate-900 mb-1 group-hover:text-primary transition-colors text-lg leading-tight">{name}</h4>
+      <div className="flex items-center gap-1 text-slate-400 text-xs font-bold mb-4">
+        <MapPin size={12} /> TP. Hồ Chí Minh
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-xl font-black text-primary">{price}</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">/giờ</span>
+      </div>
+    </div>
+  </motion.div>
+);
 
 export default WorkflowSection;

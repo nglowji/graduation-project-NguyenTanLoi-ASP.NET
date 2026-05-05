@@ -110,4 +110,37 @@ public class PitchesController : ControllerBase
             result.Value
         );
     }
+
+    /// <summary>Get owner's pitches with today's stats</summary>
+    [HttpGet("my")]
+    [Authorize(Roles = "PitchOwner")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyPitches(CancellationToken cancellationToken = default)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var query = new Application.Features.Dashboard.Queries.GetOwnerPitchesQuery(ownerId);
+        var result = await _mediator.Send(query, cancellationToken);
+        
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Lấy danh sách sân của tôi thất bại",
+                Detail = result.ErrorMessage,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+        
+        return Ok(result.Value);
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            return userId;
+        return Guid.Empty;
+    }
 }

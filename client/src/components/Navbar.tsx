@@ -24,6 +24,7 @@ const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-8">
           <NavLink to="/">Trang chủ</NavLink>
           <NavLink to="/explore">Khám phá sân</NavLink>
+          <NavLink to="/partner">Dành cho chủ sân</NavLink>
         </div>
 
         <div className="flex items-center gap-4">

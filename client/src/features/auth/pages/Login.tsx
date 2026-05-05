@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Mail, Lock, ChevronRight } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { authService } from '../../../services/authService';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -21,13 +23,31 @@ const FacebookIcon = () => (
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const auth = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 500);
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await authService.login({ email, password });
+      auth.login(response);
+      
+      // Redirect: Admin→/dashboard/admin, Owner→/dashboard/owner, Customer→trang trước hoặc /
+      const from = (location.state as any)?.from?.pathname;
+      if (response.role === 3) navigate('/dashboard/admin', { replace: true });
+      else if (response.role === 2) navigate('/dashboard/owner', { replace: true });
+      else navigate(from || '/', { replace: true });
+    } catch (err: any) {
+      setError(err.response?.data?.Detail || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -40,14 +60,14 @@ const Login: React.FC = () => {
       {/* Cột Trái: Hình ảnh */}
       <div className="hidden lg:block lg:w-1/2 relative bg-slate-900 overflow-hidden">
         <img 
-          src="https://images.unsplash.com/photo-1529900748604-07564a03e7a6?q=80&w=1500" 
+          src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1500" 
           alt="Stadium Night" 
-          className="absolute inset-0 w-full h-full object-cover opacity-80 scale-105"
+          className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        <div className="absolute bottom-12 left-12 right-12 text-white">
-          <h2 className="text-4xl font-bold mb-4">Chào mừng trở lại</h2>
-          <p className="text-xl text-slate-300">Kết nối đam mê, đặt sân nhanh chóng. Tất cả chỉ trong vài thao tác.</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <div className="absolute bottom-16 left-16 right-16 text-white">
+          <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl">Chào mừng trở lại <br/><span className="text-primary">SmartSport</span></h2>
+          <p className="text-2xl text-slate-100 leading-relaxed font-medium drop-shadow-lg">Kết nối đam mê, đặt sân nhanh chóng. <br/> Tất cả chỉ trong vài thao tác đơn giản.</p>
         </div>
       </div>
 
@@ -63,6 +83,12 @@ const Login: React.FC = () => {
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Đăng nhập</h2>
             <p className="text-slate-600">Nhập thông tin để truy cập vào tài khoản của bạn</p>
           </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-bold animate-shake">
+              {error}
+            </div>
+          )}
 
           <form className="flex flex-col gap-5" onSubmit={handleLogin}>
             <div className="space-y-1.5">
@@ -96,8 +122,15 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <button className="w-full bg-primary hover:bg-primary-dark text-white font-bold rounded-xl py-4 mt-2 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/30">
-              Đăng nhập <ChevronRight size={20} />
+            <button 
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary-dark text-white font-bold rounded-xl py-4 mt-2 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>Đăng nhập <ChevronRight size={20} /></>
+              )}
             </button>
           </form>
 

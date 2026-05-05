@@ -81,4 +81,36 @@ public class UserRepository : IUserRepository
 
         return new PagedResult<User>(items, totalCount, pageNumber, pageSize);
     }
+
+    public async Task<PagedResult<User>> GetPagedWithFilterAsync(
+        int pageNumber,
+        int pageSize,
+        string? search,
+        int? role,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Users.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(u => u.FullName.Contains(search) || u.Email.Contains(search));
+
+        if (role.HasValue)
+            query = query.Where(u => (int)u.Role == role.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<User>(items, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<int> GetCountByRoleAsync(int role, CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .Where(u => (int)u.Role == role && u.IsActive)
+            .CountAsync(cancellationToken);
+    }
 }

@@ -37,9 +37,12 @@ const AboutSection: React.FC = () => {
 
             {/* Stat 1 */}
             <motion.div 
-              animate={{ y: [24, 0, 24] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center"
+              animate={{ 
+                x: [0, 15, 0, -15, 0],
+                y: [-15, 0, 15, 0, -15]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
             >
               <span className="text-5xl font-black text-primary mb-2">100+</span>
               <span className="text-slate-600 font-bold text-lg">Cơ sở Sân bãi</span>
@@ -47,9 +50,12 @@ const AboutSection: React.FC = () => {
 
             {/* Stat 2 */}
             <motion.div 
-              animate={{ y: [0, 24, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center"
+              animate={{ 
+                x: [-15, 0, 15, 0, -15],
+                y: [0, 15, 0, -15, 0]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center relative z-10"
             >
               <span className="text-5xl font-black text-white mb-2">5K+</span>
               <span className="text-slate-400 font-bold text-lg">Khách Hàng</span>
@@ -57,9 +63,12 @@ const AboutSection: React.FC = () => {
 
             {/* Stat 3 */}
             <motion.div 
-              animate={{ y: [24, 0, 24] }}
-              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center"
+              animate={{ 
+                x: [15, 0, -15, 0, 15],
+                y: [0, -15, 0, 15, 0]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
             >
               <Users className="text-primary mb-4" size={48} strokeWidth={1.5} />
               <span className="text-slate-600 font-bold text-lg">Cộng Đồng Lớn Mạnh</span>
@@ -67,14 +76,16 @@ const AboutSection: React.FC = () => {
 
             {/* Stat 4 */}
             <motion.div 
-              animate={{ y: [0, 24, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center"
+              animate={{ 
+                x: [0, -15, 0, 15, 0],
+                y: [15, 0, -15, 0, 15]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center relative z-10"
             >
               <span className="text-5xl font-black text-white mb-2">0%</span>
               <span className="text-primary-50 font-bold text-lg">Phí Khởi Tạo</span>
             </motion.div>
-
           </div>
         </div>
       </div>

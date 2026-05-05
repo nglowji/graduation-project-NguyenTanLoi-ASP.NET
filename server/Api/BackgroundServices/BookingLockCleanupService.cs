@@ -24,22 +24,31 @@ public class BookingLockCleanupService : BackgroundService
     {
         _logger.LogInformation("Booking Lock Cleanup Service started");
 
+        // Yield control back to allow the host to finish starting up
+        await Task.Yield();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await CleanupExpiredLocksAsync(stoppingToken);
-                await Task.Delay(_interval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Booking Lock Cleanup Service is stopping");
                 break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in Booking Lock Cleanup Service");
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            }
+
+            try
+            {
+                await Task.Delay(_interval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
         }
 

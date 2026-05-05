@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ChevronRight, User, Phone, MapPin } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { authService, UserRole } from '../../../services/authService';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -18,20 +19,127 @@ const FacebookIcon = () => (
   </svg>
 );
 
+const LOCATION_DATA: Record<string, Record<string, string[]>> = {
+  "TP. Hồ Chí Minh": {
+    "Quận 1": ["Phường Bến Nghé", "Phường Bến Thành", "Phường Đa Kao", "Phường Tân Định"],
+    "Quận 3": ["Phường Võ Thị Sáu", "Phường 1", "Phường 2", "Phường 5"],
+    "Quận 7": ["Phường Tân Phong", "Phường Tân Phú", "Phường Phú Mỹ", "Phường Tân Kiểng"],
+    "Quận 10": ["Phường 1", "Phường 12", "Phường 14", "Phường 15"],
+    "Quận Tân Bình": ["Phường 2", "Phường 12", "Phường 13", "Phường 15"],
+    "Quận Bình Thạnh": ["Phường 1", "Phường 2", "Phường 25", "Phường 26"],
+    "TP. Thủ Đức": ["Phường Thảo Điền", "Phường An Phú", "Phường Hiệp Bình Chánh"],
+  },
+  "Hà Nội": {
+    "Quận Ba Đình": ["Phường Cống Vị", "Phường Điện Biên", "Phường Đội Cấn", "Phường Kim Mã"],
+    "Quận Hoàn Kiếm": ["Phường Chương Dương", "Phường Cửa Đông", "Phường Đồng Xuân", "Phường Hàng Bạc"],
+    "Quận Tây Hồ": ["Phường Bưởi", "Phường Thụy Khuê", "Phường Yên Phụ"],
+    "Quận Cầu Giấy": ["Phường Dịch Vọng", "Phường Nghĩa Đô", "Phường Quan Hoa"],
+  },
+  "Đà Nẵng": {
+    "Quận Hải Châu": ["Phường Hòa Cường Bắc", "Phường Hòa Cường Nam", "Phường Nam Dương"],
+    "Quận Thanh Khê": ["Phường An Khê", "Phường Chính Gián", "Phường Hòa Khê"],
+  },
+  "Bà Rịa – Vũng Tàu": {
+    "TP. Vũng Tàu": ["Phường 1", "Phường 2", "Phường 3", "Phường Thắng Tam", "Phường Rạch Dừa"],
+    "TP. Bà Rịa": ["Phường Phước Trung", "Phường Phước Hiệp", "Phường Phước Nguyên"],
+    "Thị xã Phú Mỹ": ["Phường Phú Mỹ", "Phường Mỹ Xuân", "Phường Hắc Dịch"],
+    "Huyện Long Điền": ["Thị trấn Long Điền", "Thị trấn Long Hải", "Xã Phước Hưng"],
+  },
+  "An Giang": {
+    "TP. Long Xuyên": ["Phường Mỹ Bình", "Phường Mỹ Long", "Phường Mỹ Xuyên"],
+    "TP. Châu Đốc": ["Phường Châu Phú A", "Phường Châu Phú B", "Phường Vĩnh Mỹ"],
+  },
+  "Khánh Hòa": {
+    "TP. Nha Trang": ["Phường Lộc Thọ", "Phường Vĩnh Nguyên", "Phường Vĩnh Hải"],
+    "TP. Cam Ranh": ["Phường Cam Linh", "Phường Cam Lộc", "Phường Cam Lợi"],
+  },
+  "Quảng Ninh": {
+    "TP. Hạ Long": ["Phường Bãi Cháy", "Phường Hồng Gai", "Phường Hòn Gai"],
+    "TP. Móng Cái": ["Phường Ka Long", "Phường Trần Phú", "Phường Hòa Lạc"],
+  }
+};
+
+const VIETNAM_PROVINCES = [
+  "An Giang", "Bà Rịa – Vũng Tàu", "Bạc Liêu", "Bắc Giang", "Bắc Kạn", "Bắc Ninh", "Bến Tre", "Bình Dương", "Bình Định", "Bình Phước", "Bình Thuận", "Cà Mau", "Cao Bằng", "Cần Thơ", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lạng Sơn", "Lào Cai", "Lâm Đồng", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh", "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
+];
+
 const Register: React.FC = () => {
+  const [selectedProvince, setSelectedProvince] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [wards, setWards] = useState<string[]>([]);
+
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const province = e.target.value;
+    setSelectedProvince(province);
+    setSelectedDistrict('');
+    setWards([]);
+    
+    if (province) {
+      const districtData = LOCATION_DATA[province];
+      if (districtData) {
+        setDistricts(Object.keys(districtData));
+      } else {
+        // Dynamic generator for other provinces
+        setDistricts([`Thành phố ${province}`, `Huyện Đông ${province}`, `Huyện Tây ${province}`, `Huyện Nam ${province}`, `Huyện Bắc ${province}`]);
+      }
+    } else {
+      setDistricts([]);
+    }
+  };
+
+  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const district = e.target.value;
+    setSelectedDistrict(district);
+    
+    if (district) {
+      const wardData = LOCATION_DATA[selectedProvince]?.[district];
+      if (wardData) {
+        setWards(wardData);
+      } else {
+        // Dynamic generator for wards
+        setWards(["Phường Trung Tâm", "Phường 1", "Phường 2", "Xã Bình Minh", "Xã Hòa Bình"]);
+      }
+    } else {
+      setWards([]);
+    }
+  };
+
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTimeout(() => {
+    if (password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await authService.register({
+        email,
+        password,
+        fullName: name,
+        phoneNumber: phone,
+        role: UserRole.Customer
+      });
       navigate('/login');
-    }, 500);
+    } catch (err: any) {
+      setError(err.response?.data?.Detail || 'Đăng ký thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -44,14 +152,14 @@ const Register: React.FC = () => {
       {/* Cột Phải: Hình ảnh */}
       <div className="hidden lg:block lg:w-1/2 relative bg-slate-900 overflow-hidden order-2">
         <img 
-          src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1500" 
-          alt="Tennis Court" 
-          className="absolute inset-0 w-full h-full object-cover opacity-80 scale-105"
+          src="https://images.unsplash.com/photo-1595435066359-6286386730b9?q=80&w=1500" 
+          alt="Sports Complex" 
+          className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        <div className="absolute bottom-12 left-12 right-12 text-white">
-          <h2 className="text-4xl font-bold mb-4">Gia nhập cộng đồng</h2>
-          <p className="text-xl text-slate-300">Trở thành một phần của mạng lưới kết nối thể thao lớn nhất Việt Nam. Hoàn toàn miễn phí.</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <div className="absolute bottom-16 left-16 right-16 text-white">
+          <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl">Gia nhập cộng đồng <br/><span className="text-primary">SmartSport</span></h2>
+          <p className="text-2xl text-slate-100 leading-relaxed font-medium drop-shadow-lg">Trở thành một phần của mạng lưới kết nối thể thao lớn nhất Việt Nam. Hoàn toàn miễn phí.</p>
         </div>
       </div>
 
@@ -67,6 +175,12 @@ const Register: React.FC = () => {
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Tạo tài khoản mới</h2>
             <p className="text-slate-600">Bắt đầu hành trình thể thao của bạn ngay hôm nay</p>
           </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-bold animate-shake">
+              {error}
+            </div>
+          )}
 
           <form className="flex flex-col gap-4" onSubmit={handleRegister}>
             {/* Hàng 1: Họ tên & SĐT */}
@@ -118,11 +232,15 @@ const Register: React.FC = () => {
                 <label className="text-sm font-bold text-slate-700">Tỉnh / Thành phố</label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer">
+                  <select 
+                    value={selectedProvince}
+                    onChange={handleProvinceChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer"
+                  >
                     <option value="">Chọn Tỉnh/Thành</option>
-                    <option value="hcm">TP. Hồ Chí Minh</option>
-                    <option value="hn">Hà Nội</option>
-                    <option value="dn">Đà Nẵng</option>
+                    {VIETNAM_PROVINCES.map(province => (
+                      <option key={province} value={province}>{province}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -132,19 +250,24 @@ const Register: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-700">Quận / Huyện</label>
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer">
+                <select 
+                  value={selectedDistrict}
+                  onChange={handleDistrictChange}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer"
+                >
                   <option value="">Chọn Quận/Huyện</option>
-                  <option value="q1">Quận 1</option>
-                  <option value="q7">Quận 7</option>
-                  <option value="tb">Tân Bình</option>
+                  {districts.map(district => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-700">Phường / Xã</label>
                 <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer">
                   <option value="">Chọn Phường/Xã</option>
-                  <option value="p1">Phường 1</option>
-                  <option value="p2">Phường 2</option>
+                  {wards.map(ward => (
+                    <option key={ward} value={ward}>{ward}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -191,8 +314,15 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            <button className="w-full bg-primary hover:bg-primary-dark text-white font-bold rounded-xl py-3.5 mt-2 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/30">
-              Đăng ký ngay <ChevronRight size={20} />
+            <button 
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary-dark text-white font-bold rounded-xl py-3.5 mt-2 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>Đăng ký ngay <ChevronRight size={20} /></>
+              )}
             </button>
           </form>
 

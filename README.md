@@ -1,105 +1,145 @@
-# 🏆 SmartSport - Nền tảng Đặt sân Thể thao Thông minh
+# 🏆 SmartSport - Enterprise-Grade Sports Booking Ecosystem
 
-[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
-[![Clean Architecture](https://img.shields.io/badge/Architecture-Clean-blue)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-[![Redis](https://img.shields.io/badge/Caching-Redis-red?logo=redis)](https://redis.io/)
-[![SignalR](https://img.shields.io/badge/Real--time-SignalR-orange)](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)
+<div align="center">
 
-**SmartSport** là hệ thống quản lý và đặt sân thể thao (Bóng đá, Cầu lông, Tennis...) hiện đại, được xây dựng trên nền tảng .NET 8 với kiến trúc Clean Architecture chuyên nghiệp. Dự án không chỉ giải quyết bài toán đặt sân cơ bản mà còn tích hợp các tính năng thông minh vượt trội như AI Recommendation, QR Check-in và Dynamic Pricing.
+![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet)
+![React](https://img.shields.io/badge/React-2024-61DAFB?style=for-the-badge&logo=react)
+![Architecture](https://img.shields.io/badge/Clean-Architecture-blue?style=for-the-badge)
+![Patterns](https://img.shields.io/badge/DDD-CQRS-orange?style=for-the-badge)
+![Database](https://img.shields.io/badge/PostgreSQL-Managed-336791?style=for-the-badge&logo=postgresql)
 
----
+**Một giải pháp toàn diện cho việc quản lý và vận hành sân tập thể thao hiện đại, được xây dựng với tư duy kỹ thuật đỉnh cao.**
 
-## ✨ Tính năng Nổi bật (Core Features)
+[Khám phá Tính năng](#-tính-năng-đẳng-cấp) • [Kiến trúc Hệ thống](#-triết-lý-kiến-trúc) • [Công nghệ](#-hệ-sinh-thái-công-nghệ) • [Hướng dẫn Cài đặt](#-quy-trình-triển-khai)
 
-### 🤖 Trí tuệ Nhân tạo & Cá nhân hóa
-- **Smart Recommendation**: Gợi ý sân thông minh dựa trên lịch sử hoạt động, vị trí và khung giờ chơi yêu thích của người dùng.
-- **AI Chatbot Support**: Tích hợp Google Gemini để tư vấn chọn sân và giải đáp thắc mắc 24/7.
-
-### 💰 Kinh doanh & Thanh toán
-- **Dynamic Pricing**: Tự động điều chỉnh giá theo giờ cao điểm (Peak hours), giờ thấp điểm (Off-peak) và cuối tuần.
-- **Booking Deposit**: Hệ thống đặt cọc linh hoạt giúp giảm tỷ lệ "boom" hàng.
-- **VNPAY Integration**: Thanh toán trực tuyến an toàn, nhanh chóng và tự động hoàn tiền khi hủy lịch đúng quy định.
-
-### ⚡ Kỹ thuật Xuất sắc
-- **QR Check-in**: Tự động sinh mã QR xác thực gửi qua Email ngay sau khi đặt sân thành công.
-- **Real-time Status**: Cập nhật trạng thái sân tức thì (đang đặt, đã khóa, trống) thông qua SignalR.
-- **Waitlist System**: Hàng chờ tự động thông báo cho người dùng khi có khung giờ trống do người khác hủy.
-- **High Performance**: Sử dụng Redis Caching để tối ưu tốc độ truy vấn khung giờ và giảm tải cho Database.
+</div>
 
 ---
 
-## 🏗️ Kiến trúc Hệ thống (Architecture)
+### 🚀 Trạng thái Dự án (Project Status)
 
-Dự án tuân thủ nghiêm ngặt nguyên lý **Clean Architecture** kết hợp với **Domain-Driven Design (DDD)** và mô hình **CQRS (MediatR)**.
+> [!IMPORTANT]
+> **Hiện tại, dự án đã hoàn thành 100% Core Logic (Backend) và đang trong giai đoạn tối ưu hóa giao diện (UI Development).**
+> - ✅ Backend API: Hoàn thiện (Clean Architecture, DDD, CQRS).
+> - 🏗️ Frontend: Đang triển khai các Dashboard phức tạp dành cho Admin và Owner.
+> - 🧪 Testing: Đang mở rộng độ bao phủ Unit Test cho các Domain Services.
 
-### Cấu trúc Thư mục:
-```
-server/
-├── Domain/              # Business Logic Core (Entities, Value Objects, Enums)
-├── Application/         # Use Cases (CQRS Commands/Queries, Services, Interfaces)
-├── Infrastructure/      # Persistence (EF Core, Redis, SMTP, External APIs)
-└── Api/                # Presentation Layer (Controllers, Hubs, Middlewares)
-```
+---
 
-### Sơ đồ luồng:
+## 🔥 Tính năng Đẳng cấp (Premium Features)
+
+SmartSport không chỉ là một ứng dụng đặt sân, đây là một hệ sinh thái được tối ưu cho hiệu suất kinh doanh:
+
+*   **🤖 Smart Intelligence**: Tích hợp thuật toán gợi ý sân (Recommendation Engine) dựa trên tần suất tập luyện, loại sân yêu thích và vị trí địa lý của người dùng.
+*   **⚡ Real-time Synchronization**: Sử dụng **SignalR** để đảm bảo trạng thái sân (Available/Occupied/Locked) được cập nhật tức thời trên mọi thiết bị.
+*   **💰 Dynamic Pricing Engine**: Hệ thống tự động tính toán giá dựa trên các tham số biến thiên: Giờ vàng (Peak hours), Ngày lễ, và các chiến dịch khuyến mãi tự động.
+*   **🛡️ Distributed Locking & Concurrency**: Giải quyết triệt để vấn đề "double booking" bằng kỹ thuật xử lý đồng thời (Concurrency Control) ở mức Database và Application.
+*   **🔄 Automated Waitlist**: Khi một khung giờ hot bị hủy, hệ thống tự động thông báo theo thứ tự ưu tiên cho người chơi trong hàng chờ.
+*   **💳 Automated Financials**: Tích hợp cổng thanh toán **VNPAY** với quy trình đối soát và hoàn tiền tự động (Automatic Refund) dựa trên chính sách hủy sân linh hoạt.
+
+---
+
+## 🏗️ Triết lý Kiến trúc (Architectural Excellence)
+
+Dự án được xây dựng dựa trên sự kết hợp của những mẫu thiết kế phần mềm kinh điển, đảm bảo khả năng bảo trì và mở rộng trong tương lai.
+
+### 🧩 Phân lớp Kiến trúc (Clean Architecture)
+1.  **Domain Layer (Core)**: Chứa các Business Logic thuần túy, không phụ thuộc vào framework. Áp dụng **Rich Domain Model** thay vì Anemic Domain Model.
+2.  **Application Layer**: Sử dụng mô hình **CQRS** (MediatR) để tách biệt luồng đọc và ghi dữ liệu, giúp tối ưu hiệu năng và khả năng mở rộng.
+3.  **Infrastructure Layer**: Triển khai các dịch vụ kỹ thuật (EF Core, Redis, Payment, Email) theo nguyên lý Dependency Inversion.
+4.  **Presentation Layer (Web API)**: Tuân thủ chuẩn RESTful, tích hợp cơ chế Versioning và Swagger Documentation.
+
+### 📊 Hệ thống Luồng dữ liệu (Data Flow)
 ```mermaid
 graph TD
-    UI[Frontend - React/Next.js] --> API[Web API - .NET 8]
-    API --> APP[Application Layer - Business Logic]
-    APP --> DOM[Domain Layer - Entities & Core Logic]
-    APP --> INF[Infrastructure Layer - Persistence & External Services]
-    INF --> DB[(PostgreSQL/SQL Server)]
-    INF --> REDIS[(Redis Cache)]
+    subgraph "Client Layer (Modern React)"
+        UI[React UI - Tailwind CSS]
+        State[State Management - Zustand]
+    end
+
+    subgraph "Core System (.NET 8)"
+        API[API - RESTful & Hubs]
+        MediatR[MediatR - Command/Query Pipeline]
+        Logic[Domain Logic & Services]
+        Repo[Repositories & Unit of Work]
+    end
+
+    subgraph "Distributed Infrastructure"
+        PG[(PostgreSQL - Persistent)]
+        RD[(Redis - Distributed Cache)]
+        VN[[VNPAY - Payment Gateway]]
+        MAIL[[SMTP - Notifications]]
+    end
+
+    UI <--> State
+    State <--> API
+    API --> MediatR
+    MediatR --> Logic
+    Logic --> Repo
+    Repo --> PG
+    Logic -.-> RD
+    Logic -.-> VN
+    Logic -.-> MAIL
 ```
 
 ---
 
-## 🛠️ Hướng dẫn Cài đặt (Getting Started)
+## 🛠️ Hệ sinh thái Công nghệ (Tech Stack)
 
-### Yêu cầu hệ thống:
+### **Backend Mastery**
+-   **Core**: .NET 8, C# 12.
+-   **Patterns**: CQRS, MediatR, Repository & Unit of Work, Result Pattern.
+-   **Database**: PostgreSQL với Entity Framework Core (Code First).
+-   **Optimization**: Redis Distributed Caching cho các truy vấn hiệu năng cao.
+-   **Validation**: FluentValidation tích hợp sâu vào pipeline xử lý.
+-   **Logging**: Serilog cấu hình ghi log có cấu trúc.
+
+### **Frontend Modernization** (In Progress)
+-   **Framework**: React 18 + Vite (TypeScript).
+-   **UI/UX**: Tailwind CSS, Headless UI, Framer Motion cho các hiệu ứng mượt mà.
+-   **State Management**: Zustand (Gọn nhẹ & Hiệu quả).
+-   **Data Sync**: TanStack Query (React Query) xử lý server state chuyên nghiệp.
+
+---
+
+## 🧪 Đảm bảo Chất lượng (Engineering Standards)
+
+Dự án chú trọng tuyệt đối vào tính đúng đắn của logic nghiệp vụ:
+-   **Unit Testing**: Sử dụng **xUnit**, **FluentAssertions** và **Moq** để kiểm thử các Domain Services phức tạp (Ví dụ: logic tính giá, logic xử lý hàng chờ).
+-   **Functional Error Handling**: Không sử dụng Exception cho logic điều khiển, thay vào đó sử dụng **Result Pattern** để code sạch và dễ đoán hơn.
+-   **Middleware**: Hệ thống Global Exception Handling và Request Logging đảm bảo tính ổn định 24/7.
+
+---
+
+## 🚀 Quy trình Triển khai
+
+### Prerequisites
 - .NET 8 SDK
-- SQL Server (LocalDB hoặc SQL Server instance)
-- Redis Server (Optional, mặc định sử dụng nếu được cấu hình)
+- Node.js (v18+)
+- PostgreSQL & Redis (Local hoặc Docker)
 
-### Các bước thực hiện:
-1. **Clone repository**:
-   ```bash
-   git clone https://github.com/nglowji/graduation-project-SmartSport.git
-   ```
-2. **Cài đặt Database**: Cập nhật ConnectionString trong `appsettings.json` (Api project).
-3. **Chạy Migration**:
-   ```bash
-   cd server/Infrastructure
-   dotnet ef database update --startup-project ../Api
-   ```
-4. **Khởi chạy ứng dụng**:
-   ```bash
-   cd ../Api
-   dotnet run
-   ```
+### Installation
+1.  **Khởi tạo Backend**:
+    ```bash
+    cd server/Api
+    dotnet ef database update
+    dotnet run
+    ```
+2.  **Khởi tạo Frontend**:
+    ```bash
+    cd client
+    npm install
+    npm run dev
+    ```
 
 ---
 
-## 🧪 Kiểm thử (Testing)
+## 👨‍💻 Thông tin Tác giả
 
-Dự án chú trọng vào chất lượng mã nguồn với bộ Unit Test bao phủ các logic quan trọng:
-```bash
-dotnet test server/Tests/Application.UnitTests
-```
-
----
-
-## 📚 Tài liệu chi tiết
-Các tài liệu hướng dẫn chi tiết được lưu trữ trong thư mục `/docs`:
-- [📌 Trạng thái dự án](./docs/ProjectStatus.md)
-- [✨ Danh sách tính năng](./docs/Features.md)
-- [💳 Tích hợp thanh toán](./docs/PaymentIntegration.md)
-- [📋 Danh sách công việc (Todo)](./docs/Todo.md)
+**Nguyễn Tấn Lợi**
+-   **Vị trí**: Full-stack Developer (Specializing in .NET & React)
+-   **Định hướng**: Backend Architect / Lead Developer
+-   **GitHub**: [@nglowji](https://github.com/nglowji)
 
 ---
-
-## 📝 Giấy phép (License)
-Dự án được thực hiện phục vụ mục đích Đồ án Tốt nghiệp. Mọi hành vi sao chép vui lòng ghi rõ nguồn.
-
-**Tác giả**: Nguyễn Tấn Lợi
-**Email**: nglowji@example.com
+*Dự án đang trong giai đoạn nước rút để hoàn thiện các module giao diện người dùng cuối. Mọi đóng góp hoặc thắc mắc vui lòng liên hệ qua GitHub Issues.*
