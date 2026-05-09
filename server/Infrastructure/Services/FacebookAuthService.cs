@@ -27,7 +27,7 @@ public class FacebookAuthService : IFacebookAuthService
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogWarning("Facebook token verification failed: {Error}", error);
+                _logger.LogWarning("Facebook token verification failed. StatusCode: {StatusCode}, Error: {Error}", response.StatusCode, error);
                 return Result<FacebookUserInfo>.Failure("Failed to verify Facebook access token.");
             }
 

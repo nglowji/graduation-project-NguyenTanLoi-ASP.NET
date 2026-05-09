@@ -247,7 +247,7 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
                 owner?.Email ?? "N/A",
                 pitch.CreatedAt.ToString("o"),
                 pitch.Type.ToString(),
-                pitch.Address.ToString(),
+                pitch.SportCenter?.Address?.ToString() ?? "N/A",
                 pitch.Status.ToString()
             ));
         }

@@ -66,6 +66,6 @@ public class PricingDomainServiceTests
 
     private Pitch CreateTestPitch()
     {
-        return Pitch.Create(Guid.NewGuid(), "Test Pitch", PitchType.Badminton, Address.Create("123", "Ward 1", "Dist 1", "City", 10.123, 106.123), "Desc");
+        return Pitch.Create(Guid.NewGuid(), Guid.NewGuid(), "Test Pitch", PitchType.Badminton, "Desc");
     }
 }

@@ -74,40 +74,57 @@ const Login: React.FC = () => {
 
   React.useEffect(() => {
     // Initialize Facebook SDK
-    (window as any).fbAsyncInit = function() {
-      (window as any).FB.init({
-        appId      : '1889807325052217', // Should use the one from main.tsx but for simplicity putting here
-        cookie     : true,
-        xfbml      : true,
-        version    : 'v18.0'
-      });
+    const initFB = () => {
+      if ((window as any).FB) {
+        (window as any).FB.init({
+          appId      : '1889807325052217',
+          cookie     : true,
+          xfbml      : true,
+          version    : 'v18.0'
+        });
+        console.log('Facebook SDK Initialized');
+      }
     };
 
-    (function(d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) return;
-      js = d.createElement(s) as any; js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      fjs.parentNode?.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
+    if (!(window as any).FB) {
+      (window as any).fbAsyncInit = initFB;
+      (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s) as any; js.id = id;
+        js.src = "https://connect.facebook.net/vi_VN/sdk.js";
+        fjs.parentNode?.insertBefore(js, fjs);
+      }(document, 'script', 'facebook-jssdk'));
+    } else {
+      initFB();
+    }
   }, []);
 
   const loginWithFacebook = () => {
-    if (!(window as any).FB) return;
+    if (!(window as any).FB) {
+      console.error('Facebook SDK not loaded yet');
+      setError('Đang tải kết nối Facebook, vui lòng thử lại sau giây lát.');
+      return;
+    }
     
+    console.log('Opening Facebook Login dialog...');
     (window as any).FB.login(async (response: any) => {
+      console.log('Facebook response:', response);
       if (response.authResponse) {
         setIsLoading(true);
         setError('');
         try {
           const res = await authService.facebookLogin(response.authResponse.accessToken);
+          console.log('Backend Facebook login success:', res);
           handleAuthSuccess(res);
         } catch (err: any) {
+          console.error('Backend Facebook login error:', err);
           setError(err.response?.data?.Detail || 'Đăng nhập Facebook thất bại.');
         } finally {
           setIsLoading(false);
         }
       } else {
+        console.warn('User cancelled login or did not fully authorize.');
         setError('Đăng nhập Facebook bị hủy hoặc thất bại.');
       }
     }, { scope: 'public_profile,email' });

@@ -108,7 +108,7 @@ public class User : BaseEntity, IAggregateRoot
     private static void ValidatePhoneNumber(string phoneNumber)
     {
         if (string.IsNullOrWhiteSpace(phoneNumber))
-            throw new DomainException("Phone number is required");
+            return; // Allow empty phone number (e.g. for Social Login)
 
         if (phoneNumber.Length > MaxPhoneNumberLength)
             throw new DomainException($"Phone number cannot exceed {MaxPhoneNumberLength} characters");

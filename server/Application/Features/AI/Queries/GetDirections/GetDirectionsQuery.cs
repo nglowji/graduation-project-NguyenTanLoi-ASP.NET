@@ -39,8 +39,8 @@ public class GetDirectionsQueryHandler : IRequestHandler<GetDirectionsQuery, Dir
         var directions = await _mapService.GetDirectionsAsync(
             request.FromLatitude,
             request.FromLongitude,
-            pitch.Address.Latitude,
-            pitch.Address.Longitude,
+            pitch.SportCenter.Address.Latitude,
+            pitch.SportCenter.Address.Longitude,
             request.TravelMode);
 
         return directions;

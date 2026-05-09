@@ -231,7 +231,7 @@ Phong cách giao tiếp:
         {
             sb.AppendLine($"- ID: {pitch.Id}, Tên: {pitch.Name}, " +
                          $"Loại: {pitch.Type}, " +
-                         $"Địa chỉ: {pitch.Address.GetFullAddress()}");
+                         $"Địa chỉ: {pitch.SportCenter?.Address?.GetFullAddress() ?? "N/A"}");
         }
         return sb.ToString();
     }

@@ -19,6 +19,7 @@ public class PitchRepository : IPitchRepository
     public async Task<Pitch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Pitches
+            .Include(p => p.SportCenter)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
@@ -26,6 +27,7 @@ public class PitchRepository : IPitchRepository
     {
         return await _context.Pitches
             .AsNoTracking()
+            .Include(p => p.SportCenter)
             .ToListAsync(cancellationToken);
     }
 
@@ -74,6 +76,7 @@ public class PitchRepository : IPitchRepository
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Include(p => p.Images)
+            .Include(p => p.SportCenter)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Pitch>(items, totalCount, pageNumber, pageSize);
@@ -108,11 +111,12 @@ public class PitchRepository : IPitchRepository
 
         var pitches = await query
             .Include(p => p.Images)
+            .Include(p => p.SportCenter)
             .ToListAsync(cancellationToken);
 
         // Filter by distance in memory (Haversine formula in Address value object)
         var nearbyPitches = pitches
-            .Where(p => p.Address.CalculateDistanceTo(
+            .Where(p => p.SportCenter != null && p.SportCenter.Address.CalculateDistanceTo(
                 Domain.ValueObjects.Address.Create("", "", "", "", latitude, longitude)
             ) <= radiusKm)
             .ToList();
@@ -126,6 +130,7 @@ public class PitchRepository : IPitchRepository
             .AsNoTracking()
             .Include(p => p.TimeSlots)
             .Include(p => p.Images)
+            .Include(p => p.SportCenter)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
@@ -147,11 +152,12 @@ public class PitchRepository : IPitchRepository
             .AsNoTracking()
             .Include(p => p.Images)
             .Include(p => p.TimeSlots)
+            .Include(p => p.SportCenter)
             .Where(p => p.Status == PitchStatus.Active);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            query = query.Where(p => p.Name.Contains(searchTerm));
+            query = query.Where(p => p.Name.Contains(searchTerm) || (p.SportCenter != null && p.SportCenter.Name.Contains(searchTerm)));
         }
 
         if (type.HasValue)

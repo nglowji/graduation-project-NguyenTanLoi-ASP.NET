@@ -12,6 +12,14 @@ public class PitchConfiguration : IEntityTypeConfiguration<Pitch>
 
         builder.HasKey(p => p.Id);
 
+        builder.Property(p => p.SportCenterId)
+            .IsRequired();
+
+        builder.HasOne(p => p.SportCenter)
+            .WithMany(sc => sc.Pitches)
+            .HasForeignKey(p => p.SportCenterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Property(p => p.OwnerId)
             .IsRequired();
 
@@ -43,37 +51,6 @@ public class PitchConfiguration : IEntityTypeConfiguration<Pitch>
         builder.Property(p => p.IsDeleted)
             .IsRequired()
             .HasDefaultValue(false);
-
-        builder.OwnsOne(p => p.Address, address =>
-        {
-            address.Property(a => a.Street)
-                .IsRequired()
-                .HasMaxLength(500)
-                .HasColumnName("Street");
-
-            address.Property(a => a.Ward)
-                .HasMaxLength(100)
-                .HasColumnName("Ward");
-
-            address.Property(a => a.District)
-                .HasMaxLength(100)
-                .HasColumnName("District");
-
-            address.Property(a => a.City)
-                .IsRequired()
-                .HasMaxLength(100)
-                .HasColumnName("City");
-
-            address.Property(a => a.Latitude)
-                .IsRequired()
-                .HasPrecision(10, 7)
-                .HasColumnName("Latitude");
-
-            address.Property(a => a.Longitude)
-                .IsRequired()
-                .HasPrecision(10, 7)
-                .HasColumnName("Longitude");
-        });
 
         builder.HasMany(p => p.TimeSlots)
             .WithOne(ts => ts.Pitch)

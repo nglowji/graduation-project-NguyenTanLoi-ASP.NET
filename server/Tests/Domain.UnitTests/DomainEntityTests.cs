@@ -140,10 +140,10 @@ public class PitchTests
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var address = Address.Create("123 Street", "Ward 1", "District 1", "HCMC", 10.762622, 106.660172);
+        var sportCenterId = Guid.NewGuid();
 
         // Act
-        var pitch = Pitch.Create(ownerId, "Sân A", PitchType.Football5, address, "Sân cỏ nhân tạo");
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân A", PitchType.Football5, "Sân cỏ nhân tạo");
 
         // Assert
         pitch.Should().NotBeNull();
@@ -157,10 +157,10 @@ public class PitchTests
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var address = Address.Create("123 Street", "Ward 1", "District 1", "HCMC", 10.762622, 106.660172);
+        var sportCenterId = Guid.NewGuid();
 
         // Act & Assert
-        var act = () => Pitch.Create(ownerId, "", PitchType.Football5, address);
+        var act = () => Pitch.Create(ownerId, sportCenterId, "", PitchType.Football5);
         act.Should().Throw<DomainException>().WithMessage("*name*required*");
     }
 
@@ -169,8 +169,8 @@ public class PitchTests
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var address = Address.Create("123 Street", "Ward 1", "District 1", "HCMC", 10.762622, 106.660172);
-        var pitch = Pitch.Create(ownerId, "Sân B", PitchType.Football7, address);
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân B", PitchType.Football7);
 
         // Act
         pitch.Approve();
@@ -184,8 +184,8 @@ public class PitchTests
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var address = Address.Create("123 Street", "Ward 1", "District 1", "HCMC", 10.762622, 106.660172);
-        var pitch = Pitch.Create(ownerId, "Sân C", PitchType.Football5, address);
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân C", PitchType.Football5);
         pitch.Approve();
 
         // Act & Assert
@@ -198,8 +198,8 @@ public class PitchTests
     {
         // Arrange
         var ownerId = Guid.NewGuid();
-        var address = Address.Create("123 Street", "Ward 1", "District 1", "HCMC", 10.762622, 106.660172);
-        var pitch = Pitch.Create(ownerId, "Sân D", PitchType.Football5, address);
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân D", PitchType.Football5);
 
         // Assert
         pitch.IsOwnedBy(ownerId).Should().BeTrue();

@@ -30,6 +30,8 @@ public class GoogleAuthService : IGoogleAuthService
 
             if (!response.IsSuccessStatusCode)
             {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Google token verification failed. StatusCode: {StatusCode}, Error: {Error}", response.StatusCode, errorContent);
                 return Result<GoogleUserInfo>.Failure("Failed to verify Google access token.");
             }
 
@@ -37,6 +39,7 @@ public class GoogleAuthService : IGoogleAuthService
 
             if (userInfoResponse == null || string.IsNullOrEmpty(userInfoResponse.Email))
             {
+                _logger.LogWarning("Google user info response was null or missing email.");
                 return Result<GoogleUserInfo>.Failure("Invalid Google user information received.");
             }
 

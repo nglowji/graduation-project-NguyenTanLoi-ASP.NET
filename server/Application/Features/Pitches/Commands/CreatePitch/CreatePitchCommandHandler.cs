@@ -35,20 +35,11 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
         if (!owner.IsPitchOwner() && !owner.IsAdmin())
             return Result<Guid>.Failure("User is not authorized to create pitches");
 
-        var address = Address.Create(
-            request.Street,
-            request.Ward,
-            request.District,
-            request.City,
-            request.Latitude,
-            request.Longitude
-        );
-
         var pitch = Pitch.Create(
             request.OwnerId,
+            request.SportCenterId,
             request.Name,
             request.Type,
-            address,
             request.Description
         );
 

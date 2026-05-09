@@ -21,6 +21,6 @@ public class MappingProfile : Profile
 
         CreateMap<Pitch, PitchDto>()
             .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
-            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address.GetFullAddress()));
+            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.SportCenter != null ? src.SportCenter.Address.GetFullAddress() : ""));
     }
 }

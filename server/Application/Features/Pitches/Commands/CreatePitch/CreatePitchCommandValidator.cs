@@ -16,21 +16,9 @@ public class CreatePitchCommandValidator : AbstractValidator<CreatePitchCommand>
             .MaximumLength(200)
             .WithMessage("Pitch name cannot exceed 200 characters");
 
-        RuleFor(x => x.Street)
+        RuleFor(x => x.SportCenterId)
             .NotEmpty()
-            .WithMessage("Street is required");
-
-        RuleFor(x => x.City)
-            .NotEmpty()
-            .WithMessage("City is required");
-
-        RuleFor(x => x.Latitude)
-            .InclusiveBetween(-90, 90)
-            .WithMessage("Latitude must be between -90 and 90");
-
-        RuleFor(x => x.Longitude)
-            .InclusiveBetween(-180, 180)
-            .WithMessage("Longitude must be between -180 and 180");
+            .WithMessage("Sport Center ID is required");
 
         RuleFor(x => x.Description)
             .MaximumLength(2000)

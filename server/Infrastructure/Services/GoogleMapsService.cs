@@ -110,12 +110,13 @@ public class GoogleMapsService : IMapService
             var allPitches = await _pitchRepository.GetAllAsync();
             
             var nearbyPitches = allPitches
+                .Where(p => p.SportCenter != null)
                 .Select(p => new
                 {
                     Pitch = p,
                     Distance = CalculateHaversineDistance(
                         latitude, longitude,
-                        p.Address.Latitude, p.Address.Longitude)
+                        p.SportCenter.Address.Latitude, p.SportCenter.Address.Longitude)
                 })
                 .Where(x => x.Distance <= radiusKm)
                 .OrderBy(x => x.Distance)
@@ -124,8 +125,8 @@ public class GoogleMapsService : IMapService
                     PitchId = x.Pitch.Id,
                     Name = x.Pitch.Name,
                     DistanceKm = Math.Round(x.Distance, 2),
-                    Latitude = x.Pitch.Address.Latitude,
-                    Longitude = x.Pitch.Address.Longitude
+                    Latitude = x.Pitch.SportCenter.Address.Latitude,
+                    Longitude = x.Pitch.SportCenter.Address.Longitude
                 })
                 .ToList();
 
