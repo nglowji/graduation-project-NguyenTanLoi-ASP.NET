@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { pitchService, type PitchResponse } from '../../../services/pitchService';
 import { bookingService } from '../../../services/bookingService';
 import { paymentService } from '../../../services/paymentService';
+import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
 
 const FieldDetails: React.FC = () => {
@@ -19,12 +20,30 @@ const FieldDetails: React.FC = () => {
   React.useEffect(() => {
     if (id) {
       fetchPitchDetails();
-    }
-  }, [id]);
-
-  React.useEffect(() => {
-    if (id && selectedDate) {
       fetchSlots();
+      
+      // SignalR setup
+      const setupSignalR = async () => {
+        await signalRService.startConnection();
+        await signalRService.joinPitchGroup(id!);
+        
+        signalRService.onTimeSlotStatusChanged((timeSlotId, status, date) => {
+          if (date === selectedDate) {
+            setAvailableSlots(prev => prev.map(slot => 
+              slot.id === timeSlotId 
+                ? { ...slot, isAvailable: status === 'Available' } 
+                : slot
+            ));
+          }
+        });
+      };
+
+      setupSignalR();
+
+      return () => {
+        signalRService.leavePitchGroup(id!);
+        signalRService.off('TimeSlotStatusChanged');
+      };
     }
   }, [id, selectedDate]);
 

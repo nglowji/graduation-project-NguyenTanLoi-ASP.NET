@@ -35,7 +35,7 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Res
         try
         {
             // 1. Verify token with Google
-            var verificationResult = await _googleAuthService.VerifyTokenAsync(request.IdToken, cancellationToken);
+            var verificationResult = await _googleAuthService.VerifyTokenAsync(request.AccessToken, cancellationToken);
             if (!verificationResult.IsSuccess)
             {
                 return Result<AuthResponse>.Failure(verificationResult.ErrorMessage!);
@@ -73,13 +73,15 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Res
 
             // 4. Generate JWT
             var token = _jwtTokenService.GenerateToken(user);
+            var expiresAt = DateTime.UtcNow.AddMinutes(60);
 
             return Result<AuthResponse>.Success(new AuthResponse(
                 UserId: user.Id,
                 Email: user.Email,
                 FullName: user.FullName,
-                Role: user.Role.ToString(),
-                Token: token
+                Role: user.Role,
+                Token: token,
+                ExpiresAt: expiresAt
             ));
         }
         catch (Exception ex)

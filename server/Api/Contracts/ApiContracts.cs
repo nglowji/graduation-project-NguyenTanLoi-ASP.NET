@@ -11,7 +11,7 @@ public record UserProfileDto(
     DateTime? LastLoginAt
 );
 
-public record GoogleLoginRequest(string IdToken);
+public record GoogleLoginRequest(string AccessToken);
 
 public record FacebookLoginRequest(string AccessToken);
 

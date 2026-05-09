@@ -11,12 +11,3 @@ public record RegisterCommand(
     string PhoneNumber,
     UserRole Role = UserRole.Customer
 ) : IRequest<Result<AuthResponse>>;
-
-public record AuthResponse(
-    Guid UserId,
-    string Email,
-    string FullName,
-    UserRole Role,
-    string Token,
-    DateTime ExpiresAt
-);

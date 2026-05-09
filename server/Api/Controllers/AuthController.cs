@@ -1,5 +1,6 @@
 using Application.Features.Auth.Commands.Login;
 using Application.Features.Auth.Commands.Register;
+using Application.Common.DTOs;
 using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -70,7 +71,7 @@ public class AuthController : ApiControllerBase
         [FromBody] GoogleLoginRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new Application.Features.Auth.Commands.GoogleLogin.GoogleLoginCommand(request.IdToken);
+        var command = new Application.Features.Auth.Commands.GoogleLogin.GoogleLoginCommand(request.AccessToken);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)

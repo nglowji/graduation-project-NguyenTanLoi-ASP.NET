@@ -70,7 +70,6 @@ const Login: React.FC = () => {
     onError: () => {
       setError('Đăng nhập Google thất bại.');
     }
-    }
   });
 
   React.useEffect(() => {

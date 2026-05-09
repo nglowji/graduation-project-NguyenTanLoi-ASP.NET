@@ -8,5 +8,5 @@ namespace Application.Features.Auth.Commands.GoogleLogin;
 /// Command to login/register using Google ID Token
 /// </summary>
 public record GoogleLoginCommand(
-    string IdToken
+    string AccessToken
 ) : IRequest<Result<AuthResponse>>;

@@ -54,7 +54,7 @@ public class ProcessPaymentCallbackCommandHandler
                     CustomerName: booking.User.FullName,
                     PitchName: booking.TimeSlot.Pitch.Name,
                     BookingDate: booking.BookingDate.ToString("dd/MM/yyyy"),
-                    TimeSlot: $"{booking.TimeSlot.StartTime:hh\\:mm} - {booking.TimeSlot.EndTime:hh\\:mm}",
+                    TimeSlot: $"{booking.TimeSlot.TimeRange.StartTime:hh\\:mm} - {booking.TimeSlot.TimeRange.EndTime:hh\\:mm}",
                     Amount: booking.TotalPrice.Amount
                 ), cancellationToken);
             }

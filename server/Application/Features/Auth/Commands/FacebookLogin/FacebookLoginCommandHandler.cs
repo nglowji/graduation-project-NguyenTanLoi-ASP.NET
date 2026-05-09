@@ -69,13 +69,15 @@ public class FacebookLoginCommandHandler : IRequestHandler<FacebookLoginCommand,
 
             // 4. Generate JWT
             var token = _jwtTokenService.GenerateToken(user);
+            var expiresAt = DateTime.UtcNow.AddMinutes(60);
 
             return Result<AuthResponse>.Success(new AuthResponse(
                 UserId: user.Id,
                 Email: user.Email,
                 FullName: user.FullName,
-                Role: user.Role.ToString(),
-                Token: token
+                Role: user.Role,
+                Token: token,
+                ExpiresAt: expiresAt
             ));
         }
         catch (Exception ex)
