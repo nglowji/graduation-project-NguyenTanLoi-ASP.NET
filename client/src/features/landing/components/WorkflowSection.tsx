@@ -92,36 +92,6 @@ const WorkflowSection: React.FC = () => {
                   <p className="text-slate-600 text-lg leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
                 </div>
 
-                {/* Phần gợi ý sân nổi bật */}
-                <div className="md:col-span-2 mt-20 md:mt-32">
-                  <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-                      <Sparkles className="text-primary" /> Sân bãi gợi ý cho bạn
-                    </h3>
-                    <button className="text-primary font-bold hover:underline">Xem tất cả</button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <FeaturedPitchCard 
-                      name="Sân Thống Nhất"
-                      price="250k"
-                      rating={4.8}
-                      image="https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"
-                    />
-                    <FeaturedPitchCard 
-                      name="Badminton Center"
-                      price="180k"
-                      rating={4.9}
-                      image="https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800"
-                    />
-                    <FeaturedPitchCard 
-                      name="Tennis Central"
-                      price="400k"
-                      rating={4.7}
-                      image="https://images.unsplash.com/photo-1595435066359-6286386730b9?q=80&w=800"
-                    />
-                  </div>
-                </div>
               </motion.div>
             )}
 
@@ -210,34 +180,6 @@ const WorkflowSection: React.FC = () => {
   );
 };
 
-const FeaturedPitchCard: React.FC<{ name: string, price: string, rating: number, image: string }> = ({ name, price, rating, image }) => (
-  <motion.div 
-    whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
-    className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer"
-  >
-    <div className="relative h-44 overflow-hidden">
-      <img src={image} alt={name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-      <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 text-[10px] font-black shadow-lg">
-        <Star size={12} className="text-yellow-500 fill-current" />
-        {rating}
-      </div>
-      <div className="absolute top-3 left-3">
-        <div className="bg-primary text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter shadow-lg">
-          Hot
-        </div>
-      </div>
-    </div>
-    <div className="p-5">
-      <h4 className="font-black text-slate-900 mb-1 group-hover:text-primary transition-colors text-lg leading-tight">{name}</h4>
-      <div className="flex items-center gap-1 text-slate-400 text-xs font-bold mb-4">
-        <MapPin size={12} /> TP. Hồ Chí Minh
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-xl font-black text-primary">{price}</span>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">/giờ</span>
-      </div>
-    </div>
-  </motion.div>
-);
+
 
 export default WorkflowSection;

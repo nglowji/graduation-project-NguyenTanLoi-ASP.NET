@@ -44,8 +44,8 @@ const AboutSection: React.FC = () => {
               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
               className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
             >
-              <span className="text-5xl font-black text-primary mb-2">100+</span>
-              <span className="text-slate-600 font-bold text-lg">Cơ sở Sân bãi</span>
+              <span className="text-3xl font-black text-primary mb-2">Đang mở rộng</span>
+              <span className="text-slate-600 font-bold text-xs uppercase tracking-widest">Phủ sóng toàn quốc</span>
             </motion.div>
 
             {/* Stat 2 */}
@@ -57,8 +57,8 @@ const AboutSection: React.FC = () => {
               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
               className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center relative z-10"
             >
-              <span className="text-5xl font-black text-white mb-2">5K+</span>
-              <span className="text-slate-400 font-bold text-lg">Khách Hàng</span>
+              <span className="text-3xl font-black text-white mb-2">SmartSport</span>
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Hệ sinh thái thể thao</span>
             </motion.div>
 
             {/* Stat 3 */}
@@ -71,7 +71,7 @@ const AboutSection: React.FC = () => {
               className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
             >
               <Users className="text-primary mb-4" size={48} strokeWidth={1.5} />
-              <span className="text-slate-600 font-bold text-lg">Cộng Đồng Lớn Mạnh</span>
+              <span className="text-slate-600 font-bold text-xs uppercase tracking-widest">Cộng đồng sôi động</span>
             </motion.div>
 
             {/* Stat 4 */}
@@ -83,8 +83,8 @@ const AboutSection: React.FC = () => {
               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
               className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center relative z-10"
             >
-              <span className="text-5xl font-black text-white mb-2">0%</span>
-              <span className="text-primary-50 font-bold text-lg">Phí Khởi Tạo</span>
+              <span className="text-3xl font-black text-white mb-2">0đ</span>
+              <span className="text-primary-50 font-bold text-xs uppercase tracking-widest">Phí khởi tạo</span>
             </motion.div>
           </div>
         </div>

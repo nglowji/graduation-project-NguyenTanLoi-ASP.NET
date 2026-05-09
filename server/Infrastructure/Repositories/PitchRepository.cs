@@ -142,27 +142,63 @@ public class PitchRepository : IPitchRepository
     public async Task<PagedResult<Pitch>> SearchAsync(
         string? searchTerm,
         PitchType? type,
+        string? sportType,
         decimal? minPrice,
         decimal? maxPrice,
+        string? province,
+        string? district,
+        string? ward,
+        decimal? minRating,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Pitches
-            .AsNoTracking()
-            .Include(p => p.Images)
-            .Include(p => p.TimeSlots)
             .Include(p => p.SportCenter)
-            .Where(p => p.Status == PitchStatus.Active);
+            .Include(p => p.Images)
+            .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        if (!string.IsNullOrEmpty(searchTerm))
         {
-            query = query.Where(p => p.Name.Contains(searchTerm) || (p.SportCenter != null && p.SportCenter.Name.Contains(searchTerm)));
+            query = query.Where(p => p.Name.Contains(searchTerm) || p.Description!.Contains(searchTerm));
         }
 
         if (type.HasValue)
         {
             query = query.Where(p => p.Type == type.Value);
+        }
+
+        if (!string.IsNullOrEmpty(sportType))
+        {
+            // Simple mapping: Football includes Football5, Football7, Football11
+            if (sportType.Equals("Football", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => p.Type == PitchType.Football5 || p.Type == PitchType.Football7 || p.Type == PitchType.Football11);
+            }
+            else if (Enum.TryParse<PitchType>(sportType, true, out var parsedType))
+            {
+                query = query.Where(p => p.Type == parsedType);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(province))
+        {
+            query = query.Where(p => p.SportCenter != null && p.SportCenter.Address.City == province);
+        }
+
+        if (!string.IsNullOrWhiteSpace(district))
+        {
+            query = query.Where(p => p.SportCenter != null && p.SportCenter.Address.District == district);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ward))
+        {
+            query = query.Where(p => p.SportCenter != null && p.SportCenter.Address.Ward == ward);
+        }
+
+        if (minRating.HasValue)
+        {
+            query = query.Where(p => p.AverageRating >= minRating.Value);
         }
 
         // Price filtering based on TimeSlots

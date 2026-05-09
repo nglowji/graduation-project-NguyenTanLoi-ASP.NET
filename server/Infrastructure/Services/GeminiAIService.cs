@@ -187,10 +187,10 @@ Nhiệm vụ của bạn:
 4. Đưa ra lời khuyên về thời gian đặt sân tối ưu
 
 Phong cách giao tiếp:
-- Thân thiện, nhiệt tình
-- Ngắn gọn, súc tích
-- Sử dụng tiếng Việt tự nhiên
-- Đưa ra gợi ý cụ thể, có căn cứ";
+-- Thân thiện, nhiệt tình
+-- Ngắn gọn, súc tích
+-- Sử dụng tiếng Việt tự nhiên
+-- Đưa ra gợi ý cụ thể, có căn cứ";
     }
 
     private string BuildRecommendationContext(

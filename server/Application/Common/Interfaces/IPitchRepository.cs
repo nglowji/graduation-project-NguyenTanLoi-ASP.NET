@@ -38,8 +38,13 @@ public interface IPitchRepository : IRepository<Pitch>
     Task<PagedResult<Pitch>> SearchAsync(
         string? searchTerm,
         PitchType? type,
+        string? sportType,
         decimal? minPrice,
         decimal? maxPrice,
+        string? province,
+        string? district,
+        string? ward,
+        decimal? minRating,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

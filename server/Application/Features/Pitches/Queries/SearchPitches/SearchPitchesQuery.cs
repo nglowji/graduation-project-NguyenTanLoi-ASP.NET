@@ -8,8 +8,13 @@ namespace Application.Features.Pitches.Queries.SearchPitches;
 public record SearchPitchesQuery(
     string? SearchTerm,
     PitchType? Type,
+    string? SportType,
     decimal? MinPrice,
     decimal? MaxPrice,
+    string? Province,
+    string? District,
+    string? Ward,
+    decimal? MinRating,
     double? Latitude,
     double? Longitude,
     double? RadiusKm,

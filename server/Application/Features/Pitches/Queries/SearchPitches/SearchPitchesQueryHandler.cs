@@ -48,8 +48,13 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
             pitches = await _pitchRepository.SearchAsync(
                 request.SearchTerm,
                 request.Type,
+                request.SportType,
                 request.MinPrice,
                 request.MaxPrice,
+                request.Province,
+                request.District,
+                request.Ward,
+                request.MinRating,
                 request.PageNumber,
                 request.PageSize,
                 cancellationToken

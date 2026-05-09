@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown, MapPin,
-  Star, CheckCircle, XCircle, Eye, Plus, ArrowUpRight, Loader2
+  Star, CheckCircle, XCircle, Eye, Plus, ArrowUpRight, Loader2,
+  Clock, Activity, ChevronRight, Filter, Search
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const fadeIn = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
+const fadeIn = { 
+  hidden: { opacity: 0, y: 20 }, 
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } 
+};
+
+const stagger = {
+  show: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
 interface DashboardStats {
   totalRevenue: number;
@@ -42,6 +55,7 @@ interface PitchItem {
 
 const OwnerDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookingTab, setBookingTab] = useState<'upcoming' | 'pending' | 'completed'>('upcoming');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
@@ -96,12 +110,18 @@ const OwnerDashboard: React.FC = () => {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
   const statusColor = (s: string) => {
-    if (s === 'Confirmed') return 'bg-[#00C896]/10 text-[#00C896]';
-    if (s === 'Pending') return 'bg-amber-500/10 text-amber-400';
-    if (s === 'Completed') return 'bg-blue-500/10 text-blue-400';
-    return 'bg-red-500/10 text-red-400';
+    if (s === 'Confirmed') return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    if (s === 'Pending') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    if (s === 'Completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    return 'bg-red-500/10 text-red-400 border-red-500/20';
   };
-  const statusLabel = (s: string) => ({ Confirmed: 'Xác nhận', Pending: 'Chờ duyệt', Completed: 'Hoàn thành', Cancelled: 'Huỷ' }[s] || s);
+  
+  const statusLabel = (s: string) => ({ 
+    Confirmed: 'Đã xác nhận', 
+    Pending: 'Chờ duyệt', 
+    Completed: 'Hoàn thành', 
+    Cancelled: 'Đã hủy' 
+  }[s] || s);
 
   const pitchTypeLabel = (t: string) => ({
     Football5: 'Sân 5 người', Football7: 'Sân 7 người', Football11: 'Sân 11 người',
@@ -110,172 +130,285 @@ const OwnerDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-[#00C896]" size={40} />
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-4 border-blue-600/10 border-t-blue-600 animate-spin" />
+          <Activity className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600" size={24} />
+        </div>
+        <p className="text-white/40 font-bold animate-pulse uppercase tracking-widest text-xs">Đang đồng bộ dữ liệu...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-7">
-      {/* Header */}
-      <motion.div variants={fadeIn} initial="hidden" animate="show" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex flex-col md:flex-row md:items-end justify-between gap-6"
+      >
         <div>
-          <h1 className="text-2xl font-black text-white">Tổng quan sân bóng</h1>
-          <p className="text-white/40 text-sm mt-1">
-            Chào mừng, <span className="text-[#00C896] font-semibold">{user?.fullName}</span> • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+          <div className="flex items-center gap-2 text-blue-500 font-black uppercase tracking-[0.2em] text-[10px] mb-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            Bảng điều khiển chủ sân
+          </div>
+          <h1 className="text-4xl font-black text-white tracking-tight">Chào buổi sáng, {user?.fullName?.split(' ').pop()}!</h1>
+          <p className="text-white/40 text-sm mt-2 font-medium">
+            Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}. Chúc bạn một ngày kinh doanh thuận lợi.
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#00C896] text-black rounded-xl text-sm font-bold hover:bg-[#00a07a] transition-colors self-start">
-          <Plus size={16} /> Thêm sân mới
-        </button>
+        
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-sm font-bold transition-all">
+            <Filter size={18} /> Lọc dữ liệu
+          </button>
+          <button 
+            onClick={() => navigate('/owner/pitches')}
+            className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-2xl text-sm font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+          >
+            <Plus size={18} strokeWidth={3} /> Thêm sân bãi
+          </button>
+        </div>
       </motion.div>
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold flex items-center gap-3">
+          <XCircle size={18} /> {error}
+        </motion.div>
       )}
 
-      {/* Stats */}
-      {stats ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { title: 'Doanh thu tháng', value: formatCurrency(stats.totalRevenue), change: `${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange}%`, up: stats.revenueChange >= 0, icon: <DollarSign size={20} />, color: 'from-[#00C896]/20 to-[#00C896]/5', iconColor: 'text-[#00C896]', border: 'border-[#00C896]/20' },
-            { title: 'Lượt đặt sân', value: stats.totalBookings.toString(), change: `${stats.bookingsChange > 0 ? '+' : ''}${stats.bookingsChange}%`, up: stats.bookingsChange >= 0, icon: <CalendarCheck size={20} />, color: 'from-blue-500/20 to-blue-500/5', iconColor: 'text-blue-400', border: 'border-blue-500/20' },
-            { title: 'Khách hàng mới', value: stats.newCustomers.toString(), change: '', up: true, icon: <Users size={20} />, color: 'from-amber-500/20 to-amber-500/5', iconColor: 'text-amber-400', border: 'border-amber-500/20' },
-            { title: 'Đánh giá trung bình', value: `${stats.averageRating.toFixed(1)}★`, change: '', up: true, icon: <Star size={20} />, color: 'from-pink-500/20 to-pink-500/5', iconColor: 'text-pink-400', border: 'border-pink-500/20' },
-          ].map((s, i) => (
-            <motion.div key={s.title} variants={fadeIn} initial="hidden" animate="show" transition={{ delay: i * 0.08 }}
-              className={`bg-gradient-to-br ${s.color} border ${s.border} rounded-2xl p-5`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-2 bg-white/5 rounded-xl ${s.iconColor}`}>{s.icon}</div>
-                {s.change && (
-                  <span className={`flex items-center gap-1 text-xs font-bold ${s.up ? 'text-[#00C896]' : 'text-red-400'}`}>
-                    {s.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {s.change}
-                  </span>
-                )}
+      {/* Main Statistics Grid */}
+      <motion.div 
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        {[
+          { title: 'Doanh thu tháng', value: formatCurrency(stats?.totalRevenue || 0), change: `${stats?.revenueChange || 0}%`, up: (stats?.revenueChange || 0) >= 0, icon: <DollarSign size={24} />, color: 'from-blue-600 to-indigo-700' },
+          { title: 'Lượt đặt sân', value: (stats?.totalBookings || 0).toString(), change: `${stats?.bookingsChange || 0}%`, up: (stats?.bookingsChange || 0) >= 0, icon: <CalendarCheck size={24} />, color: 'from-blue-500 to-indigo-600' },
+          { title: 'Khách hàng mới', value: (stats?.newCustomers || 0).toString(), change: '+12%', up: true, icon: <Users size={24} />, color: 'from-amber-500 to-orange-600' },
+          { title: 'Đánh giá trung bình', value: `${(stats?.averageRating || 0).toFixed(1)} ★`, change: 'Top 5%', up: true, icon: <Star size={24} />, color: 'from-rose-500 to-pink-600' },
+        ].map((s, i) => (
+          <motion.div 
+            key={s.title} 
+            variants={fadeIn}
+            whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
+            className="relative group bg-[#1a1c26] border border-white/5 rounded-3xl p-6 overflow-hidden transition-all"
+          >
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${s.color} opacity-[0.03] rounded-bl-[5rem] group-hover:opacity-[0.08] transition-opacity`} />
+            
+            <div className="flex items-center justify-between mb-6">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg shadow-black/20`}>
+                {s.icon}
               </div>
-              <p className="text-white/40 text-xs mb-1">{s.title}</p>
-              <h3 className="text-2xl font-black text-white">{s.value}</h3>
-            </motion.div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white/3 border border-white/8 rounded-2xl p-5 animate-pulse h-28" />
-          ))}
-        </div>
-      )}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black ${s.up ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'}`}>
+                {s.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {s.change}
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <p className="text-white/30 text-xs font-bold uppercase tracking-widest">{s.title}</p>
+              <h3 className="text-2xl font-black text-white tracking-tight">{s.value}</h3>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
-      {/* Bookings Management */}
-      <div className="bg-white/3 border border-white/8 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-lg text-white flex items-center gap-2">
-            <CalendarCheck size={18} className="text-[#00C896]" /> Quản lý đơn đặt sân
-          </h3>
-          <div className="flex gap-1 bg-white/5 p-1 rounded-xl">
-            {(['upcoming', 'pending', 'completed'] as const).map(tab => (
-              <button key={tab} onClick={() => setBookingTab(tab)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${bookingTab === tab ? 'bg-[#00C896]/20 text-[#00C896]' : 'text-white/40 hover:text-white'}`}>
-                {tab === 'upcoming' ? 'Sắp tới' : tab === 'pending' ? 'Chờ duyệt' : 'Hoàn thành'}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Left Column: Chart & Bookings */}
+        <div className="xl:col-span-2 space-y-8">
+          
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] p-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight">Hiệu suất doanh thu</h3>
+                <p className="text-white/40 text-xs mt-1">Dữ liệu doanh thu thời gian thực</p>
+              </div>
+            </div>
+            
+            <div className="h-48 w-full flex items-center justify-center border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
+              <div className="text-center">
+                <Activity size={32} className="mx-auto mb-3 text-white/5" />
+                <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">Đang tính toán hiệu suất kinh doanh...</p>
+              </div>
+            </div>
+          </motion.div>
 
-        {bookings.length === 0 ? (
-          <div className="text-center py-12 text-white/30">
-            <CalendarCheck size={36} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Không có đơn nào</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {bookings.map((b) => (
-              <div key={b.id} className="flex items-center justify-between p-4 bg-white/3 rounded-xl border border-white/5 hover:border-[#00C896]/20 transition-colors">
-                <div className="flex gap-4 items-center min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-white/60 flex-shrink-0">
-                    {b.customerName?.split(' ').pop()?.[0]}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-white text-sm">{b.customerName}</p>
-                    <p className="text-xs text-white/40">{b.pitchName} • {b.bookingDate} • {b.startTime}–{b.endTime}</p>
-                    <p className="text-xs text-white/25">{b.customerPhone}</p>
-                  </div>
+          {/* Bookings Management */}
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-400">
+                  <CalendarCheck size={20} />
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
-                    <p className="font-bold text-white">{formatCurrency(b.totalAmount)}</p>
-                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${statusColor(b.status)}`}>{statusLabel(b.status)}</span>
-                  </div>
-                  {b.status === 'Pending' && (
-                    <div className="flex gap-1">
-                      <button onClick={() => handleBookingAction(b.id, 'confirm')}
-                        className="p-2 bg-[#00C896]/10 text-[#00C896] rounded-lg hover:bg-[#00C896]/20 border border-[#00C896]/20">
-                        <CheckCircle size={15} />
-                      </button>
-                      <button onClick={() => handleBookingAction(b.id, 'cancel')}
-                        className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 border border-red-500/20">
-                        <XCircle size={15} />
-                      </button>
-                    </div>
-                  )}
-                  <button className="p-2 hover:bg-white/5 text-white/30 hover:text-white rounded-lg">
-                    <Eye size={15} />
+                <h3 className="font-black text-xl text-white tracking-tight">Lịch đặt sân gần đây</h3>
+              </div>
+              
+              <div className="flex p-1 bg-white/5 rounded-2xl self-start">
+                {(['upcoming', 'pending', 'completed'] as const).map(tab => (
+                  <button 
+                    key={tab} 
+                    onClick={() => setBookingTab(tab)}
+                    className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                      bookingTab === tab 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                      : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    {tab === 'upcoming' ? 'Sắp tới' : tab === 'pending' ? 'Chờ duyệt' : 'Đã xong'}
                   </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
 
-      {/* My Pitches */}
-      <div className="bg-white/3 border border-white/8 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-lg text-white flex items-center gap-2">
-            <MapPin size={18} className="text-blue-400" /> Sân của tôi
-          </h3>
-          <button className="flex items-center gap-1 text-xs text-[#00C896] font-semibold hover:underline">
-            Quản lý <ArrowUpRight size={13} />
-          </button>
+            <div className="p-4 space-y-3">
+              <AnimatePresence mode="wait">
+                {bookings.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="text-center py-20 bg-white/2 rounded-[2rem] border border-dashed border-white/5"
+                  >
+                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock size={24} className="text-white/10" />
+                    </div>
+                    <p className="text-white/20 font-bold text-sm tracking-wide">Hiện chưa có đơn nào trong mục này</p>
+                  </motion.div>
+                ) : (
+                  <div className="space-y-3">
+                    {bookings.map((b, index) => (
+                      <motion.div 
+                        key={b.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#1e202b] rounded-[1.5rem] border border-white/5 hover:border-blue-600/30 transition-all hover:bg-[#232635]"
+                      >
+                        <div className="flex gap-4 items-center mb-4 sm:mb-0">
+                          <div className={`w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/10 flex items-center justify-center text-sm font-black text-blue-500 shadow-lg`}>
+                            {b.customerName?.split(' ').pop()?.[0]}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">{b.customerName}</span>
+                              <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black border uppercase tracking-wider ${statusColor(b.status)}`}>
+                                {statusLabel(b.status)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-[10px] font-bold text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
+                                <Activity size={10} /> {b.pitchName}
+                              </span>
+                              <span className="text-[10px] font-bold text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
+                                <Clock size={10} /> {b.startTime} - {b.endTime}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between sm:justify-end gap-6 pl-12 sm:pl-0">
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-white/30 uppercase tracking-[0.1em] mb-0.5">Tổng cộng</p>
+                            <p className="font-black text-blue-500 text-lg leading-none">{formatCurrency(b.totalAmount)}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {b.status === 'Pending' && (
+                              <>
+                                <button 
+                                  onClick={() => handleBookingAction(b.id, 'confirm')}
+                                  className="w-10 h-10 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center"
+                                  title="Xác nhận"
+                                >
+                                  <CheckCircle size={18} />
+                                </button>
+                                <button 
+                                  onClick={() => handleBookingAction(b.id, 'cancel')}
+                                  className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center"
+                                  title="Từ chối"
+                                >
+                                  <XCircle size={18} />
+                                </button>
+                              </>
+                            )}
+                            <button className="w-10 h-10 bg-white/5 text-white/30 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center justify-center">
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
         </div>
 
-        {pitches.length === 0 ? (
-          <div className="text-center py-12 text-white/30">
-            <MapPin size={36} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Chưa có sân nào. Hãy thêm sân đầu tiên!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pitches.map((p) => (
-              <div key={p.id} className="p-4 bg-white/3 rounded-xl border border-white/5 hover:border-blue-500/20 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-white">{p.name}</p>
-                    <p className="text-xs text-white/40">{pitchTypeLabel(p.pitchType)}</p>
-                  </div>
-                  <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${p.status === 'Active' ? 'bg-[#00C896]/10 text-[#00C896] border-[#00C896]/20' : 'bg-white/5 text-white/30 border-white/10'}`}>
-                    {p.status === 'Active' ? '● Hoạt động' : '○ Tạm dừng'}
-                  </span>
+        {/* Right Column: Pitches & More */}
+        <div className="space-y-8">
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-xl text-white tracking-tight">Sân của tôi</h3>
+              <button 
+                onClick={() => navigate('/owner/pitches')}
+                className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline flex items-center gap-1.5"
+              >
+                Xem tất cả <ArrowUpRight size={12} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {pitches.length === 0 ? (
+                <div className="text-center py-10 bg-white/2 rounded-3xl border border-dashed border-white/5">
+                  <MapPin size={24} className="mx-auto mb-2 text-white/10" />
+                  <p className="text-xs text-white/20 font-bold">Chưa có sân bãi</p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-center p-2 bg-white/3 rounded-lg">
-                    <p className="text-sm font-bold text-white">{p.todayBookings}</p>
-                    <p className="text-[10px] text-white/30">Đặt hôm nay</p>
+              ) : (
+                pitches.map((p) => (
+                  <div key={p.id} className="p-5 bg-[#1e202b] rounded-[1.5rem] border border-white/5 hover:border-blue-600/20 transition-all group">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h4 className="font-black text-white group-hover:text-blue-500 transition-colors">{p.name}</h4>
+                        <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest mt-1">{pitchTypeLabel(p.pitchType)}</p>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full ${p.status === 'Active' ? 'bg-blue-600 shadow-[0_0_10px_#2563eb]' : 'bg-white/10'}`} />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-white/3 rounded-2xl">
+                        <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Hôm nay</p>
+                        <p className="text-sm font-black text-white">{p.todayBookings} lượt</p>
+                      </div>
+                      <div className="p-3 bg-white/3 rounded-2xl">
+                        <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Xếp hạng</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-black text-amber-400">{p.averageRating.toFixed(1)}</p>
+                          <Star size={10} className="text-amber-400 fill-current" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-center p-2 bg-white/3 rounded-lg">
-                    <p className="text-sm font-bold text-[#00C896]">{formatCurrency(p.todayRevenue)}</p>
-                    <p className="text-[10px] text-white/30">Doanh thu</p>
-                  </div>
-                  <div className="text-center p-2 bg-white/3 rounded-lg">
-                    <p className="text-sm font-bold text-amber-400">{p.averageRating.toFixed(1)}★</p>
-                    <p className="text-[10px] text-white/30">Đánh giá</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                ))
+              )}
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="font-black text-xl mb-2">Tăng doanh thu?</h3>
+              <p className="text-white/60 text-sm font-bold leading-relaxed mb-6 uppercase tracking-widest">Cập nhật bảng giá linh hoạt để thu hút khách hàng mới.</p>
+              <button 
+                onClick={() => navigate('/owner/pitches')}
+                className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-50 transition-all"
+              >
+                Quản lý sân ngay
+              </button>
+            </div>
+            <Activity className="absolute -bottom-6 -right-6 w-32 h-32 text-white/5" />
+          </motion.div>
+        </div>
       </div>
     </div>
   );

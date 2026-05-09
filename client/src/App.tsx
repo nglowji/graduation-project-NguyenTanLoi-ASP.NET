@@ -15,6 +15,19 @@ import PaymentResult from './features/customer/pages/PaymentResult';
 import Profile from './features/customer/pages/Profile';
 import DashboardLayout from './layouts/DashboardLayout';
 
+// Owner Sub-pages
+import MyPitches from './features/owner/pages/MyPitches';
+import Bookings from './features/owner/pages/Bookings';
+import Revenue from './features/owner/pages/Revenue';
+import Reviews from './features/owner/pages/Reviews';
+import StaffManagement from './features/owner/pages/StaffManagement';
+
+// Admin Sub-pages
+import Users from './features/admin/pages/Users';
+import Approvals from './features/admin/pages/Approvals';
+import PlatformRevenue from './features/admin/pages/PlatformRevenue';
+import Reports from './features/admin/pages/Reports';
+
 function App() {
   return (
     <BrowserRouter>
@@ -35,37 +48,20 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Owner Dashboard — yêu cầu đăng nhập với role PitchOwner (2) */}
-            <Route path="/dashboard/owner" element={
-              <ProtectedRoute requiredRole={2}>
-                <DashboardLayout role="owner">
-                  <OwnerDashboard />
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/owner/*" element={
-              <ProtectedRoute requiredRole={2}>
-                <DashboardLayout role="owner">
-                  <OwnerDashboard />
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
+            {/* Owner Dashboard */}
+            <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
 
-            {/* Admin Dashboard — yêu cầu đăng nhập với role Admin (3) */}
-            <Route path="/dashboard/admin" element={
-              <ProtectedRoute requiredRole={3}>
-                <DashboardLayout role="admin">
-                  <AdminDashboard />
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/admin/*" element={
-              <ProtectedRoute requiredRole={3}>
-                <DashboardLayout role="admin">
-                  <AdminDashboard />
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
+            {/* Admin Dashboard */}
+            <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/admin/users" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Users /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/admin/approvals" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Approvals /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/admin/revenue" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><PlatformRevenue /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/admin/reports" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Reports /></DashboardLayout></ProtectedRoute>} />
 
             {/* Fallback /dashboard → redirect dựa vào role trong ProtectedRoute */}
             <Route path="/dashboard" element={

@@ -17,55 +17,68 @@ public class PricingDomainServiceTests
     }
 
     [Fact]
-    public void CalculateEffectivePrice_NormalWeekdayHour_ShouldReturnBasePrice()
+    public void CalculateEffectivePrice_ShouldReturnBasePrice_WhenNormalHourAndWeekday()
     {
         // Arrange
-        var basePrice = 100000m;
-        var pitch = CreateTestPitch();
-        var timeSlot = TimeSlot.Create(pitch.Id, TimeRange.Create(TimeSpan.FromHours(10), TimeSpan.FromHours(11)), Money.Create(basePrice));
-        var weekdayDate = new DateOnly(2026, 5, 4); // Monday
+        var date = new DateOnly(2024, 5, 8); // Wednesday
+        var basePrice = Money.Create(200000, "VND");
+        var timeSlot = CreateTimeSlot(new TimeSpan(10, 0, 0), basePrice);
 
         // Act
-        var result = _sut.CalculateEffectivePrice(timeSlot, weekdayDate);
+        var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(basePrice);
+        result.Amount.Should().Be(200000);
     }
 
     [Fact]
-    public void CalculateEffectivePrice_PeakHourWeekday_ShouldAdd30Percent()
+    public void CalculateEffectivePrice_ShouldApplyPeakMultiplier_WhenPeakHour()
     {
         // Arrange
-        var basePrice = 100000m;
-        var pitch = CreateTestPitch();
-        var peakTimeSlot = TimeSlot.Create(pitch.Id, TimeRange.Create(TimeSpan.FromHours(18), TimeSpan.FromHours(19)), Money.Create(basePrice));
-        var weekdayDate = new DateOnly(2026, 5, 4); // Monday
+        var date = new DateOnly(2024, 5, 8); // Wednesday
+        var basePrice = Money.Create(200000, "VND");
+        var timeSlot = CreateTimeSlot(new TimeSpan(18, 0, 0), basePrice); // 6 PM is peak
 
         // Act
-        var result = _sut.CalculateEffectivePrice(peakTimeSlot, weekdayDate);
+        var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(basePrice * 1.3m);
+        result.Amount.Should().Be(260000); // 200k * 1.3
     }
 
     [Fact]
-    public void CalculateEffectivePrice_NormalWeekendHour_ShouldAdd10Percent()
+    public void CalculateEffectivePrice_ShouldApplyOffPeakMultiplier_WhenLateNight()
     {
         // Arrange
-        var basePrice = 100000m;
-        var pitch = CreateTestPitch();
-        var timeSlot = TimeSlot.Create(pitch.Id, TimeRange.Create(TimeSpan.FromHours(10), TimeSpan.FromHours(11)), Money.Create(basePrice));
-        var weekendDate = new DateOnly(2026, 5, 10); // Sunday
+        var date = new DateOnly(2024, 5, 8); // Wednesday
+        var basePrice = Money.Create(200000, "VND");
+        var timeSlot = CreateTimeSlot(new TimeSpan(23, 0, 0), basePrice); // 11 PM is off-peak
 
         // Act
-        var result = _sut.CalculateEffectivePrice(timeSlot, weekendDate);
+        var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(basePrice * 1.1m);
+        result.Amount.Should().Be(160000); // 200k * 0.8
     }
 
-    private Pitch CreateTestPitch()
+    [Fact]
+    public void CalculateEffectivePrice_ShouldApplyWeekendMultiplier_WhenSaturday()
     {
-        return Pitch.Create(Guid.NewGuid(), Guid.NewGuid(), "Test Pitch", PitchType.Badminton, "Desc");
+        // Arrange
+        var date = new DateOnly(2024, 5, 11); // Saturday
+        var basePrice = Money.Create(200000, "VND");
+        var timeSlot = CreateTimeSlot(new TimeSpan(10, 0, 0), basePrice);
+
+        // Act
+        var result = _sut.CalculateEffectivePrice(timeSlot, date);
+
+        // Assert
+        result.Amount.Should().Be(220000); // 200k * 1.1
+    }
+
+    private TimeSlot CreateTimeSlot(TimeSpan startTime, Money price)
+    {
+        var timeRange = TimeRange.Create(startTime, startTime.Add(TimeSpan.FromHours(1)));
+        return TimeSlot.Create(Guid.NewGuid(), timeRange, price);
     }
 }

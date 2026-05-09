@@ -3,6 +3,7 @@ using Application.Features.Pitches.DTOs;
 using Application.Features.Pitches.Queries.GetAvailableTimeSlots;
 using Application.Features.Pitches.Queries.SearchPitches;
 using Application.Features.Dashboard.Queries;
+using Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,9 +29,14 @@ public class PitchesController : ApiControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Search(
         [FromQuery] string? searchTerm,
-        [FromQuery] Domain.Enums.PitchType? type,
+        [FromQuery] PitchType? type,
+        [FromQuery] string? sportType,
         [FromQuery] decimal? minPrice,
         [FromQuery] decimal? maxPrice,
+        [FromQuery] string? province,
+        [FromQuery] string? district,
+        [FromQuery] string? ward,
+        [FromQuery] decimal? minRating,
         [FromQuery] double? latitude,
         [FromQuery] double? longitude,
         [FromQuery] double? radiusKm,
@@ -39,7 +45,8 @@ public class PitchesController : ApiControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new SearchPitchesQuery(
-            searchTerm, type, minPrice, maxPrice,
+            searchTerm, type, sportType, minPrice, maxPrice,
+            province, district, ward, minRating,
             latitude, longitude, radiusKm,
             pageNumber, pageSize
         );
