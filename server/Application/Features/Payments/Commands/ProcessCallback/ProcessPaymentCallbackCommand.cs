@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using MediatR;
 
 namespace Application.Features.Payments.Commands.ProcessCallback;

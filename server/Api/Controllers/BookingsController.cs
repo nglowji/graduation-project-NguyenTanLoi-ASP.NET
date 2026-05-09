@@ -4,26 +4,23 @@ using Application.Features.Bookings.Commands.LockTimeSlot;
 using Application.Features.Bookings.Commands.ReleaseLock;
 using Application.Features.Bookings.DTOs;
 using Application.Features.Bookings.Queries.GetBookingById;
+using Application.Features.Dashboard.Queries;
+using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
 [Authorize]
-public class BookingsController : ControllerBase
+public class BookingsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly ILogger<BookingsController> _logger;
 
-    public BookingsController(IMediator mediator, ILogger<BookingsController> logger)
+    public BookingsController(IMediator mediator)
     {
         _mediator = mediator;
-        _logger = logger;
     }
 
     /// <summary>
@@ -51,14 +48,7 @@ public class BookingsController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to lock time slot",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Failed to lock time slot", result.ErrorMessage);
 
         return Ok(new { LockId = result.Value, Message = "Time slot locked successfully" });
     }
@@ -69,7 +59,6 @@ public class BookingsController : ControllerBase
     [HttpPost("release-lock/{lockId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ReleaseLock(
         Guid lockId,
         CancellationToken cancellationToken)
@@ -82,14 +71,7 @@ public class BookingsController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to release lock",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Failed to release lock", result.ErrorMessage);
 
         return NoContent();
     }
@@ -100,21 +82,13 @@ public class BookingsController : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetBookingByIdQuery(id);
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return NotFound(new ProblemDetails
-            {
-                Title = "Booking not found",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status404NotFound
-            });
-        }
+            return NotFoundProblem("Booking not found", result.ErrorMessage);
 
         return Ok(result.Value);
     }
@@ -125,7 +99,6 @@ public class BookingsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create(
         [FromBody] CreateBookingRequest request,
         CancellationToken cancellationToken)
@@ -134,29 +107,13 @@ public class BookingsController : ControllerBase
         if (userId == Guid.Empty)
             return Unauthorized();
 
-        var command = new CreateBookingCommand(
-            userId,
-            request.TimeSlotId,
-            request.BookingDate
-        );
-
+        var command = new CreateBookingCommand(userId, request.TimeSlotId, request.BookingDate);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to create booking",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Failed to create booking", result.ErrorMessage);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = result.Value },
-            result.Value
-        );
+        return CreatedAtAction(nameof(GetById), new { id = result.Value }, result.Value);
     }
 
     /// <summary>
@@ -165,8 +122,6 @@ public class BookingsController : ControllerBase
     [HttpPost("{id:guid}/cancel")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Cancel(
         Guid id,
         [FromBody] CancelBookingRequest request,
@@ -180,19 +135,14 @@ public class BookingsController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to cancel booking",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Failed to cancel booking", result.ErrorMessage);
 
         return NoContent();
     }
 
-    /// <summary>Get bookings for owner's pitches</summary>
+    /// <summary>
+    /// Get bookings for owner's pitches
+    /// </summary>
     [HttpGet("owner")]
     [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -205,42 +155,12 @@ public class BookingsController : ControllerBase
         var ownerId = GetCurrentUserId();
         if (ownerId == Guid.Empty) return Unauthorized();
 
-        var query = new Application.Features.Dashboard.Queries.GetOwnerBookingsQuery(ownerId, status, pageNumber, pageSize);
+        var query = new GetOwnerBookingsQuery(ownerId, status, pageNumber, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy danh sách đặt sân thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
+            return BadRequestProblem("Failed to get owner bookings", result.ErrorMessage);
+
         return Ok(result.Value);
     }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            return userId;
-        }
-        return Guid.Empty;
-    }
 }
-
-public record LockTimeSlotRequest(
-    Guid TimeSlotId,
-    DateOnly BookingDate,
-    int LockDurationMinutes = 10
-);
-
-public record CreateBookingRequest(
-    Guid TimeSlotId,
-    DateOnly BookingDate
-);
-
-public record CancelBookingRequest(string Reason);

@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
@@ -100,6 +100,7 @@ public class BookingRepository : IBookingRepository
     {
         return await _context.Bookings
             .AsNoTracking()
+            .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
             .Include(b => b.Transaction)

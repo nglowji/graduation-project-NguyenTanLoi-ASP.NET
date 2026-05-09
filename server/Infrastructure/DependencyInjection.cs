@@ -57,6 +57,9 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPaymentService, VnpayPaymentService>();
         
+        services.AddHttpClient<IGoogleAuthService, GoogleAuthService>();
+        services.AddHttpClient<IFacebookAuthService, FacebookAuthService>();
+        
         // AI & Maps Services
         services.AddHttpClient<IGeminiAIService, GeminiAIService>();
         services.AddHttpClient<IMapService, GoogleMapsService>();

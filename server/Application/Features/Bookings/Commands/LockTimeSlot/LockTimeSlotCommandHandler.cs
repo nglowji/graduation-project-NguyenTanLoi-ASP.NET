@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -36,8 +36,6 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
         LockTimeSlotCommand request,
         CancellationToken cancellationToken)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-
         try
         {
             // 1. Check if time slot exists and is active
@@ -72,7 +70,6 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
                 {
                     existingLock.ExtendLock(request.LockDurationMinutes);
                     await _context.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
 
                     _logger.LogInformation(
                         "Extended lock {LockId} for user {UserId}",
@@ -97,7 +94,6 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
 
             await _lockRepository.AddAsync(bookingLock, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
 
             // Notify real-time status update
             await _notificationService.NotifyTimeSlotStatusChangedAsync(
@@ -120,7 +116,6 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Error creating booking lock");
             return Result<Guid>.Failure("Failed to lock time slot. Please try again.");
         }

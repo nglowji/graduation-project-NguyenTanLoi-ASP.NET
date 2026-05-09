@@ -1,4 +1,4 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 using MediatR;
 
 namespace Application.Features.Waitlist.Commands.JoinWaitlist;

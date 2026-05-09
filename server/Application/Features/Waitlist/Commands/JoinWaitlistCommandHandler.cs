@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;

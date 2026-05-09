@@ -1,4 +1,4 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using MediatR;
@@ -7,11 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/admin")]
-[Produces("application/json")]
 [Authorize(Roles = "Admin")]
-public class AdminController : ControllerBase
+public class AdminController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -20,7 +18,9 @@ public class AdminController : ControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>Get list of all users with optional filter</summary>
+    /// <summary>
+    /// Get list of all users with optional filter
+    /// </summary>
     [HttpGet("users")]
     [ProducesResponseType(typeof(PagedResult<AdminUserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -33,21 +33,16 @@ public class AdminController : ControllerBase
     {
         var query = new GetAdminUsersQuery(search, role, pageNumber, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy danh sách người dùng thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
+            return BadRequestProblem("Failed to get users", result.ErrorMessage);
+
         return Ok(result.Value);
     }
 
-    /// <summary>Suspend or Activate a user account</summary>
+    /// <summary>
+    /// Suspend or Activate a user account
+    /// </summary>
     [HttpPatch("users/{userId:guid}/suspend")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -55,21 +50,16 @@ public class AdminController : ControllerBase
     {
         var command = new SuspendUserCommand(userId);
         var result = await _mediator.Send(command, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Thao tác trên tài khoản thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
-        return Ok(new { message = "Trạng thái tài khoản đã được cập nhật." });
+            return BadRequestProblem("Failed to update user status", result.ErrorMessage);
+
+        return Ok(new { message = "User status updated successfully." });
     }
 
-    /// <summary>Get pitch approval requests</summary>
+    /// <summary>
+    /// Get pitch approval requests
+    /// </summary>
     [HttpGet("pitch-approvals")]
     [ProducesResponseType(typeof(PagedResult<PitchApprovalDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -79,21 +69,16 @@ public class AdminController : ControllerBase
     {
         var query = new GetPitchApprovalsQuery(status);
         var result = await _mediator.Send(query, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy danh sách yêu cầu duyệt sân thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
+            return BadRequestProblem("Failed to get pitch approvals", result.ErrorMessage);
+
         return Ok(result.Value);
     }
 
-    /// <summary>Approve a pitch registration</summary>
+    /// <summary>
+    /// Approve a pitch registration
+    /// </summary>
     [HttpPatch("pitch-approvals/{id:guid}/approve")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -101,21 +86,16 @@ public class AdminController : ControllerBase
     {
         var command = new ApprovePitchCommand(id);
         var result = await _mediator.Send(command, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Duyệt sân thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
-        return Ok(new { message = "Đã duyệt sân thành công." });
+            return BadRequestProblem("Failed to approve pitch", result.ErrorMessage);
+
+        return Ok(new { message = "Pitch approved successfully." });
     }
 
-    /// <summary>Reject a pitch registration</summary>
+    /// <summary>
+    /// Reject a pitch registration
+    /// </summary>
     [HttpPatch("pitch-approvals/{id:guid}/reject")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -123,17 +103,10 @@ public class AdminController : ControllerBase
     {
         var command = new RejectPitchCommand(id);
         var result = await _mediator.Send(command, cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Từ chối duyệt sân thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
-        return Ok(new { message = "Đã từ chối đăng ký sân." });
+            return BadRequestProblem("Failed to reject pitch", result.ErrorMessage);
+
+        return Ok(new { message = "Pitch registration rejected." });
     }
 }

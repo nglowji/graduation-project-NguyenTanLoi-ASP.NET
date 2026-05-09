@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ChevronRight } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useGoogleLogin } from '@react-oauth/google';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -29,6 +30,14 @@ const Login: React.FC = () => {
   const location = useLocation();
   const auth = useAuth();
 
+  const handleAuthSuccess = (response: any) => {
+    auth.login(response);
+    const from = (location.state as any)?.from?.pathname;
+    if (response.role === 3) navigate('/dashboard/admin', { replace: true });
+    else if (response.role === 2) navigate('/dashboard/owner', { replace: true });
+    else navigate(from || '/', { replace: true });
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -36,18 +45,73 @@ const Login: React.FC = () => {
     
     try {
       const response = await authService.login({ email, password });
-      auth.login(response);
-      
-      // Redirect: Admin→/dashboard/admin, Owner→/dashboard/owner, Customer→trang trước hoặc /
-      const from = (location.state as any)?.from?.pathname;
-      if (response.role === 3) navigate('/dashboard/admin', { replace: true });
-      else if (response.role === 2) navigate('/dashboard/owner', { replace: true });
-      else navigate(from || '/', { replace: true });
+      handleAuthSuccess(response);
     } catch (err: any) {
       setError(err.response?.data?.Detail || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      setError('');
+      try {
+        // credential is the ID Token
+        const response = await authService.googleLogin(tokenResponse.access_token);
+        handleAuthSuccess(response);
+      } catch (err: any) {
+        setError(err.response?.data?.Detail || 'Đăng nhập Google thất bại.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      setError('Đăng nhập Google thất bại.');
+    }
+    }
+  });
+
+  React.useEffect(() => {
+    // Initialize Facebook SDK
+    (window as any).fbAsyncInit = function() {
+      (window as any).FB.init({
+        appId      : '1889807325052217', // Should use the one from main.tsx but for simplicity putting here
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v18.0'
+      });
+    };
+
+    (function(d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s) as any; js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode?.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  }, []);
+
+  const loginWithFacebook = () => {
+    if (!(window as any).FB) return;
+    
+    (window as any).FB.login(async (response: any) => {
+      if (response.authResponse) {
+        setIsLoading(true);
+        setError('');
+        try {
+          const res = await authService.facebookLogin(response.authResponse.accessToken);
+          handleAuthSuccess(res);
+        } catch (err: any) {
+          setError(err.response?.data?.Detail || 'Đăng nhập Facebook thất bại.');
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setError('Đăng nhập Facebook bị hủy hoặc thất bại.');
+      }
+    }, { scope: 'public_profile,email' });
   };
 
   return (
@@ -145,11 +209,21 @@ const Login: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-2">
-              <button className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-slate-700 transition-colors">
+              <button 
+                type="button"
+                onClick={() => loginWithGoogle()}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-slate-700 transition-colors disabled:opacity-50"
+              >
                 <GoogleIcon />
                 Google
               </button>
-              <button className="flex items-center justify-center gap-2 w-full py-3 bg-[#1877F2]/10 border border-[#1877F2]/20 hover:bg-[#1877F2]/20 rounded-xl font-bold text-[#1877F2] transition-colors">
+              <button 
+                type="button"
+                onClick={loginWithFacebook}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-[#1877F2]/10 border border-[#1877F2]/20 hover:bg-[#1877F2]/20 rounded-xl font-bold text-[#1877F2] transition-colors disabled:opacity-50"
+              >
                 <FacebookIcon />
                 Facebook
               </button>

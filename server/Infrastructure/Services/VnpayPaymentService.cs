@@ -2,7 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.ValueObjects;

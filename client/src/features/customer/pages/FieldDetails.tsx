@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { MapPin, Star, Share2, Heart, Clock, CheckCircle2, ShieldCheck, Coffee, Car, Wifi, Loader2 } from 'lucide-react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { pitchService, type PitchResponse } from '../../../services/pitchService';
+import { bookingService } from '../../../services/bookingService';
+import { paymentService } from '../../../services/paymentService';
 import api from '../../../services/api';
 
 const FieldDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [pitch, setPitch] = useState<PitchResponse | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -44,6 +48,33 @@ const FieldDetails: React.FC = () => {
       setAvailableSlots(response.data);
     } catch (error) {
       console.error("Error fetching slots:", error);
+    }
+  };
+
+  const handleBooking = async () => {
+    if (!selectedTime) return;
+    
+    setIsBooking(true);
+    try {
+      // 1. Create Booking
+      const booking = await bookingService.create({
+        timeSlotId: selectedTime,
+        bookingDate: selectedDate
+      });
+
+      // 2. Create Payment URL
+      const paymentResponse = await paymentService.createPayment({
+        bookingId: booking.id,
+        returnUrl: `${window.location.origin}/payment-result`
+      });
+
+      // 3. Redirect to VNPay
+      window.location.href = paymentResponse.paymentUrl;
+    } catch (error: any) {
+      console.error("Booking/Payment failed:", error);
+      alert(error.response?.data?.Detail || "Đặt sân thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -265,11 +296,17 @@ const FieldDetails: React.FC = () => {
               </div>
 
               <button 
+                onClick={handleBooking}
+                disabled={!selectedTime || isBooking}
                 className={`w-full py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 transition-all shadow-lg
-                  ${selectedTime ? 'bg-primary hover:bg-primary-dark text-white shadow-primary/30' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'}
+                  ${selectedTime && !isBooking ? 'bg-primary hover:bg-primary-dark text-white shadow-primary/30' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'}
                 `}
               >
-                ĐẶT SÂN NGAY
+                {isBooking ? (
+                  <Loader2 className="animate-spin" size={24} />
+                ) : (
+                  "ĐẶT SÂN NGAY"
+                )}
               </button>
 
               <div className="mt-4 text-center">

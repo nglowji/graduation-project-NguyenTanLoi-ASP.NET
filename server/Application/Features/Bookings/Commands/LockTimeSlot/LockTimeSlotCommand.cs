@@ -1,4 +1,5 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
+using Application.Common.Interfaces;
 using MediatR;
 
 namespace Application.Features.Bookings.Commands.LockTimeSlot;
@@ -8,4 +9,4 @@ public record LockTimeSlotCommand(
     Guid TimeSlotId,
     DateOnly BookingDate,
     int LockDurationMinutes = 10
-) : IRequest<Result<Guid>>; // Returns lock ID
+) : IRequest<Result<Guid>>, ITransactionalRequest;

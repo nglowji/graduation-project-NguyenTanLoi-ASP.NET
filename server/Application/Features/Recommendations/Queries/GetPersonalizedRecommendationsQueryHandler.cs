@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Application.Features.Pitches.DTOs;
 using AutoMapper;
 using Domain.Enums;

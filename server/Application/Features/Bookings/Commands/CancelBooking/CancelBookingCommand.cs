@@ -1,4 +1,5 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
+using Application.Common.Interfaces;
 using MediatR;
 
 namespace Application.Features.Bookings.Commands.CancelBooking;
@@ -7,4 +8,4 @@ public record CancelBookingCommand(
     Guid BookingId,
     Guid UserId,
     string Reason
-) : IRequest<Result>;
+) : IRequest<Result>, ITransactionalRequest;

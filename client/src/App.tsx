@@ -11,6 +11,7 @@ import Register from './features/auth/pages/Register';
 import PartnerPortal from './features/owner/pages/PartnerPortal';
 import OwnerDashboard from './features/owner/pages/OwnerDashboard';
 import AdminDashboard from './features/admin/pages/AdminDashboard';
+import PaymentResult from './features/customer/pages/PaymentResult';
 import DashboardLayout from './layouts/DashboardLayout';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="/login" element={<div className="flex flex-col min-h-screen"><Navbar /><Login /><Footer /></div>} />
             <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
             <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
+            <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
 
             {/* Owner Dashboard — yêu cầu đăng nhập với role PitchOwner (2) */}
             <Route path="/dashboard/owner" element={

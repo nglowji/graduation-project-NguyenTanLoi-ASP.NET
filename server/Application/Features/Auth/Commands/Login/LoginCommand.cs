@@ -1,4 +1,4 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Application.Features.Auth.Commands.Register;
 using MediatR;
 

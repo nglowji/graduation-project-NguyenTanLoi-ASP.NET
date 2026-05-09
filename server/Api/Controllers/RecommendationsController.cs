@@ -3,14 +3,11 @@ using Application.Features.Recommendations.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
-public class RecommendationsController : ControllerBase
+public class RecommendationsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -25,6 +22,7 @@ public class RecommendationsController : ControllerBase
     [HttpGet("personalized")]
     [Authorize]
     [ProducesResponseType(typeof(List<PitchDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPersonalizedRecommendations(
         [FromQuery] int limit = 5,
         CancellationToken cancellationToken = default)
@@ -37,18 +35,8 @@ public class RecommendationsController : ControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequest(result.ErrorMessage);
+            return BadRequestProblem("Failed to get recommendations", result.ErrorMessage);
 
         return Ok(result.Value);
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            return userId;
-        }
-        return Guid.Empty;
     }
 }

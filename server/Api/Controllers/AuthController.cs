@@ -1,23 +1,20 @@
 using Application.Features.Auth.Commands.Login;
 using Application.Features.Auth.Commands.Register;
+using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
-public class AuthController : ControllerBase
+public class AuthController : ApiControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IMediator mediator, ILogger<AuthController> logger)
+    public AuthController(IMediator mediator)
     {
         _mediator = mediator;
-        _logger = logger;
     }
 
     /// <summary>
@@ -34,14 +31,7 @@ public class AuthController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Registration failed",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Registration failed", result.ErrorMessage);
 
         return CreatedAtAction(
             nameof(GetProfile),
@@ -64,14 +54,47 @@ public class AuthController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Login failed",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Login failed", result.ErrorMessage);
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Login or Register with Google ID Token
+    /// </summary>
+    [HttpPost("google-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GoogleLogin(
+        [FromBody] GoogleLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new Application.Features.Auth.Commands.GoogleLogin.GoogleLoginCommand(request.IdToken);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestProblem("Google login failed", result.ErrorMessage);
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Login or Register with Facebook Access Token
+    /// </summary>
+    [HttpPost("facebook-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> FacebookLogin(
+        [FromBody] FacebookLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new Application.Features.Auth.Commands.FacebookLogin.FacebookLoginCommand(request.AccessToken);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestProblem("Facebook login failed", result.ErrorMessage);
 
         return Ok(result.Value);
     }
@@ -97,18 +120,6 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public IActionResult Logout()
     {
-        // JWT is stateless, logout is handled client-side by removing token
-        _logger.LogInformation("User logged out");
         return NoContent();
     }
 }
-
-public record UserProfileDto(
-    Guid Id,
-    string Email,
-    string FullName,
-    string PhoneNumber,
-    string Role,
-    bool IsActive,
-    DateTime? LastLoginAt
-);

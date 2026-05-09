@@ -1,5 +1,5 @@
 using Application.Common.Interfaces;
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Domain.Entities;
 using Domain.Services;
 using MediatR;
@@ -76,8 +76,6 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
             return Result.Failure(ex.Message);
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-
         try
         {
             // Cancel booking
@@ -142,8 +140,6 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
                 _logger.LogInformation("Waitlist user {UserId} notified for booking {BookingId} cancellation", firstEntry.UserId, booking.Id);
             }
 
-            await transaction.CommitAsync(cancellationToken);
-
             // Notify real-time status update
             await _notificationService.NotifyBookingCancelledAsync(
                 booking.TimeSlot.PitchId,
@@ -167,7 +163,6 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Error cancelling booking {BookingId}", request.BookingId);
             return Result.Failure("Failed to cancel booking");
         }

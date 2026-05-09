@@ -2,24 +2,21 @@ using Application.Features.Pitches.Commands.CreatePitch;
 using Application.Features.Pitches.DTOs;
 using Application.Features.Pitches.Queries.GetAvailableTimeSlots;
 using Application.Features.Pitches.Queries.SearchPitches;
+using Application.Features.Dashboard.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
-public class PitchesController : ControllerBase
+public class PitchesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly ILogger<PitchesController> _logger;
 
-    public PitchesController(IMediator mediator, ILogger<PitchesController> logger)
+    public PitchesController(IMediator mediator)
     {
         _mediator = mediator;
-        _logger = logger;
     }
 
     /// <summary>
@@ -28,6 +25,7 @@ public class PitchesController : ControllerBase
     [HttpGet("search")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(PitchDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Search(
         [FromQuery] string? searchTerm,
         [FromQuery] Domain.Enums.PitchType? type,
@@ -41,21 +39,15 @@ public class PitchesController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new SearchPitchesQuery(
-            searchTerm,
-            type,
-            minPrice,
-            maxPrice,
-            latitude,
-            longitude,
-            radiusKm,
-            pageNumber,
-            pageSize
+            searchTerm, type, minPrice, maxPrice,
+            latitude, longitude, radiusKm,
+            pageNumber, pageSize
         );
 
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequest(new ProblemDetails { Detail = result.ErrorMessage });
+            return BadRequestProblem("Search failed", result.ErrorMessage);
 
         return Ok(result.Value);
     }
@@ -66,6 +58,7 @@ public class PitchesController : ControllerBase
     [HttpGet("{pitchId:guid}/available-slots")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(List<TimeSlotDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAvailableTimeSlots(
         Guid pitchId,
         [FromQuery] DateOnly date,
@@ -75,7 +68,7 @@ public class PitchesController : ControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequest(new ProblemDetails { Detail = result.ErrorMessage });
+            return BadRequestProblem("Failed to get available slots", result.ErrorMessage);
 
         return Ok(result.Value);
     }
@@ -87,8 +80,6 @@ public class PitchesController : ControllerBase
     [Authorize(Policy = "OwnerOrAdmin")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create(
         [FromBody] CreatePitchCommand command,
         CancellationToken cancellationToken)
@@ -96,13 +87,7 @@ public class PitchesController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to create pitch",
-                Detail = result.ErrorMessage
-            });
-        }
+            return BadRequestProblem("Failed to create pitch", result.ErrorMessage);
 
         return CreatedAtAction(
             nameof(GetAvailableTimeSlots),
@@ -111,36 +96,24 @@ public class PitchesController : ControllerBase
         );
     }
 
-    /// <summary>Get owner's pitches with today's stats</summary>
+    /// <summary>
+    /// Get owner's pitches with today's stats
+    /// </summary>
     [HttpGet("my")]
     [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMyPitches(CancellationToken cancellationToken = default)
     {
         var ownerId = GetCurrentUserId();
         if (ownerId == Guid.Empty) return Unauthorized();
 
-        var query = new Application.Features.Dashboard.Queries.GetOwnerPitchesQuery(ownerId);
+        var query = new GetOwnerPitchesQuery(ownerId);
         var result = await _mediator.Send(query, cancellationToken);
-        
-        if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy danh sách sân của tôi thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
-        return Ok(result.Value);
-    }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-            return userId;
-        return Guid.Empty;
+        if (!result.IsSuccess)
+            return BadRequestProblem("Failed to get my pitches", result.ErrorMessage);
+
+        return Ok(result.Value);
     }
 }

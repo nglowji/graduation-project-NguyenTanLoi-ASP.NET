@@ -1,4 +1,4 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Application.Features.Pitches.DTOs;
 using Domain.Enums;
 using MediatR;

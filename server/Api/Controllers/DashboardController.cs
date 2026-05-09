@@ -1,18 +1,14 @@
-using Application.Common.Models;
 using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
 [Authorize]
-public class DashboardController : ControllerBase
+public class DashboardController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -21,7 +17,9 @@ public class DashboardController : ControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>Get summary stats for pitch owner dashboard</summary>
+    /// <summary>
+    /// Get summary stats for pitch owner dashboard
+    /// </summary>
     [HttpGet("owner/stats")]
     [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(typeof(OwnerDashboardStatsDto), StatusCodes.Status200OK)]
@@ -32,21 +30,16 @@ public class DashboardController : ControllerBase
         if (ownerId == Guid.Empty) return Unauthorized();
 
         var result = await _mediator.Send(new GetOwnerDashboardStatsQuery(ownerId), cancellationToken);
-        
+
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy thống kê chủ sân thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
+            return BadRequestProblem("Failed to get owner stats", result.ErrorMessage);
+
         return Ok(result.Value);
     }
 
-    /// <summary>Get admin platform stats</summary>
+    /// <summary>
+    /// Get admin platform stats
+    /// </summary>
     [HttpGet("admin/stats")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(AdminDashboardStatsDto), StatusCodes.Status200OK)]
@@ -54,25 +47,10 @@ public class DashboardController : ControllerBase
     public async Task<IActionResult> GetAdminStats(CancellationToken cancellationToken = default)
     {
         var result = await _mediator.Send(new GetAdminDashboardStatsQuery(), cancellationToken);
-        
-        if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Lấy thống kê hệ thống thất bại",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-        
-        return Ok(result.Value);
-    }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-            return userId;
-        return Guid.Empty;
+        if (!result.IsSuccess)
+            return BadRequestProblem("Failed to get admin stats", result.ErrorMessage);
+
+        return Ok(result.Value);
     }
 }

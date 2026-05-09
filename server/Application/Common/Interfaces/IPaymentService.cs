@@ -1,4 +1,4 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 
 namespace Application.Common.Interfaces;
 

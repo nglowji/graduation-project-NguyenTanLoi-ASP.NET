@@ -22,6 +22,16 @@ export const authService = {
     const response = await api.post('/auth/login', command);
     return response.data;
   },
+
+  googleLogin: async (idToken: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/google-login', { idToken });
+    return response.data;
+  },
+
+  facebookLogin: async (accessToken: string): Promise<AuthResponse> => {
+    const response = await api.post('/auth/facebook-login', { accessToken });
+    return response.data;
+  },
   
   register: async (command: any): Promise<AuthResponse> => {
     const response = await api.post('/auth/register', command);

@@ -19,35 +19,43 @@ public class SmtpEmailService : IEmailService
 
     public async Task SendEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Sending email to {To} with subject {Subject}", to, subject);
-
-        // For development/demo, we just log the email
-        // In production, uncomment the following code and configure appsettings.json
-        /*
-        var smtpHost = _configuration["Email:Host"];
-        var smtpPort = int.Parse(_configuration["Email:Port"] ?? "587");
-        var smtpUser = _configuration["Email:Username"];
-        var smtpPass = _configuration["Email:Password"];
-
-        using var client = new SmtpClient(smtpHost, smtpPort)
+        try
         {
-            Credentials = new NetworkCredential(smtpUser, smtpPass),
-            EnableSsl = true
-        };
+            var smtpHost = _configuration["Email:Host"];
+            var smtpPort = int.Parse(_configuration["Email:Port"] ?? "587");
+            var smtpUser = _configuration["Email:Username"];
+            var smtpPass = _configuration["Email:Password"];
+            var displayName = _configuration["Email:DisplayName"] ?? "SmartSport Platform";
 
-        var mailMessage = new MailMessage
+            if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(smtpUser))
+            {
+                _logger.LogWarning("SMTP is not configured. Email to {To} was not sent. Body: {Body}", to, body);
+                return;
+            }
+
+            using var client = new SmtpClient(smtpHost, smtpPort)
+            {
+                Credentials = new NetworkCredential(smtpUser, smtpPass),
+                EnableSsl = true
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(smtpUser!, displayName),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true
+            };
+            mailMessage.To.Add(to);
+
+            await client.SendMailAsync(mailMessage, cancellationToken);
+            _logger.LogInformation("Email sent successfully to {To}", to);
+        }
+        catch (Exception ex)
         {
-            From = new MailAddress(smtpUser!, "SmartSport Platform"),
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true
-        };
-        mailMessage.To.Add(to);
-
-        await client.SendMailAsync(mailMessage, cancellationToken);
-        */
-
-        _logger.LogInformation("Email content: {Body}", body);
-        await Task.CompletedTask;
+            _logger.LogError(ex, "Failed to send email to {To}", to);
+            // We don't throw here to avoid breaking the main transaction, 
+            // but in a real system we might use a background job/queue.
+        }
     }
 }

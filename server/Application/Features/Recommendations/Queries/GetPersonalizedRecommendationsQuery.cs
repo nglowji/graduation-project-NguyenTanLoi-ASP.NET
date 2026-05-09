@@ -1,6 +1,6 @@
 using Application.Features.Pitches.DTOs;
 using MediatR;
-using Application.Common.Models;
+using Application.Common.DTOs;
 
 namespace Application.Features.Recommendations.Queries;
 

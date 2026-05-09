@@ -1,17 +1,15 @@
-using Application.Common.Models;
+using Application.Common.DTOs;
 using Application.Features.Waitlist.Commands.JoinWaitlist;
+using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Api.Controllers;
 
-[ApiController]
 [Route("api/v1/[controller]")]
-[Produces("application/json")]
 [Authorize]
-public class WaitlistController : ControllerBase
+public class WaitlistController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -38,30 +36,8 @@ public class WaitlistController : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Failed to join waitlist",
-                Detail = result.ErrorMessage,
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+            return BadRequestProblem("Failed to join waitlist", result.ErrorMessage);
 
         return Ok(new { WaitlistId = result.Value, Message = "Successfully joined waitlist" });
     }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("userId") ?? User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            return userId;
-        }
-        return Guid.Empty;
-    }
 }
-
-public record JoinWaitlistRequest(
-    Guid TimeSlotId,
-    DateOnly Date
-);
