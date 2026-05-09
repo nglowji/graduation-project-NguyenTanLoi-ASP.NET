@@ -26,7 +26,7 @@
 
 ---
 
-## 🔥 Tính năng Đẳng cấp (Premium Features)
+## 🔥 Tính năng nổi bật
 
 SmartSport không chỉ là một ứng dụng đặt sân, đây là một hệ sinh thái được tối ưu cho hiệu suất kinh doanh:
 
@@ -137,8 +137,8 @@ Dự án chú trọng tuyệt đối vào tính đúng đắn của logic nghi�
 ## 👨‍💻 Thông tin Tác giả
 
 **Nguyễn Tấn Lợi**
--   **Vị trí**: Full-stack Developer (Specializing in .NET & React)
--   **Định hướng**: Backend Architect / Lead Developer
+-   **Vị trí**: Backend Developer (Specializing in .NET & vide coding React)
+-   **Định hướng**: Backend Developer
 -   **GitHub**: [@nglowji](https://github.com/nglowji)
 
 ---
