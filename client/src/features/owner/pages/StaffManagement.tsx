@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, UserPlus, Mail, Phone, Lock, Shield, 
-  Trash2, Edit2, Search, X, Check, AlertCircle,
+  Trash2, Edit2, Search, X, AlertCircle,
   ShieldAlert, Calendar, MessageSquare
 } from 'lucide-react';
 import api from '../../../services/api';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowUpRight, BarChart3, PieChart, Download } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, ArrowUpRight, BarChart3, PieChart, Download } from 'lucide-react';
 import api from '../../../services/api';
 
 const Revenue: React.FC = () => {

@@ -22,9 +22,7 @@ const PartnerPortal: React.FC = () => {
   const [error, setError] = React.useState('');
   const [isSuccess, setIsSuccess] = React.useState(false);
   
-  const [selectedProvince, setSelectedProvince] = React.useState('');
   const [provinceCode, setProvinceCode] = React.useState<number | undefined>(undefined);
-  const [selectedDistrict, setSelectedDistrict] = React.useState('');
   const [districtCode, setDistrictCode] = React.useState<number | undefined>(undefined);
   const [selectedWard, setSelectedWard] = React.useState('');
 
@@ -45,19 +43,14 @@ const PartnerPortal: React.FC = () => {
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const code = Number(e.target.value);
-    const p = provinces.find(x => x.code === code);
     setProvinceCode(code || undefined);
-    setSelectedProvince(p?.name || '');
-    setSelectedDistrict('');
     setDistrictCode(undefined);
     setSelectedWard('');
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const code = Number(e.target.value);
-    const d = districts.find(x => x.code === code);
     setDistrictCode(code || undefined);
-    setSelectedDistrict(d?.name || '');
     setSelectedWard('');
   };
 

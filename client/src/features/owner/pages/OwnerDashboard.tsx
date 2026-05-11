@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown, MapPin,
@@ -9,12 +9,12 @@ import {
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const fadeIn = { 
+const fadeIn: Variants = { 
   hidden: { opacity: 0, y: 20 }, 
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } 
 };
 
-const stagger = {
+const stagger: Variants = {
   show: {
     transition: {
       staggerChildren: 0.1

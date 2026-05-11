@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Star, MessageSquare, User, Calendar, ThumbsUp, Filter, 
-  Search, X, Send, CheckCircle, AlertCircle 
+  Star, MessageSquare, Calendar, 
+  Search, X, Send, CheckCircle 
 } from 'lucide-react';
 import api from '../../../services/api';
 
