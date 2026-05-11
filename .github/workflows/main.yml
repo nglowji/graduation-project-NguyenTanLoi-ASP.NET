@@ -27,11 +27,6 @@ jobs:
     - name: Test
       run: dotnet test server/SportsPitchBooking.sln --no-build --configuration Release --verbosity normal
 
-    - name: Deploy to Render
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-      run: |
-        curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-
   frontend-build-deploy:
     name: Frontend (React) Build & Deploy
     runs-on: ubuntu-latest
