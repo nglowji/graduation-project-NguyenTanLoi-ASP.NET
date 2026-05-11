@@ -25,7 +25,7 @@ jobs:
       run: dotnet build server/SportsPitchBooking.sln --no-restore --configuration Release
       
     - name: Test
-      run: dotnet test server/SportsPitchBooking.sln --no-build --verbosity normal
+      run: dotnet test server/SportsPitchBooking.sln --no-build --configuration Release --verbosity normal
 
   frontend-build-deploy:
     name: Frontend (React) Build & Deploy
