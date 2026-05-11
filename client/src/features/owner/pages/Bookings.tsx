@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Calendar, Search, Filter, Clock, User, CheckCircle, XCircle, ChevronRight, Activity } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -7,7 +7,6 @@ const Bookings: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [tab, setTab] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchBookings();

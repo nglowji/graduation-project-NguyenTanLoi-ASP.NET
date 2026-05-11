@@ -28,7 +28,7 @@ const ExploreFields: React.FC = () => {
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
 
   // Vietnam Locations Hook
-  const { provinces, districts, wards, isLoading: isLocationLoading } = useVietnamLocations(provinceCode, districtCode);
+  const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
   // Data States
   const [pitches, setPitches] = useState<PitchResponse[]>([]);

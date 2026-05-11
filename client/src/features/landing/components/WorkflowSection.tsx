@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2, Star, MapPin } from 'lucide-react';
+import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2 } from 'lucide-react';
 
 const WorkflowSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'player' | 'owner'>('player');

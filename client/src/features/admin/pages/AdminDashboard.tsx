@@ -356,7 +356,7 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-xs text-white/20 font-black uppercase tracking-widest">Sạch bóng yêu cầu</p>
                 </div>
               ) : (
-                approvals.map((a, i) => (
+                approvals.map((a) => (
                   <div key={a.id} className="p-5 bg-[#1e202b] rounded-[1.5rem] border border-white/5 hover:border-blue-600/30 transition-all group">
                     <div className="flex items-start justify-between mb-4">
                       <div>

@@ -3,8 +3,8 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown, MapPin,
-  Star, CheckCircle, XCircle, Eye, Plus, ArrowUpRight, Loader2,
-  Clock, Activity, ChevronRight, Filter, Search
+  Star, CheckCircle, XCircle, Plus, ArrowUpRight,
+  Clock, Activity, ChevronRight, Filter
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -190,7 +190,7 @@ const OwnerDashboard: React.FC = () => {
           { title: 'Lượt đặt sân', value: (stats?.totalBookings || 0).toString(), change: `${stats?.bookingsChange || 0}%`, up: (stats?.bookingsChange || 0) >= 0, icon: <CalendarCheck size={24} />, color: 'from-blue-500 to-indigo-600' },
           { title: 'Khách hàng mới', value: (stats?.newCustomers || 0).toString(), change: '+12%', up: true, icon: <Users size={24} />, color: 'from-amber-500 to-orange-600' },
           { title: 'Đánh giá trung bình', value: `${(stats?.averageRating || 0).toFixed(1)} ★`, change: 'Top 5%', up: true, icon: <Star size={24} />, color: 'from-rose-500 to-pink-600' },
-        ].map((s, i) => (
+        ].map((s) => (
           <motion.div 
             key={s.title} 
             variants={fadeIn}

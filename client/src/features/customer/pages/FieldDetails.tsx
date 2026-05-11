@@ -9,7 +9,6 @@ import api from '../../../services/api';
 
 const FieldDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [pitch, setPitch] = useState<PitchResponse | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -33,13 +33,14 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Location Data from Hook
-  const { 
-    provinces, districts, wards,
-    selectedProvince, setSelectedProvince,
-    selectedDistrict, setSelectedDistrict,
-    selectedWard, setSelectedWard
-  } = useVietnamLocations();
+  // Location State
+  const [selectedProvince, setSelectedProvince] = useState<any>(null);
+  const [provinceCode, setProvinceCode] = useState<number | undefined>(undefined);
+  const [selectedDistrict, setSelectedDistrict] = useState<any>(null);
+  const [districtCode, setDistrictCode] = useState<number | undefined>(undefined);
+  const [selectedWard, setSelectedWard] = useState<any>(null);
+
+  const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,10 +176,15 @@ const Register: React.FC = () => {
                 <div className="relative group">
                   <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <select 
-                    value={selectedProvince?.code || ''}
+                    value={provinceCode || ''}
                     onChange={(e) => {
-                        const p = provinces.find(x => x.code === e.target.value);
-                        if (p) setSelectedProvince(p);
+                        const code = Number(e.target.value);
+                        const p = provinces.find(x => x.code === code);
+                        setProvinceCode(code || undefined);
+                        setSelectedProvince(p || null);
+                        setDistrictCode(undefined);
+                        setSelectedDistrict(null);
+                        setSelectedWard(null);
                     }}
                     required
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer"
@@ -191,13 +197,16 @@ const Register: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Quận / Huyện</label>
                 <select 
-                  value={selectedDistrict?.code || ''}
+                  value={districtCode || ''}
                   onChange={(e) => {
-                    const d = districts.find(x => x.code === e.target.value);
-                    if (d) setSelectedDistrict(d);
+                    const code = Number(e.target.value);
+                    const d = districts.find(x => x.code === code);
+                    setDistrictCode(code || undefined);
+                    setSelectedDistrict(d || null);
+                    setSelectedWard(null);
                   }}
                   required
-                  disabled={!selectedProvince}
+                  disabled={!provinceCode}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer disabled:opacity-40"
                 >
                   <option value="">Chọn Quận/Huyện</option>
@@ -213,11 +222,12 @@ const Register: React.FC = () => {
                 <select 
                   value={selectedWard?.code || ''}
                   onChange={(e) => {
-                    const w = wards.find(x => x.code === e.target.value);
-                    if (w) setSelectedWard(w);
+                    const code = Number(e.target.value);
+                    const w = wards.find(x => x.code === code);
+                    setSelectedWard(w || null);
                   }}
                   required
-                  disabled={!selectedDistrict}
+                  disabled={!districtCode}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer disabled:opacity-40"
                 >
                   <option value="">Chọn Phường/Xã</option>

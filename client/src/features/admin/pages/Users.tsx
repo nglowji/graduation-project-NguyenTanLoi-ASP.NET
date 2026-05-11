@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Users as UsersIcon, Search, Filter, Mail, Shield, 
-  Ban, Eye, MoreVertical, UserCheck, UserPlus, X,
-  AlertCircle, CheckCircle, Phone, Lock, User as UserIcon
+  Users as UsersIcon, Search, Mail, 
+  Ban, Eye, UserCheck, UserPlus, X,
+  AlertCircle, CheckCircle, Phone, Lock, User as UserIcon, Trash2
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -155,7 +155,7 @@ const Users: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {users.map((u, i) => (
+                {users.map((u) => (
                   <tr key={u.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
