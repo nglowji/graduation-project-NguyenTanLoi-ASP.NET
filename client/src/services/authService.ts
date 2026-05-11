@@ -15,6 +15,8 @@ export interface AuthResponse {
   role: UserRoleType;
   token: string;
   expiresAt: string;
+  address?: string;
+  emailConfirmed?: boolean;
 }
 
 export const authService = {

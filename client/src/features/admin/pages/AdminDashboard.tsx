@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Users, DollarSign, ShieldCheck, TrendingUp, TrendingDown,
+  Users, DollarSign, ShieldCheck,
   Search, CheckCircle, XCircle, Eye, Ban,
-  Activity, MoreVertical, MapPin, Loader2,
+  Activity, MoreVertical,
   Lock, UserCheck, AlertCircle, ChevronRight, BarChart3,
   Calendar
 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 const fadeIn = { 
   hidden: { opacity: 0, y: 20 }, 
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } 
-};
+} as const;
 
 const stagger = {
   show: {
@@ -21,7 +21,7 @@ const stagger = {
       staggerChildren: 0.1
     }
   }
-};
+} as const;
 
 interface AdminStats {
   totalUsers: number;
@@ -192,7 +192,7 @@ const AdminDashboard: React.FC = () => {
           { title: 'Chủ sân', value: stats?.activeOwners.toString() || '0', change: 'Ổn định', up: true, icon: <UserCheck size={24} />, color: 'from-blue-500 to-indigo-600' },
           { title: 'Hoa hồng tháng', value: formatCurrency(stats?.platformCommission || 0), change: `+${stats?.commissionGrowth || 0}%`, up: true, icon: <DollarSign size={24} />, color: 'from-blue-400 to-blue-600' },
           { title: 'Chờ phê duyệt', value: stats?.pendingApprovals.toString() || '0', change: 'Ưu tiên', up: false, icon: <ShieldCheck size={24} />, color: 'from-blue-600 to-indigo-900' },
-        ].map((s, i) => (
+        ].map((s) => (
           <motion.div 
             key={s.title} 
             variants={fadeIn}
@@ -286,11 +286,11 @@ const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {users.map((u, i) => (
+                  {users.map((u) => (
                     <tr key={u.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white shadow-lg bg-gradient-to-br ${i % 3 === 0 ? 'from-blue-500 to-indigo-600' : i % 3 === 1 ? 'from-blue-400 to-indigo-500' : 'from-indigo-600 to-blue-800'}`}>
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600`}>
                             {u.fullName?.split(' ').pop()?.[0]}
                           </div>
                           <div>

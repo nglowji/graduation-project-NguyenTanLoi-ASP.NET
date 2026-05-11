@@ -16,58 +16,19 @@ import {
   MapPin
 } from 'lucide-react';
 
-const LOCATION_DATA: Record<string, Record<string, string[]>> = {
-  "TP. Hồ Chí Minh": {
-    "Quận 1": ["Phường Bến Nghé", "Phường Bến Thành", "Phường Đa Kao", "Phường Tân Định"],
-    "Quận 3": ["Phường Võ Thị Sáu", "Phường 1", "Phường 2", "Phường 5"],
-    "Quận 7": ["Phường Tân Phong", "Phường Tân Phú", "Phường Phú Mỹ", "Phường Tân Kiểng"],
-    "Quận 10": ["Phường 1", "Phường 12", "Phường 14", "Phường 15"],
-    "Quận Tân Bình": ["Phường 2", "Phường 12", "Phường 13", "Phường 15"],
-    "Quận Bình Thạnh": ["Phường 1", "Phường 2", "Phường 25", "Phường 26"],
-    "TP. Thủ Đức": ["Phường Thảo Điền", "Phường An Phú", "Phường Hiệp Bình Chánh"],
-  },
-  "Hà Nội": {
-    "Quận Ba Đình": ["Phường Cống Vị", "Phường Điện Biên", "Phường Đội Cấn", "Phường Kim Mã"],
-    "Quận Hoàn Kiếm": ["Phường Chương Dương", "Phường Cửa Đông", "Phường Đồng Xuân", "Phường Hàng Bạc"],
-    "Quận Tây Hồ": ["Phường Bưởi", "Phường Thụy Khuê", "Phường Yên Phụ"],
-    "Quận Cầu Giấy": ["Phường Dịch Vọng", "Phường Nghĩa Đô", "Phường Quan Hoa"],
-  },
-  "Đà Nẵng": {
-    "Quận Hải Châu": ["Phường Hòa Cường Bắc", "Phường Hòa Cường Nam", "Phường Nam Dương"],
-    "Quận Thanh Khê": ["Phường An Khê", "Phường Chính Gián", "Phường Hòa Khê"],
-  },
-  "Bà Rịa – Vũng Tàu": {
-    "TP. Vũng Tàu": ["Phường 1", "Phường 2", "Phường 3", "Phường Thắng Tam", "Phường Rạch Dừa"],
-    "TP. Bà Rịa": ["Phường Phước Trung", "Phường Phước Hiệp", "Phường Phước Nguyên"],
-    "Thị xã Phú Mỹ": ["Phường Phú Mỹ", "Phường Mỹ Xuân", "Phường Hắc Dịch"],
-    "Huyện Long Điền": ["Thị trấn Long Điền", "Thị trấn Long Hải", "Xã Phước Hưng"],
-  },
-  "An Giang": {
-    "TP. Long Xuyên": ["Phường Mỹ Bình", "Phường Mỹ Long", "Phường Mỹ Xuyên"],
-    "TP. Châu Đốc": ["Phường Châu Phú A", "Phường Châu Phú B", "Phường Vĩnh Mỹ"],
-  },
-  "Khánh Hòa": {
-    "TP. Nha Trang": ["Phường Lộc Thọ", "Phường Vĩnh Nguyên", "Phường Vĩnh Hải"],
-    "TP. Cam Ranh": ["Phường Cam Linh", "Phường Cam Lộc", "Phường Cam Lợi"],
-  },
-  "Quảng Ninh": {
-    "TP. Hạ Long": ["Phường Bãi Cháy", "Phường Hồng Gai", "Phường Hòn Gai"],
-    "TP. Móng Cái": ["Phường Ka Long", "Phường Trần Phú", "Phường Hòa Lạc"],
-  }
-};
-
-const VIETNAM_PROVINCES = [
-  "An Giang", "Bà Rịa – Vũng Tàu", "Bạc Liêu", "Bắc Giang", "Bắc Kạn", "Bắc Ninh", "Bến Tre", "Bình Dương", "Bình Định", "Bình Phước", "Bình Thuận", "Cà Mau", "Cao Bằng", "Cần Thơ", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lạng Sơn", "Lào Cai", "Lâm Đồng", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh", "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
-];
+import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 const PartnerPortal: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [isSuccess, setIsSuccess] = React.useState(false);
   
   const [selectedProvince, setSelectedProvince] = React.useState('');
+  const [provinceCode, setProvinceCode] = React.useState<number | undefined>(undefined);
   const [selectedDistrict, setSelectedDistrict] = React.useState('');
-  const [districts, setDistricts] = React.useState<string[]>([]);
-  const [wards, setWards] = React.useState<string[]>([]);
+  const [districtCode, setDistrictCode] = React.useState<number | undefined>(undefined);
+  const [selectedWard, setSelectedWard] = React.useState('');
+
+  const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
   const [formData, setFormData] = React.useState({
     fullName: '',
@@ -83,37 +44,21 @@ const PartnerPortal: React.FC = () => {
   };
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const province = e.target.value;
-    setSelectedProvince(province);
+    const code = Number(e.target.value);
+    const p = provinces.find(x => x.code === code);
+    setProvinceCode(code || undefined);
+    setSelectedProvince(p?.name || '');
     setSelectedDistrict('');
-    setWards([]);
-    
-    if (province) {
-      const districtData = LOCATION_DATA[province];
-      if (districtData) {
-        setDistricts(Object.keys(districtData));
-      } else {
-        setDistricts([`Thành phố ${province}`, `Huyện Đông ${province}`, `Huyện Tây ${province}`, `Huyện Nam ${province}`, `Huyện Bắc ${province}`]);
-      }
-    } else {
-      setDistricts([]);
-    }
+    setDistrictCode(undefined);
+    setSelectedWard('');
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const district = e.target.value;
-    setSelectedDistrict(district);
-    
-    if (district) {
-      const wardData = LOCATION_DATA[selectedProvince]?.[district];
-      if (wardData) {
-        setWards(wardData);
-      } else {
-        setWards(["Phường Trung Tâm", "Phường 1", "Phường 2", "Xã Bình Minh", "Xã Hòa Bình"]);
-      }
-    } else {
-      setWards([]);
-    }
+    const code = Number(e.target.value);
+    const d = districts.find(x => x.code === code);
+    setDistrictCode(code || undefined);
+    setSelectedDistrict(d?.name || '');
+    setSelectedWard('');
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -556,36 +501,42 @@ const PartnerPortal: React.FC = () => {
                     <div className="space-y-1.5">
                       <label className="text-sm font-bold text-slate-700">Tỉnh / Thành phố</label>
                       <select 
-                        value={selectedProvince}
+                        value={provinceCode || ''}
                         onChange={handleProvinceChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer"
                       >
                         <option value="">Chọn Tỉnh/Thành</option>
-                        {VIETNAM_PROVINCES.map(province => (
-                          <option key={province} value={province}>{province}</option>
+                        {provinces.map(p => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
                         ))}
                       </select>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-bold text-slate-700">Quận / Huyện</label>
                       <select 
-                        value={selectedDistrict}
+                        value={districtCode || ''}
                         onChange={handleDistrictChange}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer"
+                        disabled={!provinceCode}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer disabled:opacity-50"
                       >
                         <option value="">Chọn Quận/Huyện</option>
-                        {districts.map(district => (
-                          <option key={district} value={district}>{district}</option>
+                        {districts.map(d => (
+                          <option key={d.code} value={d.code}>{d.name}</option>
                         ))}
                       </select>
                     </div>
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-sm font-bold text-slate-700">Phường / Xã</label>
-                    <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer">
+                    <select 
+                      value={selectedWard}
+                      onChange={(e) => setSelectedWard(e.target.value)}
+                      disabled={!districtCode}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer disabled:opacity-50"
+                    >
                       <option value="">Chọn Phường/Xã</option>
-                      {wards.map(ward => (
-                        <option key={ward} value={ward}>{ward}</option>
+                      {wards.map(w => (
+                        <option key={w.code} value={w.name}>{w.name}</option>
                       ))}
                     </select>
                   </div>

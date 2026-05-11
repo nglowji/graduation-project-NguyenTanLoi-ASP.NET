@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ChevronRight, User, Phone, MapPin } from 'lucide-react';
+import { Mail, Lock, ChevronRight, User, Phone, MapPin, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { authService, UserRole } from '../../../services/authService';
+import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -19,102 +20,26 @@ const FacebookIcon = () => (
   </svg>
 );
 
-const LOCATION_DATA: Record<string, Record<string, string[]>> = {
-  "TP. Hồ Chí Minh": {
-    "Quận 1": ["Phường Bến Nghé", "Phường Bến Thành", "Phường Đa Kao", "Phường Tân Định"],
-    "Quận 3": ["Phường Võ Thị Sáu", "Phường 1", "Phường 2", "Phường 5"],
-    "Quận 7": ["Phường Tân Phong", "Phường Tân Phú", "Phường Phú Mỹ", "Phường Tân Kiểng"],
-    "Quận 10": ["Phường 1", "Phường 12", "Phường 14", "Phường 15"],
-    "Quận Tân Bình": ["Phường 2", "Phường 12", "Phường 13", "Phường 15"],
-    "Quận Bình Thạnh": ["Phường 1", "Phường 2", "Phường 25", "Phường 26"],
-    "TP. Thủ Đức": ["Phường Thảo Điền", "Phường An Phú", "Phường Hiệp Bình Chánh"],
-  },
-  "Hà Nội": {
-    "Quận Ba Đình": ["Phường Cống Vị", "Phường Điện Biên", "Phường Đội Cấn", "Phường Kim Mã"],
-    "Quận Hoàn Kiếm": ["Phường Chương Dương", "Phường Cửa Đông", "Phường Đồng Xuân", "Phường Hàng Bạc"],
-    "Quận Tây Hồ": ["Phường Bưởi", "Phường Thụy Khuê", "Phường Yên Phụ"],
-    "Quận Cầu Giấy": ["Phường Dịch Vọng", "Phường Nghĩa Đô", "Phường Quan Hoa"],
-  },
-  "Đà Nẵng": {
-    "Quận Hải Châu": ["Phường Hòa Cường Bắc", "Phường Hòa Cường Nam", "Phường Nam Dương"],
-    "Quận Thanh Khê": ["Phường An Khê", "Phường Chính Gián", "Phường Hòa Khê"],
-  },
-  "Bà Rịa – Vũng Tàu": {
-    "TP. Vũng Tàu": ["Phường 1", "Phường 2", "Phường 3", "Phường Thắng Tam", "Phường Rạch Dừa"],
-    "TP. Bà Rịa": ["Phường Phước Trung", "Phường Phước Hiệp", "Phường Phước Nguyên"],
-    "Thị xã Phú Mỹ": ["Phường Phú Mỹ", "Phường Mỹ Xuân", "Phường Hắc Dịch"],
-    "Huyện Long Điền": ["Thị trấn Long Điền", "Thị trấn Long Hải", "Xã Phước Hưng"],
-  },
-  "An Giang": {
-    "TP. Long Xuyên": ["Phường Mỹ Bình", "Phường Mỹ Long", "Phường Mỹ Xuyên"],
-    "TP. Châu Đốc": ["Phường Châu Phú A", "Phường Châu Phú B", "Phường Vĩnh Mỹ"],
-  },
-  "Khánh Hòa": {
-    "TP. Nha Trang": ["Phường Lộc Thọ", "Phường Vĩnh Nguyên", "Phường Vĩnh Hải"],
-    "TP. Cam Ranh": ["Phường Cam Linh", "Phường Cam Lộc", "Phường Cam Lợi"],
-  },
-  "Quảng Ninh": {
-    "TP. Hạ Long": ["Phường Bãi Cháy", "Phường Hồng Gai", "Phường Hòn Gai"],
-    "TP. Móng Cái": ["Phường Ka Long", "Phường Trần Phú", "Phường Hòa Lạc"],
-  }
-};
-
-const VIETNAM_PROVINCES = [
-  "An Giang", "Bà Rịa – Vũng Tàu", "Bạc Liêu", "Bắc Giang", "Bắc Kạn", "Bắc Ninh", "Bến Tre", "Bình Dương", "Bình Định", "Bình Phước", "Bình Thuận", "Cà Mau", "Cao Bằng", "Cần Thơ", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lạng Sơn", "Lào Cai", "Lâm Đồng", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh", "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
-];
-
 const Register: React.FC = () => {
-  const [selectedProvince, setSelectedProvince] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [districts, setDistricts] = useState<string[]>([]);
-  const [wards, setWards] = useState<string[]>([]);
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const province = e.target.value;
-    setSelectedProvince(province);
-    setSelectedDistrict('');
-    setWards([]);
-    
-    if (province) {
-      const districtData = LOCATION_DATA[province];
-      if (districtData) {
-        setDistricts(Object.keys(districtData));
-      } else {
-        // Dynamic generator for other provinces
-        setDistricts([`Thành phố ${province}`, `Huyện Đông ${province}`, `Huyện Tây ${province}`, `Huyện Nam ${province}`, `Huyện Bắc ${province}`]);
-      }
-    } else {
-      setDistricts([]);
-    }
-  };
-
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const district = e.target.value;
-    setSelectedDistrict(district);
-    
-    if (district) {
-      const wardData = LOCATION_DATA[selectedProvince]?.[district];
-      if (wardData) {
-        setWards(wardData);
-      } else {
-        // Dynamic generator for wards
-        setWards(["Phường Trung Tâm", "Phường 1", "Phường 2", "Xã Bình Minh", "Xã Hòa Bình"]);
-      }
-    } else {
-      setWards([]);
-    }
-  };
-
+  // Form Basic Data
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
+  const [detailAddress, setDetailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  // Location Data from Hook
+  const { 
+    provinces, districts, wards,
+    selectedProvince, setSelectedProvince,
+    selectedDistrict, setSelectedDistrict,
+    selectedWard, setSelectedWard
+  } = useVietnamLocations();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,20 +48,28 @@ const Register: React.FC = () => {
       return;
     }
 
+    if (!selectedProvince || !selectedDistrict || !selectedWard) {
+      setError('Vui lòng chọn đầy đủ địa chỉ.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
+      const fullAddress = `${detailAddress ? detailAddress + ', ' : ''}${selectedWard.name}, ${selectedDistrict.name}, ${selectedProvince.name}`;
+      
       await authService.register({
         email,
         password,
         fullName: name,
         phoneNumber: phone,
+        address: fullAddress,
         role: UserRole.Customer
       });
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.Detail || 'Đăng ký thất bại. Vui lòng thử lại.');
+      setError(err.response?.data?.Detail || 'Đăng ký thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setIsLoading(false);
     }
@@ -158,8 +91,8 @@ const Register: React.FC = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
         <div className="absolute bottom-16 left-16 right-16 text-white">
-          <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl">Gia nhập cộng đồng <br/><span className="text-primary">SmartSport</span></h2>
-          <p className="text-2xl text-slate-100 leading-relaxed font-medium drop-shadow-lg">Trở thành một phần của mạng lưới kết nối thể thao lớn nhất Việt Nam. Hoàn toàn miễn phí.</p>
+          <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl font-heading">Gia nhập <br/><span className="text-primary">SmartSport</span></h2>
+          <p className="text-xl text-slate-100 leading-relaxed font-bold drop-shadow-lg">Trở thành một phần của mạng lưới kết nối thể thao lớn nhất Việt Nam. Hoàn toàn miễn phí.</p>
         </div>
       </div>
 
@@ -171,144 +104,165 @@ const Register: React.FC = () => {
           transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           className="w-full max-w-lg"
         >
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Tạo tài khoản mới</h2>
-            <p className="text-slate-600">Bắt đầu hành trình thể thao của bạn ngay hôm nay</p>
+          <div className="mb-10 text-center lg:text-left">
+            <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Tạo tài khoản mới</h2>
+            <p className="text-slate-500 font-bold">Bắt đầu hành trình thể thao của bạn ngay hôm nay</p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-bold animate-shake">
-              {error}
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-lg shadow-red-500/5"
+            >
+              <Lock size={18} /> {error}
+            </motion.div>
           )}
 
-          <form className="flex flex-col gap-4" onSubmit={handleRegister}>
+          <form className="flex flex-col gap-6" onSubmit={handleRegister}>
             {/* Hàng 1: Họ tên & SĐT */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Họ và Tên</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Họ và Tên</label>
+                <div className="relative group">
+                  <User className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <input 
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nguyễn Văn A" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
+                    required
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Số điện thoại</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Số điện thoại</label>
+                <div className="relative group">
+                  <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <input 
                     type="tel" 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="0912 345 678" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
+                    required
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Hàng 2: Email & Tỉnh/Thành */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Địa chỉ Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
-                  />
-                </div>
+            {/* Hàng 2: Email */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Địa chỉ Email</label>
+              <div className="relative group">
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com" 
+                  required
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
+                />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Tỉnh / Thành phố</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            </div>
+
+            {/* Hàng 3: Tỉnh/Thành - Quận/Huyện (Thực tế) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tỉnh / Thành phố</label>
+                <div className="relative group">
+                  <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <select 
-                    value={selectedProvince}
-                    onChange={handleProvinceChange}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer"
+                    value={selectedProvince?.code || ''}
+                    onChange={(e) => {
+                        const p = provinces.find(x => x.code === e.target.value);
+                        if (p) setSelectedProvince(p);
+                    }}
+                    required
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer"
                   >
                     <option value="">Chọn Tỉnh/Thành</option>
-                    {VIETNAM_PROVINCES.map(province => (
-                      <option key={province} value={province}>{province}</option>
-                    ))}
+                    {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                   </select>
                 </div>
               </div>
-            </div>
-
-            {/* Hàng 3: Quận/Huyện & Phường/Xã */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Quận / Huyện</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Quận / Huyện</label>
                 <select 
-                  value={selectedDistrict}
-                  onChange={handleDistrictChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer"
+                  value={selectedDistrict?.code || ''}
+                  onChange={(e) => {
+                    const d = districts.find(x => x.code === e.target.value);
+                    if (d) setSelectedDistrict(d);
+                  }}
+                  required
+                  disabled={!selectedProvince}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer disabled:opacity-40"
                 >
                   <option value="">Chọn Quận/Huyện</option>
-                  {districts.map(district => (
-                    <option key={district} value={district}>{district}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Phường / Xã</label>
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm appearance-none cursor-pointer">
-                  <option value="">Chọn Phường/Xã</option>
-                  {wards.map(ward => (
-                    <option key={ward} value={ward}>{ward}</option>
-                  ))}
+                  {districts.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
                 </select>
               </div>
             </div>
 
-            {/* Hàng 4: Địa chỉ chi tiết */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700">Số nhà, tên đường</label>
-              <input 
-                type="text" 
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Ví dụ: 123 Nguyễn Huệ" 
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
-              />
+            {/* Hàng 4: Phường/Xã & Số nhà */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phường / Xã</label>
+                <select 
+                  value={selectedWard?.code || ''}
+                  onChange={(e) => {
+                    const w = wards.find(x => x.code === e.target.value);
+                    if (w) setSelectedWard(w);
+                  }}
+                  required
+                  disabled={!selectedDistrict}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm appearance-none cursor-pointer disabled:opacity-40"
+                >
+                  <option value="">Chọn Phường/Xã</option>
+                  {wards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Số nhà, tên đường</label>
+                <input 
+                  type="text" 
+                  value={detailAddress}
+                  onChange={(e) => setDetailAddress(e.target.value)}
+                  placeholder="Ví dụ: 123 Nguyễn Huệ" 
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
+                />
+              </div>
             </div>
 
             {/* Hàng 5: Mật khẩu */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Mật khẩu</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Mật khẩu</label>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <input 
                     type="password" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
+                    required
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700">Xác nhận</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Xác nhận</label>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
                   <input 
                     type="password" 
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-sm"
+                    required
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm"
                   />
                 </div>
               </div>
@@ -316,40 +270,40 @@ const Register: React.FC = () => {
 
             <button 
               disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary-dark text-white font-bold rounded-xl py-3.5 mt-2 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-slate-900 hover:bg-primary text-white font-black rounded-[1.5rem] py-5 mt-4 flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest text-sm"
             >
               {isLoading ? (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="animate-spin" size={24} />
               ) : (
-                <>Đăng ký ngay <ChevronRight size={20} /></>
+                <>Tạo tài khoản ngay <ChevronRight size={20} /></>
               )}
             </button>
           </form>
 
-          <div className="mt-8 flex flex-col gap-4">
+          <div className="mt-10 flex flex-col gap-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
+                <div className="w-full border-t border-slate-100"></div>
               </div>
-              <div className="relative flex justify-center text-xs font-bold text-slate-400 uppercase">
-                <span className="bg-white px-4">Hoặc đăng ký bằng</span>
+              <div className="relative flex justify-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span className="bg-white px-6">Hoặc đăng ký bằng</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              <button className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-slate-700 transition-colors">
+            <div className="grid grid-cols-2 gap-4">
+              <button className="flex items-center justify-center gap-3 w-full py-4 bg-white border border-slate-100 hover:bg-slate-50 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-700 transition-all shadow-sm">
                 <GoogleIcon />
                 Google
               </button>
-              <button className="flex items-center justify-center gap-2 w-full py-3 bg-[#1877F2]/10 border border-[#1877F2]/20 hover:bg-[#1877F2]/20 rounded-xl font-bold text-[#1877F2] transition-colors">
+              <button className="flex items-center justify-center gap-3 w-full py-4 bg-[#1877F2]/5 border border-[#1877F2]/10 hover:bg-[#1877F2]/10 rounded-2xl font-black text-xs uppercase tracking-widest text-[#1877F2] transition-all shadow-sm">
                 <FacebookIcon />
                 Facebook
               </button>
             </div>
           </div>
 
-          <p className="mt-8 text-center text-slate-600 font-medium">
-            Đã có tài khoản? <Link to="/login" className="text-primary font-bold hover:underline">Đăng nhập</Link>
+          <p className="mt-10 text-center text-slate-500 font-bold">
+            Đã có tài khoản? <Link to="/login" className="text-primary font-black hover:underline underline-offset-4">Đăng nhập ngay</Link>
           </p>
         </motion.div>
       </div>
