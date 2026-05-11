@@ -19,18 +19,18 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: Restore dependencies
-      run: dotnet restore server/SmartSportAPI.sln
+      run: dotnet restore server/SportsPitchBooking.sln
       
     - name: Build
-      run: dotnet build server/SmartSportAPI.sln --no-restore --configuration Release
+      run: dotnet build server/SportsPitchBooking.sln --no-restore --configuration Release
       
     - name: Test
-      run: dotnet test server/SmartSportAPI.sln --no-build --verbosity normal
+      run: dotnet test server/SportsPitchBooking.sln --no-build --verbosity normal
 
   frontend-build-deploy:
     name: Frontend (React) Build & Deploy
     runs-on: ubuntu-latest
-    needs: backend-build-test # Chỉ deploy nếu backend đã vượt qua test
+    needs: backend-build-test
     steps:
     - uses: actions/checkout@v4
     
