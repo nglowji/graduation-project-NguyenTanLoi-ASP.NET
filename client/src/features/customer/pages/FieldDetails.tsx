@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, Star, Share2, Heart, Clock, CheckCircle2, ShieldCheck, Coffee, Car, Wifi, Loader2 } from 'lucide-react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { pitchService, type PitchResponse } from '../../../services/pitchService';
 import { bookingService } from '../../../services/bookingService';
 import { paymentService } from '../../../services/paymentService';
