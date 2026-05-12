@@ -12,32 +12,30 @@ export interface AuthResponse {
   userId: string;
   email: string;
   fullName: string;
+  phoneNumber?: string;
   role: UserRoleType;
   token: string;
   expiresAt: string;
   address?: string;
+  mapLink?: string;
   emailConfirmed?: boolean;
 }
 
 export const authService = {
   login: async (command: any): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', command);
-    return response.data;
+    return await api.post('/auth/login', command);
   },
 
   googleLogin: async (accessToken: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/google-login', { accessToken });
-    return response.data;
+    return await api.post('/auth/google-login', { accessToken });
   },
 
   facebookLogin: async (accessToken: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/facebook-login', { accessToken });
-    return response.data;
+    return await api.post('/auth/facebook-login', { accessToken });
   },
   
   register: async (command: any): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', command);
-    return response.data;
+    return await api.post('/auth/register', command);
   },
   
   logout: () => {

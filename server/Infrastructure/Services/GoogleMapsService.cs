@@ -60,7 +60,7 @@ public class GoogleMapsService : IMapService
                 return new DirectionsResponse();
 
             var route = result.Routes[0];
-            var leg = route.Legs.FirstOrDefault();
+            var leg = route.Legs?.FirstOrDefault();
 
             return new DirectionsResponse
             {

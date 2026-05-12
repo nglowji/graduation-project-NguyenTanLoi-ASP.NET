@@ -110,10 +110,10 @@ const OwnerDashboard: React.FC = () => {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
   const statusColor = (s: string) => {
-    if (s === 'Confirmed') return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-    if (s === 'Pending') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    if (s === 'Completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    return 'bg-red-500/10 text-red-400 border-red-500/20';
+    if (s === 'Confirmed') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+    if (s === 'Pending') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+    if (s === 'Completed') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+    return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
   };
   
   const statusLabel = (s: string) => ({ 
@@ -132,10 +132,10 @@ const OwnerDashboard: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-blue-600/10 border-t-blue-600 animate-spin" />
-          <Activity className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600" size={24} />
+          <div className="w-16 h-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
+          <Activity className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary" size={24} />
         </div>
-        <p className="text-white/40 font-bold animate-pulse uppercase tracking-widest text-xs">Đang đồng bộ dữ liệu...</p>
+        <p className="text-slate-400 dark:text-white/40 font-bold animate-pulse uppercase tracking-widest text-[10px]">Syncing Data Stream...</p>
       </div>
     );
   }
@@ -149,36 +149,38 @@ const OwnerDashboard: React.FC = () => {
         className="flex flex-col md:flex-row md:items-end justify-between gap-6"
       >
         <div>
-          <div className="flex items-center gap-2 text-blue-500 font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            Bảng điều khiển chủ sân
+          <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.2em] text-[10px] mb-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            Bảng điều khiển đối tác
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight">Chào buổi sáng, {user?.fullName?.split(' ').pop()}!</h1>
-          <p className="text-white/40 text-sm mt-2 font-medium">
-            Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}. Chúc bạn một ngày kinh doanh thuận lợi.
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+            Chào {user?.fullName?.split(' ').pop()}, <span className="text-primary">lại là một ngày tuyệt vời!</span>
+          </h1>
+          <p className="text-slate-500 dark:text-white/40 text-sm mt-2 font-medium">
+            Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}.
           </p>
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-sm font-bold transition-all">
-            <Filter size={18} /> Lọc dữ liệu
+          <button className="flex items-center gap-2 px-6 py-3.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-white border border-slate-200 dark:border-white/10 rounded-2xl text-sm font-bold transition-all">
+            <Filter size={18} /> Lọc
           </button>
           <button 
-            onClick={() => navigate('/owner/pitches')}
-            className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-2xl text-sm font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+            onClick={() => navigate('/dashboard/owner/pitches')}
+            className="flex items-center gap-2 px-6 py-3.5 bg-primary text-white rounded-2xl text-sm font-black hover:opacity-90 transition-all shadow-xl shadow-primary/20 active:scale-95"
           >
-            <Plus size={18} strokeWidth={3} /> Thêm sân bãi
+            <Plus size={18} strokeWidth={3} /> Thêm sân
           </button>
         </div>
       </motion.div>
 
       {error && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold flex items-center gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-3">
           <XCircle size={18} /> {error}
         </motion.div>
       )}
 
-      {/* Main Statistics Grid */}
+      {/* Stats Grid */}
       <motion.div 
         variants={stagger}
         initial="hidden"
@@ -187,74 +189,73 @@ const OwnerDashboard: React.FC = () => {
       >
         {[
           { title: 'Doanh thu tháng', value: formatCurrency(stats?.totalRevenue || 0), change: `${stats?.revenueChange || 0}%`, up: (stats?.revenueChange || 0) >= 0, icon: <DollarSign size={24} />, color: 'from-blue-600 to-indigo-700' },
-          { title: 'Lượt đặt sân', value: (stats?.totalBookings || 0).toString(), change: `${stats?.bookingsChange || 0}%`, up: (stats?.bookingsChange || 0) >= 0, icon: <CalendarCheck size={24} />, color: 'from-blue-500 to-indigo-600' },
+          { title: 'Lượt đặt sân', value: (stats?.totalBookings || 0).toString(), change: `${stats?.bookingsChange || 0}%`, up: (stats?.bookingsChange || 0) >= 0, icon: <CalendarCheck size={24} />, color: 'from-primary to-blue-600' },
           { title: 'Khách hàng mới', value: (stats?.newCustomers || 0).toString(), change: '+12%', up: true, icon: <Users size={24} />, color: 'from-amber-500 to-orange-600' },
-          { title: 'Đánh giá trung bình', value: `${(stats?.averageRating || 0).toFixed(1)} ★`, change: 'Top 5%', up: true, icon: <Star size={24} />, color: 'from-rose-500 to-pink-600' },
+          { title: 'Xếp hạng', value: `${(stats?.averageRating || 0).toFixed(1)} ★`, change: 'Top 5%', up: true, icon: <Star size={24} />, color: 'from-rose-500 to-pink-600' },
         ].map((s) => (
           <motion.div 
             key={s.title} 
             variants={fadeIn}
-            whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}
-            className="relative group bg-[#1a1c26] border border-white/5 rounded-3xl p-6 overflow-hidden transition-all"
+            whileHover={{ y: -5 }}
+            className="relative group bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-3xl p-6 overflow-hidden shadow-sm hover:shadow-xl transition-all"
           >
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${s.color} opacity-[0.03] rounded-bl-[5rem] group-hover:opacity-[0.08] transition-opacity`} />
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${s.color} opacity-[0.03] dark:opacity-[0.05] rounded-bl-[5rem]`} />
             
             <div className="flex items-center justify-between mb-6">
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg shadow-black/20`}>
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg`}>
                 {s.icon}
               </div>
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black ${s.up ? 'bg-blue-500/10 text-blue-400' : 'bg-red-500/10 text-red-400'}`}>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black ${s.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
                 {s.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {s.change}
               </div>
             </div>
             
             <div className="space-y-1">
-              <p className="text-white/30 text-xs font-bold uppercase tracking-widest">{s.title}</p>
-              <h3 className="text-2xl font-black text-white tracking-tight">{s.value}</h3>
+              <p className="text-slate-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-widest">{s.title}</p>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{s.value}</h3>
             </div>
           </motion.div>
         ))}
       </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Left Column: Chart & Bookings */}
+        {/* Main Section */}
         <div className="xl:col-span-2 space-y-8">
-          
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] p-8">
+          {/* Activity Preview */}
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-black text-white tracking-tight">Hiệu suất doanh thu</h3>
-                <p className="text-white/40 text-xs mt-1">Dữ liệu doanh thu thời gian thực</p>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Phân tích hiệu suất</h3>
+                <p className="text-slate-400 dark:text-white/40 text-xs mt-1">Sự biến động doanh thu theo thời gian</p>
               </div>
             </div>
-            
-            <div className="h-48 w-full flex items-center justify-center border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
+            <div className="h-64 w-full flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl bg-slate-50 dark:bg-white/[0.01]">
               <div className="text-center">
-                <Activity size={32} className="mx-auto mb-3 text-white/5" />
-                <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">Đang tính toán hiệu suất kinh doanh...</p>
+                <Activity size={32} className="mx-auto mb-3 text-slate-300 dark:text-white/5" />
+                <p className="text-slate-400 dark:text-white/20 text-[10px] font-black uppercase tracking-widest italic">Calculating metrics...</p>
               </div>
             </div>
           </motion.div>
 
-          {/* Bookings Management */}
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] overflow-hidden">
-            <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          {/* Bookings */}
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] overflow-hidden shadow-sm">
+            <div className="p-8 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-400">
+                <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
                   <CalendarCheck size={20} />
                 </div>
-                <h3 className="font-black text-xl text-white tracking-tight">Lịch đặt sân gần đây</h3>
+                <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">Lịch đặt sân gần đây</h3>
               </div>
               
-              <div className="flex p-1 bg-white/5 rounded-2xl self-start">
+              <div className="flex p-1 bg-slate-100 dark:bg-white/5 rounded-2xl">
                 {(['upcoming', 'pending', 'completed'] as const).map(tab => (
                   <button 
                     key={tab} 
                     onClick={() => setBookingTab(tab)}
-                    className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${
+                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                       bookingTab === tab 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                      : 'text-white/40 hover:text-white'
+                      ? 'bg-primary text-white shadow-lg' 
+                      : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {tab === 'upcoming' ? 'Sắp tới' : tab === 'pending' ? 'Chờ duyệt' : 'Đã xong'}
@@ -268,12 +269,10 @@ const OwnerDashboard: React.FC = () => {
                 {bookings.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-center py-20 bg-white/2 rounded-[2rem] border border-dashed border-white/5"
+                    className="text-center py-20 bg-slate-50 dark:bg-white/2 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/5"
                   >
-                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Clock size={24} className="text-white/10" />
-                    </div>
-                    <p className="text-white/20 font-bold text-sm tracking-wide">Hiện chưa có đơn nào trong mục này</p>
+                    <Clock size={24} className="mx-auto mb-4 text-slate-300 dark:text-white/10" />
+                    <p className="text-slate-400 dark:text-white/20 font-bold text-xs uppercase tracking-widest">Không có dữ liệu</p>
                   </motion.div>
                 ) : (
                   <div className="space-y-3">
@@ -283,56 +282,44 @@ const OwnerDashboard: React.FC = () => {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#1e202b] rounded-[1.5rem] border border-white/5 hover:border-blue-600/30 transition-all hover:bg-[#232635]"
+                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 dark:bg-[#1e202b] rounded-[1.5rem] border border-slate-100 dark:border-white/5 hover:border-primary/30 transition-all shadow-sm hover:shadow-md"
                       >
                         <div className="flex gap-4 items-center mb-4 sm:mb-0">
-                          <div className={`w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/10 flex items-center justify-center text-sm font-black text-blue-500 shadow-lg`}>
-                            {b.customerName?.split(' ').pop()?.[0]}
+                          <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-lg">
+                            {b.customerName?.[0]}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-white">{b.customerName}</span>
+                              <span className="font-bold text-slate-900 dark:text-white">{b.customerName}</span>
                               <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black border uppercase tracking-wider ${statusColor(b.status)}`}>
                                 {statusLabel(b.status)}
                               </span>
                             </div>
                             <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] font-bold text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
                                 <Activity size={10} /> {b.pitchName}
                               </span>
-                              <span className="text-[10px] font-bold text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
                                 <Clock size={10} /> {b.startTime} - {b.endTime}
                               </span>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between sm:justify-end gap-6 pl-12 sm:pl-0">
+                        <div className="flex items-center justify-between sm:justify-end gap-6">
                           <div className="text-right">
-                            <p className="text-xs font-bold text-white/30 uppercase tracking-[0.1em] mb-0.5">Tổng cộng</p>
-                            <p className="font-black text-blue-500 text-lg leading-none">{formatCurrency(b.totalAmount)}</p>
+                            <p className="text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-0.5">Thanh toán</p>
+                            <p className="font-black text-primary text-lg leading-none">{formatCurrency(b.totalAmount)}</p>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             {b.status === 'Pending' && (
                               <>
-                                <button 
-                                  onClick={() => handleBookingAction(b.id, 'confirm')}
-                                  className="w-10 h-10 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center"
-                                  title="Xác nhận"
-                                >
-                                  <CheckCircle size={18} />
-                                </button>
-                                <button 
-                                  onClick={() => handleBookingAction(b.id, 'cancel')}
-                                  className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center"
-                                  title="Từ chối"
-                                >
-                                  <XCircle size={18} />
-                                </button>
+                                <button onClick={() => handleBookingAction(b.id, 'confirm')} className="w-10 h-10 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"><CheckCircle size={18} /></button>
+                                <button onClick={() => handleBookingAction(b.id, 'cancel')} className="w-10 h-10 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><XCircle size={18} /></button>
                               </>
                             )}
-                            <button className="w-10 h-10 bg-white/5 text-white/30 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center justify-center">
+                            <button className="w-10 h-10 bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all flex items-center justify-center">
                               <ChevronRight size={18} />
                             </button>
                           </div>
@@ -346,46 +333,41 @@ const OwnerDashboard: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Right Column: Pitches & More */}
+        {/* Sidebar Section */}
         <div className="space-y-8">
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] p-8">
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-xl text-white tracking-tight">Sân của tôi</h3>
-              <button 
-                onClick={() => navigate('/owner/pitches')}
-                className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline flex items-center gap-1.5"
-              >
+              <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">Sân bóng</h3>
+              <button onClick={() => navigate('/dashboard/owner/pitches')} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1.5">
                 Xem tất cả <ArrowUpRight size={12} />
               </button>
             </div>
 
             <div className="space-y-4">
               {pitches.length === 0 ? (
-                <div className="text-center py-10 bg-white/2 rounded-3xl border border-dashed border-white/5">
-                  <MapPin size={24} className="mx-auto mb-2 text-white/10" />
-                  <p className="text-xs text-white/20 font-bold">Chưa có sân bãi</p>
+                <div className="text-center py-10 bg-slate-50 dark:bg-white/2 rounded-3xl border border-dashed border-slate-200 dark:border-white/5">
+                  <p className="text-[10px] text-slate-400 dark:text-white/20 font-black uppercase tracking-widest">Chưa có sân</p>
                 </div>
               ) : (
-                pitches.map((p) => (
-                  <div key={p.id} className="p-5 bg-[#1e202b] rounded-[1.5rem] border border-white/5 hover:border-blue-600/20 transition-all group">
+                pitches.slice(0, 3).map((p) => (
+                  <div key={p.id} className="p-5 bg-slate-50 dark:bg-[#1e202b] rounded-[1.5rem] border border-slate-100 dark:border-white/5 group hover:border-primary/20 transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h4 className="font-black text-white group-hover:text-blue-500 transition-colors">{p.name}</h4>
-                        <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest mt-1">{pitchTypeLabel(p.pitchType)}</p>
+                        <h4 className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">{p.name}</h4>
+                        <p className="text-[9px] text-slate-400 dark:text-white/30 font-black uppercase tracking-widest mt-1">{pitchTypeLabel(p.pitchType)}</p>
                       </div>
-                      <div className={`w-2 h-2 rounded-full ${p.status === 'Active' ? 'bg-blue-600 shadow-[0_0_10px_#2563eb]' : 'bg-white/10'}`} />
+                      <div className={`w-2 h-2 rounded-full ${p.status === 'Active' ? 'bg-primary' : 'bg-slate-300 dark:bg-white/10'}`} />
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 bg-white/3 rounded-2xl">
-                        <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Hôm nay</p>
-                        <p className="text-sm font-black text-white">{p.todayBookings} lượt</p>
+                      <div className="p-3 bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-100 dark:border-none">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-1">Bookings</p>
+                        <p className="text-sm font-black text-slate-900 dark:text-white">{p.todayBookings}</p>
                       </div>
-                      <div className="p-3 bg-white/3 rounded-2xl">
-                        <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Xếp hạng</p>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-black text-amber-400">{p.averageRating.toFixed(1)}</p>
-                          <Star size={10} className="text-amber-400 fill-current" />
+                      <div className="p-3 bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-100 dark:border-none">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-1">Rating</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm font-black text-amber-500">{p.averageRating.toFixed(1)}</p>
+                          <Star size={10} className="text-amber-500 fill-current" />
                         </div>
                       </div>
                     </div>
@@ -395,18 +377,18 @@ const OwnerDashboard: React.FC = () => {
             </div>
           </motion.div>
 
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
+          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-primary rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-primary/20 group">
             <div className="relative z-10">
-              <h3 className="font-black text-xl mb-2">Tăng doanh thu?</h3>
-              <p className="text-white/60 text-sm font-bold leading-relaxed mb-6 uppercase tracking-widest">Cập nhật bảng giá linh hoạt để thu hút khách hàng mới.</p>
+              <h3 className="font-black text-2xl mb-2 tracking-tight">Kinh doanh hiệu quả?</h3>
+              <p className="text-white/70 text-xs font-bold leading-relaxed mb-8 uppercase tracking-widest">Nâng cấp cơ sở vật chất để tăng tỷ lệ giữ chân khách hàng.</p>
               <button 
-                onClick={() => navigate('/owner/pitches')}
-                className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-50 transition-all"
+                onClick={() => navigate('/dashboard/owner/pitches')}
+                className="w-full py-4 bg-white text-primary rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"
               >
-                Quản lý sân ngay
+                Cập nhật thông tin sân
               </button>
             </div>
-            <Activity className="absolute -bottom-6 -right-6 w-32 h-32 text-white/5" />
+            <Activity className="absolute -bottom-8 -right-8 w-40 h-40 text-white/10 group-hover:scale-110 transition-transform duration-500" />
           </motion.div>
         </div>
       </div>

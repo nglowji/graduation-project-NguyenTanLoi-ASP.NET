@@ -18,12 +18,9 @@ public class AdminController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Get list of all users with optional filter
-    /// </summary>
     [HttpGet("users")]
-    [ProducesResponseType(typeof(PagedResult<AdminUserDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<AdminUserDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetUsers(
         [FromQuery] string? search,
         [FromQuery] int? role,
@@ -35,34 +32,28 @@ public class AdminController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get users", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get users");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Suspend or Activate a user account
-    /// </summary>
     [HttpPatch("users/{userId:guid}/suspend")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SuspendUser(Guid userId, CancellationToken cancellationToken = default)
     {
         var command = new SuspendUserCommand(userId);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to update user status", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to update user status");
 
-        return Ok(new { message = "User status updated successfully." });
+        return OkResponse<object?>(null, "User status updated successfully.");
     }
 
-    /// <summary>
-    /// Get pitch approval requests
-    /// </summary>
     [HttpGet("pitch-approvals")]
-    [ProducesResponseType(typeof(PagedResult<PitchApprovalDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PitchApprovalDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPitchApprovals(
         [FromQuery] string status = "pending",
         CancellationToken cancellationToken = default)
@@ -71,42 +62,36 @@ public class AdminController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get pitch approvals", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get pitch approvals");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Approve a pitch registration
-    /// </summary>
     [HttpPatch("pitch-approvals/{id:guid}/approve")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ApprovePitch(Guid id, CancellationToken cancellationToken = default)
     {
         var command = new ApprovePitchCommand(id);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to approve pitch", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to approve pitch");
 
-        return Ok(new { message = "Pitch approved successfully." });
+        return OkResponse<object?>(null, "Pitch approved successfully.");
     }
 
-    /// <summary>
-    /// Reject a pitch registration
-    /// </summary>
     [HttpPatch("pitch-approvals/{id:guid}/reject")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RejectPitch(Guid id, CancellationToken cancellationToken = default)
     {
         var command = new RejectPitchCommand(id);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to reject pitch", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to reject pitch");
 
-        return Ok(new { message = "Pitch registration rejected." });
+        return OkResponse<object?>(null, "Pitch registration rejected.");
     }
 }

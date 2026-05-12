@@ -22,6 +22,54 @@ namespace Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Entities.AdditionalService", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("SportCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StockQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("SportCenterId");
+
+                    b.ToTable("AdditionalServices", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Booking", b =>
                 {
                     b.Property<Guid>("Id")
@@ -127,6 +175,43 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("IX_BookingLocks_TimeSlot_Date_Status");
 
                     b.ToTable("BookingLocks", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.BookingService", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.ToTable("BookingServices", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.ChatConversation", b =>
@@ -308,6 +393,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsIndoor")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -461,6 +549,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -513,6 +604,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -538,6 +632,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("MapLink")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -725,6 +822,44 @@ namespace Infrastructure.Migrations
                     b.ToTable("WaitlistEntries");
                 });
 
+            modelBuilder.Entity("Domain.Entities.AdditionalService", b =>
+                {
+                    b.HasOne("Domain.Entities.SportCenter", "SportCenter")
+                        .WithMany()
+                        .HasForeignKey("SportCenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("Domain.ValueObjects.Money", "Price", b1 =>
+                        {
+                            b1.Property<Guid>("AdditionalServiceId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)")
+                                .HasColumnName("Price");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("nvarchar(3)")
+                                .HasColumnName("Currency");
+
+                            b1.HasKey("AdditionalServiceId");
+
+                            b1.ToTable("AdditionalServices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AdditionalServiceId");
+                        });
+
+                    b.Navigation("Price")
+                        .IsRequired();
+
+                    b.Navigation("SportCenter");
+                });
+
             modelBuilder.Entity("Domain.Entities.Booking", b =>
                 {
                     b.HasOne("Domain.Entities.TimeSlot", "TimeSlot")
@@ -807,6 +942,50 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("TimeSlot");
+                });
+
+            modelBuilder.Entity("Domain.Entities.BookingService", b =>
+                {
+                    b.HasOne("Domain.Entities.Booking", "Booking")
+                        .WithMany("Services")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.AdditionalService", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.OwnsOne("Domain.ValueObjects.Money", "Price", b1 =>
+                        {
+                            b1.Property<Guid>("BookingServiceId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(18,2)")
+                                .HasColumnName("PriceAmount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("PriceCurrency");
+
+                            b1.HasKey("BookingServiceId");
+
+                            b1.ToTable("BookingServices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("BookingServiceId");
+                        });
+
+                    b.Navigation("Booking");
+
+                    b.Navigation("Price")
+                        .IsRequired();
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Domain.Entities.PaymentTransaction", b =>
@@ -1024,6 +1203,8 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Booking", b =>
                 {
+                    b.Navigation("Services");
+
                     b.Navigation("Transaction");
                 });
 

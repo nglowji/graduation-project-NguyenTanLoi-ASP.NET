@@ -66,3 +66,16 @@ jobs:
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
       working-directory: ./client
       run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  backend-deploy:
+    name: Backend (ASP.NET) Deploy to Render
+    runs-on: ubuntu-latest
+    needs: backend-build-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+    - name: Trigger Render Deployment
+      env:
+        DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      run: |
+        curl -X POST "$DEPLOY_HOOK"
+        echo "Successfully triggered Render deployment."

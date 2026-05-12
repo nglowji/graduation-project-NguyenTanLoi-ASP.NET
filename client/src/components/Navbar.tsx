@@ -30,7 +30,7 @@ const Navbar: React.FC = () => {
     <motion.nav 
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="fixed top-0 left-0 right-0 z-50 bg-surface-light/90 backdrop-blur-lg border-b border-slate-200 shadow-[0_8px_30px_rgba(15,23,42,0.08)]"
+      className="fixed top-0 left-0 right-0 z-[100] bg-surface-light/90 backdrop-blur-lg border-b border-slate-200 shadow-[0_8px_30px_rgba(15,23,42,0.08)]"
     >
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
@@ -39,7 +39,7 @@ const Navbar: React.FC = () => {
             alt="SmartSport"
             className="w-11 h-11 object-contain group-hover:scale-105 transition-transform"
           />
-          <span className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">SmartSport</span>
+          <span className="text-xl font-black tracking-tight text-slate-900 group-hover:text-primary transition-colors">SmartSport</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-8">

@@ -53,6 +53,7 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Res
                     email: googleUser.Email,
                     fullName: googleUser.Name,
                     phoneNumber: "", // Google doesn't always provide phone
+                    address: null,
                     passwordHash: "EXTERNAL_AUTH_" + Guid.NewGuid().ToString("N"), // Placeholder for password-less account
                     role: UserRole.Customer
                 );

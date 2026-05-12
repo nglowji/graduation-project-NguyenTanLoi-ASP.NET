@@ -23,8 +23,8 @@ public class AuthController : ApiControllerBase
     /// </summary>
     [HttpPost("register")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterCommand command,
         CancellationToken cancellationToken)
@@ -32,22 +32,20 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Registration failed", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Registration failed");
 
-        return CreatedAtAction(
+        return CreatedResponse(
             nameof(GetProfile),
             new { userId = result.Value!.UserId },
-            result.Value
+            result.Value,
+            "Registration successful"
         );
     }
 
-    /// <summary>
-    /// Login with email and password
-    /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login(
         [FromBody] LoginCommand command,
         CancellationToken cancellationToken)
@@ -55,18 +53,15 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Login failed", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Login failed");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value, "Login successful");
     }
 
-    /// <summary>
-    /// Login or Register with Google ID Token
-    /// </summary>
     [HttpPost("google-login")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GoogleLogin(
         [FromBody] GoogleLoginRequest request,
         CancellationToken cancellationToken)
@@ -75,18 +70,15 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Google login failed", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Google login failed");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value, "Google login successful");
     }
 
-    /// <summary>
-    /// Login or Register with Facebook Access Token
-    /// </summary>
     [HttpPost("facebook-login")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> FacebookLogin(
         [FromBody] FacebookLoginRequest request,
         CancellationToken cancellationToken)
@@ -95,32 +87,24 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Facebook login failed", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Facebook login failed");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value, "Facebook login successful");
     }
 
-    /// <summary>
-    /// Get current user profile
-    /// </summary>
     [HttpGet("profile")]
     [Authorize]
-    [ProducesResponseType(typeof(UserProfileDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProfile()
     {
-        // TODO: Implement GetUserProfileQuery
-        return Ok(new { Message = "Profile endpoint - To be implemented" });
+        return OkResponse(new { Message = "Profile endpoint - To be implemented" });
     }
 
-    /// <summary>
-    /// Logout (client-side token removal)
-    /// </summary>
     [HttpPost("logout")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status204NoContent)]
     public IActionResult Logout()
     {
-        return NoContent();
+        return OkResponse<object?>(null, "Logged out successfully"); // Senior rule: 204 doesn't return body, but we can return 200 with success:true
     }
 }

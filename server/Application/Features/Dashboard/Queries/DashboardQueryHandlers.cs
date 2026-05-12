@@ -3,6 +3,7 @@ using Application.Common.DTOs;
 using Application.Features.Dashboard.DTOs;
 using Domain.Entities;
 using Domain.Enums;
+using Application.Features.Pitches.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -182,7 +183,17 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
                 pitch.Status.ToString(),
                 confirmed.Count,
                 confirmed.Sum(b => b.TotalPrice.Amount),
-                (double)pitch.AverageRating
+                (double)pitch.AverageRating,
+                pitch.SportCenter?.Address?.ToString() ?? "",
+                pitch.IsIndoor,
+                pitch.Images.Select(img => new PitchImageDto { Id = img.Id, ImageUrl = img.ImageUrl }).ToList(),
+                pitch.TimeSlots.Select(ts => new TimeSlotDto { 
+                    Id = ts.Id, 
+                    StartTime = ts.TimeRange.StartTime, 
+                    EndTime = ts.TimeRange.EndTime, 
+                    Price = ts.Price.Amount 
+                }).ToList(),
+                pitch.TimeSlots.Any() ? pitch.TimeSlots.Min(ts => ts.Price.Amount) : 0
             ));
         }
 

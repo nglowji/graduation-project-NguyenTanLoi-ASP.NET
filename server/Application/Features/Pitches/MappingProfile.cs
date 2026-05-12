@@ -22,17 +22,18 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.TimeSlots, opt => opt.MapFrom(src => src.TimeSlots));
 
         CreateMap<Domain.ValueObjects.Address, AddressDto>()
-            .ForMember(dest => dest.FullAddress, opt => opt.MapFrom(src => src.GetFullAddress()));
+            .ForMember(dest => dest.FullAddress, opt => opt.MapFrom(src => 
+                $"{src.Street}, {src.Ward}, {src.District}, {src.City}"));
 
         CreateMap<PitchImage, PitchImageDto>();
 
         CreateMap<TimeSlot, TimeSlotDto>()
-            .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.TimeRange.StartTime.ToString(@"hh\:mm")))
-            .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.TimeRange.EndTime.ToString(@"hh\:mm")))
+            .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.TimeRange.StartTime))
+            .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.TimeRange.EndTime))
             .ForMember(dest => dest.Price, opt => opt.MapFrom(src => src.Price.Amount))
             .ForMember(dest => dest.Currency, opt => opt.MapFrom(src => src.Price.Currency));
 
         CreateMap<Review, ReviewDto>()
-            .ForMember(dest => dest.UserName, opt => opt.Ignore()); // Will be populated separately
+            .ForMember(dest => dest.UserName, opt => opt.Ignore());
     }
 }

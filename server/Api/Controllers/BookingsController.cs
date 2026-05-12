@@ -1,9 +1,11 @@
+using Application.Common.DTOs;
 using Application.Features.Bookings.Commands.CancelBooking;
 using Application.Features.Bookings.Commands.CreateBooking;
 using Application.Features.Bookings.Commands.LockTimeSlot;
 using Application.Features.Bookings.Commands.ReleaseLock;
 using Application.Features.Bookings.DTOs;
 using Application.Features.Bookings.Queries.GetBookingById;
+using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using Api.Contracts;
 using MediatR;
@@ -23,12 +25,9 @@ public class BookingsController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Lock a time slot before booking (prevents double booking)
-    /// </summary>
     [HttpPost("lock")]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> LockTimeSlot(
         [FromBody] LockTimeSlotRequest request,
@@ -48,17 +47,14 @@ public class BookingsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to lock time slot", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to lock time slot");
 
-        return Ok(new { LockId = result.Value, Message = "Time slot locked successfully" });
+        return OkResponse(new { LockId = result.Value, Message = "Time slot locked successfully" });
     }
 
-    /// <summary>
-    /// Release a time slot lock
-    /// </summary>
     [HttpPost("release-lock/{lockId:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ReleaseLock(
         Guid lockId,
         CancellationToken cancellationToken)
@@ -71,34 +67,28 @@ public class BookingsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to release lock", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to release lock");
 
-        return NoContent();
+        return OkResponse<object?>(null, "Lock released successfully");
     }
 
-    /// <summary>
-    /// Get booking by ID
-    /// </summary>
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(BookingDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<BookingDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetBookingByIdQuery(id);
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return NotFoundProblem("Booking not found", result.ErrorMessage);
+            return NotFoundResponse(result.ErrorMessage ?? "Booking not found");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Create a new booking (requires active lock)
-    /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
         [FromBody] CreateBookingRequest request,
         CancellationToken cancellationToken)
@@ -111,17 +101,14 @@ public class BookingsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to create booking", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to create booking");
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Value }, result.Value);
+        return CreatedResponse(nameof(GetById), new { id = result.Value }, result.Value!, "Booking created successfully");
     }
 
-    /// <summary>
-    /// Cancel a booking
-    /// </summary>
     [HttpPost("{id:guid}/cancel")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Cancel(
         Guid id,
         [FromBody] CancelBookingRequest request,
@@ -135,17 +122,15 @@ public class BookingsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to cancel booking", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to cancel booking");
 
-        return NoContent();
+        return OkResponse<object?>(null, "Booking cancelled successfully");
     }
 
-    /// <summary>
-    /// Get bookings for owner's pitches
-    /// </summary>
     [HttpGet("owner")]
     [Authorize(Roles = "PitchOwner")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<OwnerBookingDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetOwnerBookings(
         [FromQuery] string? status,
         [FromQuery] int pageNumber = 1,
@@ -159,8 +144,8 @@ public class BookingsController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get owner bookings", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get owner bookings");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 }

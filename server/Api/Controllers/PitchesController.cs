@@ -1,4 +1,7 @@
+using Application.Common.DTOs;
 using Application.Features.Pitches.Commands.CreatePitch;
+using Application.Features.Pitches.Commands.UpdatePitch;
+using Application.Features.Pitches.Commands.DeletePitch;
 using Application.Features.Pitches.DTOs;
 using Application.Features.Pitches.Queries.GetAvailableTimeSlots;
 using Application.Features.Pitches.Queries.SearchPitches;
@@ -20,13 +23,10 @@ public class PitchesController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Search pitches with filters
-    /// </summary>
     [HttpGet("search")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(PitchDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PitchDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Search(
         [FromQuery] string? searchTerm,
         [FromQuery] PitchType? type,
@@ -54,18 +54,15 @@ public class PitchesController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Search failed", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Search failed");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Get available time slots for a pitch on a specific date
-    /// </summary>
     [HttpGet("{pitchId:guid}/available-slots")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(List<TimeSlotDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<List<TimeSlotDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAvailableTimeSlots(
         Guid pitchId,
         [FromQuery] DateOnly date,
@@ -75,41 +72,76 @@ public class PitchesController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get available slots", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get available slots");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Create a new pitch (Owner only)
-    /// </summary>
     [HttpPost]
     [Authorize(Policy = "OwnerOrAdmin")]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
         [FromBody] CreatePitchCommand command,
         CancellationToken cancellationToken)
     {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var commandWithOwner = command with { OwnerId = ownerId };
+        var result = await _mediator.Send(commandWithOwner, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to create pitch");
+
+        return OkResponse(result.Value, "Pitch created successfully");
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "OwnerOrAdmin")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdatePitchCommand command,
+        CancellationToken cancellationToken)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var commandWithIds = command with { Id = id, OwnerId = ownerId };
+        var result = await _mediator.Send(commandWithIds, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to update pitch");
+
+        return OkResponse<object?>(null, "Pitch updated successfully");
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "OwnerOrAdmin")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var command = new DeletePitchCommand(id, ownerId);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to create pitch", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to delete pitch");
 
-        return CreatedAtAction(
-            nameof(GetAvailableTimeSlots),
-            new { pitchId = result.Value },
-            result.Value
-        );
+        return OkResponse<object?>(null, "Pitch deleted successfully");
     }
 
-    /// <summary>
-    /// Get owner's pitches with today's stats
-    /// </summary>
     [HttpGet("my")]
     [Authorize(Roles = "PitchOwner")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMyPitches(CancellationToken cancellationToken = default)
     {
         var ownerId = GetCurrentUserId();
@@ -119,8 +151,8 @@ public class PitchesController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get my pitches", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get my pitches");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 }

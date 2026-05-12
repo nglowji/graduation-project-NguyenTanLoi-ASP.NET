@@ -1,3 +1,5 @@
+using Application.Features.Pitches.DTOs;
+
 namespace Application.Features.Dashboard.DTOs;
 
 public record AdminDashboardStatsDto(
@@ -46,7 +48,12 @@ public record OwnerPitchSummaryDto(
     string Status,
     int TodayBookings,
     decimal TodayRevenue,
-    double AverageRating
+    double AverageRating,
+    string Address,
+    bool IsIndoor,
+    List<PitchImageDto> Images,
+    List<TimeSlotDto> TimeSlots,
+    decimal MinPrice
 );
 
 public record PitchApprovalDto(

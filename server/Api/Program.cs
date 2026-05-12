@@ -166,7 +166,9 @@ app.MapHealthChecks("/health");
 
 try
 {
-    Log.Information("Starting Sports Pitch Booking API");
+    Log.Information("=========================================================");
+    Log.Information("🚀 ĐANG KHỞI ĐỘNG BACKEND SPORTS PITCH BOOKING...");
+    Log.Information("=========================================================");
     
     // Seed Database
     using (var scope = app.Services.CreateScope())
@@ -175,14 +177,19 @@ try
         var context = services.GetRequiredService<Infrastructure.Data.ApplicationDbContext>();
         var passwordHasher = services.GetRequiredService<Application.Common.Interfaces.IPasswordHasher>();
         var logger = services.GetRequiredService<ILogger<Program>>();
+        
+        Log.Information("⏳ Đang kiểm tra và khởi tạo Database...");
         await Infrastructure.Data.ApplicationDbContextSeed.SeedAsync(context, passwordHasher, logger);
+        Log.Information("✅ KHỞI TẠO DATABASE THÀNH CÔNG! Dữ liệu đã sẵn sàng.");
     }
 
+    Log.Information("🌟 SERVER ĐANG CHẠY MƯỢT MÀ! (Bấm Ctrl+C để tắt)");
+    Log.Information("=========================================================");
     app.Run();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Application terminated unexpectedly");
+    Log.Fatal(ex, "❌ LỖI NGHIÊM TRỌNG: Server khởi động thất bại hoặc Database có vấn đề!");
 }
 finally
 {

@@ -1,3 +1,4 @@
+using Application.Common.DTOs;
 using Application.Features.Pitches.DTOs;
 using Application.Features.Recommendations.Queries;
 using MediatR;
@@ -16,13 +17,10 @@ public class RecommendationsController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Get personalized pitch recommendations based on user history
-    /// </summary>
     [HttpGet("personalized")]
     [Authorize]
-    [ProducesResponseType(typeof(List<PitchDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<List<PitchDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPersonalizedRecommendations(
         [FromQuery] int limit = 5,
         CancellationToken cancellationToken = default)
@@ -35,8 +33,8 @@ public class RecommendationsController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get recommendations", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get recommendations");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 }

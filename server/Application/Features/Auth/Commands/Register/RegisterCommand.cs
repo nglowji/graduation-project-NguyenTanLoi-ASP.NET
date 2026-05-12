@@ -9,5 +9,6 @@ public record RegisterCommand(
     string Password,
     string FullName,
     string PhoneNumber,
+    string? Address = null,
     UserRole Role = UserRole.Customer
 ) : IRequest<Result<AuthResponse>>;

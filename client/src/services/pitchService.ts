@@ -26,12 +26,22 @@ export interface PaginatedResult<T> {
 
 export const pitchService = {
   search: async (params?: any): Promise<PaginatedResult<PitchResponse>> => {
-    const response = await api.get('/pitches/search', { params });
-    return response.data;
+    return await api.get('/pitches/search', { params });
   },
   
   getById: async (id: string): Promise<PitchResponse> => {
-    const response = await api.get(`/pitches/${id}`);
-    return response.data;
+    return await api.get(`/pitches/${id}`);
+  },
+
+  create: async (payload: any): Promise<any> => {
+    return await api.post('/pitches', payload);
+  },
+
+  update: async (id: string, payload: any): Promise<void> => {
+    await api.put(`/pitches/${id}`, payload);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/pitches/${id}`);
   }
 };

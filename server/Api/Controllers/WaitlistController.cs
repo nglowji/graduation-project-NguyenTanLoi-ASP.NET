@@ -22,8 +22,8 @@ public class WaitlistController : ApiControllerBase
     /// Join the waitlist for a specific time slot and date
     /// </summary>
     [HttpPost("join")]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Join(
         [FromBody] JoinWaitlistRequest request,
         CancellationToken cancellationToken)
@@ -36,8 +36,8 @@ public class WaitlistController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to join waitlist", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to join waitlist");
 
-        return Ok(new { WaitlistId = result.Value, Message = "Successfully joined waitlist" });
+        return OkResponse(new { WaitlistId = result.Value, Message = "Successfully joined waitlist" });
     }
 }

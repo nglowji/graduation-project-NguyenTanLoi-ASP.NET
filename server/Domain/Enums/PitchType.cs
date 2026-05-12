@@ -9,5 +9,6 @@ public enum PitchType
     Badminton = 5,
     Pickleball = 6,
     Basketball = 7,
-    Volleyball = 8
+    Volleyball = 8,
+    TableTennis = 9
 }

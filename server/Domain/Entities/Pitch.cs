@@ -18,12 +18,13 @@ public class Pitch : BaseEntity, IAggregateRoot
 
     private Pitch() { } // EF Core constructor
 
-    private Pitch(Guid ownerId, Guid sportCenterId, string name, PitchType type, string? description)
+    private Pitch(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description)
     {
         OwnerId = ownerId;
         SportCenterId = sportCenterId;
         Name = name;
         Type = type;
+        IsIndoor = isIndoor;
         Description = description;
         Status = PitchStatus.PendingApproval;
         AverageRating = 0;
@@ -35,6 +36,7 @@ public class Pitch : BaseEntity, IAggregateRoot
     public SportCenter SportCenter { get; private set; } = null!;
     public string Name { get; private set; } = string.Empty;
     public PitchType Type { get; private set; }
+    public bool IsIndoor { get; private set; }
     public string? Description { get; private set; }
     public PitchStatus Status { get; private set; }
     public decimal AverageRating { get; private set; }
@@ -43,19 +45,20 @@ public class Pitch : BaseEntity, IAggregateRoot
     public IReadOnlyCollection<TimeSlot> TimeSlots => _timeSlots.AsReadOnly();
     public IReadOnlyCollection<PitchImage> Images => _images.AsReadOnly();
 
-    public static Pitch Create(Guid ownerId, Guid sportCenterId, string name, PitchType type, string? description = null)
+    public static Pitch Create(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description = null)
     {
         ValidateCreationParameters(ownerId, name, description);
-        return new Pitch(ownerId, sportCenterId, name, type, description);
+        return new Pitch(ownerId, sportCenterId, name, type, isIndoor, description);
     }
 
-    public void UpdateInfo(string name, PitchType type, string? description)
+    public void UpdateInfo(string name, PitchType type, bool isIndoor, string? description)
     {
         ValidateName(name);
         ValidateDescription(description);
 
         Name = name;
         Type = type;
+        IsIndoor = isIndoor;
         Description = description;
         MarkAsUpdated();
     }
@@ -109,6 +112,18 @@ public class Pitch : BaseEntity, IAggregateRoot
     {
         ValidateRating(newRating);
         RecalculateAverageRating(newRating);
+        MarkAsUpdated();
+    }
+
+    public void ClearTimeSlots()
+    {
+        _timeSlots.Clear();
+        MarkAsUpdated();
+    }
+
+    public void ClearImages()
+    {
+        _images.Clear();
         MarkAsUpdated();
     }
 

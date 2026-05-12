@@ -132,10 +132,10 @@ const Login: React.FC = () => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, filter: 'blur(0px)' }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-      className="flex-1 flex pt-20"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex-1 flex flex-col lg:flex-row relative z-10"
+      style={{ marginTop: '80px' }} // Navbar height
     >
       {/* Cột Trái: Hình ảnh */}
       <div className="hidden lg:block lg:w-1/2 relative bg-slate-900 overflow-hidden">
@@ -180,7 +180,7 @@ const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium"
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -197,7 +197,7 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium"
+                  className="w-full bg-white border-2 border-slate-200 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             </div>

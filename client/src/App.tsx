@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -21,6 +22,7 @@ import Bookings from './features/owner/pages/Bookings';
 import Revenue from './features/owner/pages/Revenue';
 import Reviews from './features/owner/pages/Reviews';
 import StaffManagement from './features/owner/pages/StaffManagement';
+import Services from './features/owner/pages/Services';
 
 // Admin Sub-pages
 import Users from './features/admin/pages/Users';
@@ -31,49 +33,52 @@ import Reports from './features/admin/pages/Reports';
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <div className="min-h-screen bg-surface-light text-slate-900 selection:bg-primary/30 selection:text-primary">
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<><Navbar /><LandingPage /></>} />
-            <Route path="/explore" element={<div className="flex flex-col min-h-screen"><Navbar /><ExploreFields /><Footer /></div>} />
-            <Route path="/field/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><FieldDetails /><Footer /></div>} />
-            <Route path="/login" element={<div className="flex flex-col min-h-screen"><Navbar /><Login /><Footer /></div>} />
-            <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
-            <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
-            <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <div className="flex flex-col min-h-screen"><Navbar /><Profile /><Footer /></div>
-              </ProtectedRoute>
-            } />
+      <ThemeProvider>
+        <AuthProvider>
+          <div className="min-h-screen bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 selection:bg-primary/30 selection:text-primary transition-colors duration-300">
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<><Navbar /><LandingPage /></>} />
+              <Route path="/explore" element={<div className="flex flex-col min-h-screen"><Navbar /><ExploreFields /><Footer /></div>} />
+              <Route path="/field/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><FieldDetails /><Footer /></div>} />
+              <Route path="/login" element={<div className="flex flex-col min-h-screen"><Navbar /><Login /><Footer /></div>} />
+              <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
+              <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
+              <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <div className="flex flex-col min-h-screen"><Navbar /><Profile /><Footer /></div>
+                </ProtectedRoute>
+              } />
 
-            {/* Owner Dashboard */}
-            <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
+              {/* Owner Dashboard */}
+              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/services" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Services /></DashboardLayout></ProtectedRoute>} />
 
-            {/* Admin Dashboard */}
-            <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/admin/users" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Users /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/admin/approvals" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Approvals /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/admin/revenue" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><PlatformRevenue /></DashboardLayout></ProtectedRoute>} />
-            <Route path="/dashboard/admin/reports" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Reports /></DashboardLayout></ProtectedRoute>} />
+              {/* Admin Dashboard */}
+              <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/users" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Users /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/approvals" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Approvals /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/revenue" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><PlatformRevenue /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/reports" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Reports /></DashboardLayout></ProtectedRoute>} />
 
-            {/* Fallback /dashboard → redirect dựa vào role trong ProtectedRoute */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <DashboardLayout role="owner">
-                  <OwnerDashboard />
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </div>
-      </AuthProvider>
+              {/* Fallback /dashboard → redirect dựa vào role trong ProtectedRoute */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <DashboardLayout role="owner">
+                    <OwnerDashboard />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

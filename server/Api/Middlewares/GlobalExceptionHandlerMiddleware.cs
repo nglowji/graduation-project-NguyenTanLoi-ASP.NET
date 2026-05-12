@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Application.Common.DTOs;
 using Application.Common.Exceptions;
 using Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -37,54 +38,34 @@ public class GlobalExceptionHandlerMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/problem+json";
+        context.Response.ContentType = "application/json";
 
-        var (statusCode, problemDetails) = exception switch
+        var (statusCode, message, errors) = exception switch
         {
             DomainException domainEx => (
                 StatusCodes.Status400BadRequest,
-                new ProblemDetails
-                {
-                    Title = "Domain Error",
-                    Detail = domainEx.Message,
-                    Status = StatusCodes.Status400BadRequest,
-                    Instance = context.Request.Path
-                }
+                domainEx.Message,
+                null
             ),
             NotFoundException notFoundEx => (
                 StatusCodes.Status404NotFound,
-                new ProblemDetails
-                {
-                    Title = "Resource Not Found",
-                    Detail = notFoundEx.Message,
-                    Status = StatusCodes.Status404NotFound,
-                    Instance = context.Request.Path
-                }
+                notFoundEx.Message,
+                null
             ),
             ValidationException validationEx => (
-                StatusCodes.Status422UnprocessableEntity,
-                new ValidationProblemDetails(validationEx.Errors)
-                {
-                    Title = "Validation Error",
-                    Status = StatusCodes.Status422UnprocessableEntity,
-                    Instance = context.Request.Path
-                }
+                StatusCodes.Status400BadRequest,
+                "Validation failed",
+                validationEx.Errors.SelectMany(x => x.Value).ToList()
             ),
             _ => (
                 StatusCodes.Status500InternalServerError,
-                new ProblemDetails
-                {
-                    Title = "Internal Server Error",
-                    Detail = _environment.IsDevelopment()
-                        ? exception.Message
-                        : "An unexpected error occurred",
-                    Status = StatusCodes.Status500InternalServerError,
-                    Instance = context.Request.Path
-                }
+                _environment.IsDevelopment() ? exception.Message : "An unexpected error occurred",
+                _environment.IsDevelopment() ? new List<string> { exception.StackTrace ?? "" } : null
             )
         };
 
         context.Response.StatusCode = statusCode;
-        await context.Response.WriteAsJsonAsync(problemDetails);
+        var response = ApiResponse.FailureResponse(message, errors);
+        await context.Response.WriteAsJsonAsync(response);
     }
 }

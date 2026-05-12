@@ -7,46 +7,25 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
 
-public class PitchRepository : IPitchRepository
+public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
 {
-    private readonly ApplicationDbContext _context;
-
-    public PitchRepository(ApplicationDbContext context)
+    public PitchRepository(ApplicationDbContext context) : base(context)
     {
-        _context = context;
     }
 
-    public async Task<Pitch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public override async Task<Pitch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Pitches
+        return await _dbSet
             .Include(p => p.SportCenter)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Pitch>> GetAllAsync(CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<Pitch>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Pitches
+        return await _dbSet
             .AsNoTracking()
             .Include(p => p.SportCenter)
             .ToListAsync(cancellationToken);
-    }
-
-    public async Task<Pitch> AddAsync(Pitch entity, CancellationToken cancellationToken = default)
-    {
-        await _context.Pitches.AddAsync(entity, cancellationToken);
-        return entity;
-    }
-
-    public Task UpdateAsync(Pitch entity, CancellationToken cancellationToken = default)
-    {
-        _context.Pitches.Update(entity);
-        return Task.CompletedTask;
-    }
-
-    public Task DeleteAsync(Pitch entity, CancellationToken cancellationToken = default)
-    {
-        _context.Pitches.Remove(entity);
-        return Task.CompletedTask;
     }
 
     public async Task<PagedResult<Pitch>> GetPagedAsync(
@@ -90,6 +69,8 @@ public class PitchRepository : IPitchRepository
             .AsNoTracking()
             .Where(p => p.OwnerId == ownerId)
             .Include(p => p.Images)
+            .Include(p => p.TimeSlots)
+            .Include(p => p.SportCenter)
             .ToListAsync(cancellationToken);
     }
 
@@ -156,6 +137,7 @@ public class PitchRepository : IPitchRepository
         var query = _context.Pitches
             .Include(p => p.SportCenter)
             .Include(p => p.Images)
+            .Where(p => p.Status == PitchStatus.Active)
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(searchTerm))

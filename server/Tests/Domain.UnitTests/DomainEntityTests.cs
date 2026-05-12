@@ -131,6 +131,42 @@ public class BookingTests
         // Assert
         booking.CanBeCancelled().Should().BeTrue();
     }
+
+    [Fact]
+    public void Complete_FutureBooking_ThrowsDomainException()
+    {
+        // Arrange
+        var booking = Booking.Create(ValidUserId, ValidTimeSlotId, FutureDate, ValidPrice, ValidDeposit);
+        booking.Confirm();
+
+        // Act & Assert
+        var act = () => booking.Complete();
+        act.Should().Throw<DomainException>().WithMessage("*future*");
+    }
+
+    [Fact]
+    public void Complete_InvalidStatus_ThrowsDomainException()
+    {
+        // Arrange
+        var booking = Booking.Create(ValidUserId, ValidTimeSlotId, FutureDate, ValidPrice, ValidDeposit);
+        // Status is currently PendingDeposit
+
+        // Act & Assert
+        var act = () => booking.Complete();
+        act.Should().Throw<DomainException>().WithMessage("*status*");
+    }
+
+    [Fact]
+    public void MarkAsNoShow_FutureBooking_ThrowsDomainException()
+    {
+        // Arrange
+        var booking = Booking.Create(ValidUserId, ValidTimeSlotId, FutureDate, ValidPrice, ValidDeposit);
+        booking.Confirm();
+
+        // Act & Assert
+        var act = () => booking.MarkAsNoShow();
+        act.Should().Throw<DomainException>().WithMessage("*future*");
+    }
 }
 
 public class PitchTests
@@ -143,7 +179,7 @@ public class PitchTests
         var sportCenterId = Guid.NewGuid();
 
         // Act
-        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân A", PitchType.Football5, "Sân cỏ nhân tạo");
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân A", PitchType.Football5, false, "Sân cỏ nhân tạo");
 
         // Assert
         pitch.Should().NotBeNull();
@@ -160,7 +196,7 @@ public class PitchTests
         var sportCenterId = Guid.NewGuid();
 
         // Act & Assert
-        var act = () => Pitch.Create(ownerId, sportCenterId, "", PitchType.Football5);
+        var act = () => Pitch.Create(ownerId, sportCenterId, "", PitchType.Football5, false);
         act.Should().Throw<DomainException>().WithMessage("*name*required*");
     }
 
@@ -170,7 +206,7 @@ public class PitchTests
         // Arrange
         var ownerId = Guid.NewGuid();
         var sportCenterId = Guid.NewGuid();
-        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân B", PitchType.Football7);
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân B", PitchType.Football7, false);
 
         // Act
         pitch.Approve();
@@ -185,7 +221,7 @@ public class PitchTests
         // Arrange
         var ownerId = Guid.NewGuid();
         var sportCenterId = Guid.NewGuid();
-        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân C", PitchType.Football5);
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân C", PitchType.Football5, false);
         pitch.Approve();
 
         // Act & Assert
@@ -199,11 +235,57 @@ public class PitchTests
         // Arrange
         var ownerId = Guid.NewGuid();
         var sportCenterId = Guid.NewGuid();
-        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân D", PitchType.Football5);
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân D", PitchType.Football5, false);
 
         // Assert
         pitch.IsOwnedBy(ownerId).Should().BeTrue();
         pitch.IsOwnedBy(Guid.NewGuid()).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AddTimeSlot_Overlapping_ThrowsDomainException()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân E", PitchType.Football5, false);
+        var price = Money.Create(100000, "VND");
+
+        pitch.AddTimeSlot(TimeRange.Create(TimeSpan.FromHours(17), TimeSpan.FromHours(19)), price);
+
+        // Act & Assert (18h-20h overlaps with 17h-19h)
+        var act = () => pitch.AddTimeSlot(TimeRange.Create(TimeSpan.FromHours(18), TimeSpan.FromHours(20)), price);
+        act.Should().Throw<DomainException>().WithMessage("*overlap*");
+    }
+
+    [Fact]
+    public void UpdateRating_CalculatesAverageCorrectly()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân F", PitchType.Football5, false);
+
+        // Act
+        pitch.UpdateRating(4m);
+        pitch.UpdateRating(5m);
+
+        // Assert
+        pitch.AverageRating.Should().Be(4.5m);
+        pitch.TotalReviews.Should().Be(2);
+    }
+
+    [Fact]
+    public void UpdateRating_InvalidValue_ThrowsDomainException()
+    {
+        // Arrange
+        var ownerId = Guid.NewGuid();
+        var sportCenterId = Guid.NewGuid();
+        var pitch = Pitch.Create(ownerId, sportCenterId, "Sân G", PitchType.Football5, false);
+
+        // Act & Assert
+        var act = () => pitch.UpdateRating(6m);
+        act.Should().Throw<DomainException>().WithMessage("*between*");
     }
 }
 

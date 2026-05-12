@@ -16,9 +16,9 @@ public class CreatePitchCommandValidator : AbstractValidator<CreatePitchCommand>
             .MaximumLength(200)
             .WithMessage("Pitch name cannot exceed 200 characters");
 
-        RuleFor(x => x.SportCenterId)
-            .NotEmpty()
-            .WithMessage("Sport Center ID is required");
+        RuleFor(x => x.Address)
+            .MaximumLength(500)
+            .WithMessage("Address cannot exceed 500 characters");
 
         RuleFor(x => x.Description)
             .MaximumLength(2000)

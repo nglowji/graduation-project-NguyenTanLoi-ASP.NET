@@ -17,17 +17,14 @@ export interface BookingResponse {
 
 export const bookingService = {
   create: async (request: CreateBookingRequest): Promise<BookingResponse> => {
-    const response = await api.post('/bookings', request);
-    return response.data;
+    return await api.post('/bookings', request);
   },
 
   getById: async (id: string): Promise<BookingResponse> => {
-    const response = await api.get(`/bookings/${id}`);
-    return response.data;
+    return await api.get(`/bookings/${id}`);
   },
 
   getMyBookings: async (): Promise<BookingResponse[]> => {
-    const response = await api.get('/bookings/my-bookings');
-    return response.data;
+    return await api.get('/bookings/my-bookings');
   }
 };

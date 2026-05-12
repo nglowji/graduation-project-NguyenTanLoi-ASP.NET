@@ -20,13 +20,10 @@ public class PaymentsController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Create payment URL for booking deposit
-    /// </summary>
     [HttpPost("create")]
     [Authorize]
-    [ProducesResponseType(typeof(CreatePaymentResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<CreatePaymentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePayment(
         [FromBody] CreatePaymentRequest request,
         CancellationToken cancellationToken)
@@ -40,14 +37,11 @@ public class PaymentsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to create payment", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to create payment");
 
-        return Ok(new CreatePaymentResponse(result.Value!));
+        return OkResponse(new CreatePaymentResponse(result.Value!));
     }
 
-    /// <summary>
-    /// VNPAY payment callback (called by VNPAY after payment)
-    /// </summary>
     [HttpGet("callback")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -71,13 +65,10 @@ public class PaymentsController : ApiControllerBase
             : Redirect($"/payment-failed?bookingId={callbackResult.BookingId}&message={callbackResult.Message}");
     }
 
-    /// <summary>
-    /// Get payment transaction details
-    /// </summary>
     [HttpGet("transactions/{transactionId:guid}")]
     [Authorize]
-    [ProducesResponseType(typeof(PaymentTransactionDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<PaymentTransactionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTransaction(
         Guid transactionId,
         CancellationToken cancellationToken)
@@ -86,17 +77,14 @@ public class PaymentsController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return NotFoundProblem("Transaction not found", result.ErrorMessage);
+            return NotFoundResponse(result.ErrorMessage ?? "Transaction not found");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Get user's payment history
-    /// </summary>
     [HttpGet("my-history")]
     [Authorize]
-    [ProducesResponseType(typeof(PagedResult<PaymentHistoryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PaymentHistoryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyPaymentHistory(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
@@ -110,8 +98,8 @@ public class PaymentsController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to get payment history", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get payment history");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 }

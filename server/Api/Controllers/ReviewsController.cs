@@ -19,12 +19,9 @@ public class ReviewsController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Get reviews for a pitch
-    /// </summary>
     [HttpGet("pitches/{pitchId:guid}/reviews")]
-    [ProducesResponseType(typeof(PagedResult<ReviewDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<ReviewDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetByPitch(
         Guid pitchId,
         [FromQuery] int pageNumber = 1,
@@ -35,18 +32,15 @@ public class ReviewsController : ApiControllerBase
         var result = await _mediator.Send(query, cancellationToken);
 
         if (!result.IsSuccess)
-            return NotFoundProblem("Reviews not found", result.ErrorMessage);
+            return NotFoundResponse(result.ErrorMessage ?? "Reviews not found");
 
-        return Ok(result.Value);
+        return OkResponse(result.Value);
     }
 
-    /// <summary>
-    /// Create a review for a completed booking
-    /// </summary>
     [HttpPost("bookings/{bookingId:guid}/reviews")]
     [Authorize]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
         Guid bookingId,
         [FromBody] CreateReviewRequest request,
@@ -60,12 +54,8 @@ public class ReviewsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestProblem("Failed to create review", result.ErrorMessage);
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to create review");
 
-        return CreatedAtAction(
-            nameof(GetByPitch),
-            new { pitchId = Guid.Empty },
-            result.Value
-        );
+        return CreatedResponse(nameof(GetByPitch), new { pitchId = Guid.Empty }, result.Value!, "Review created successfully");
     }
 }

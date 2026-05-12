@@ -1,23 +1,20 @@
 using System.Security.Claims;
+using Application.Common.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
 /// <summary>
 /// Base controller providing shared functionality for all API controllers.
-/// Eliminates GetCurrentUserId() duplication across controllers.
+/// Eliminates duplication and enforces unified response format.
 /// </summary>
 [ApiController]
 [Produces("application/json")]
 public abstract class ApiControllerBase : ControllerBase
 {
-    /// <summary>
-    /// Extracts the current authenticated user's ID from JWT claims.
-    /// </summary>
-    /// <returns>The user's Guid, or Guid.Empty if not authenticated.</returns>
     protected Guid GetCurrentUserId()
     {
-        var userIdClaim = User.FindFirst(ClaimConstants.UserIdClaimType)
+        var userIdClaim = User.FindFirst("UserId")
                        ?? User.FindFirst(ClaimTypes.NameIdentifier);
 
         if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
@@ -26,27 +23,18 @@ public abstract class ApiControllerBase : ControllerBase
         return Guid.Empty;
     }
 
-    /// <summary>
-    /// Creates a standardized ProblemDetails BadRequest response.
-    /// </summary>
-    protected IActionResult BadRequestProblem(string title, string? detail) =>
-        BadRequest(new ProblemDetails
-        {
-            Title = title,
-            Detail = detail,
-            Status = StatusCodes.Status400BadRequest,
-            Instance = HttpContext.Request.Path
-        });
+    protected IActionResult OkResponse<T>(T data, string? message = null)
+        => Ok(ApiResponse<T>.SuccessResponse(data, message));
 
-    /// <summary>
-    /// Creates a standardized ProblemDetails NotFound response.
-    /// </summary>
-    protected IActionResult NotFoundProblem(string title, string? detail) =>
-        NotFound(new ProblemDetails
-        {
-            Title = title,
-            Detail = detail,
-            Status = StatusCodes.Status404NotFound,
-            Instance = HttpContext.Request.Path
-        });
+    protected IActionResult CreatedResponse<T>(string actionName, object routeValues, T data, string? message = null)
+        => CreatedAtAction(actionName, routeValues, ApiResponse<T>.SuccessResponse(data, message));
+
+    protected IActionResult ErrorResponse(string message, int statusCode = StatusCodes.Status400BadRequest, List<string>? errors = null)
+        => StatusCode(statusCode, ApiResponse.FailureResponse(message, errors));
+
+    protected IActionResult BadRequestResponse(string message, List<string>? errors = null)
+        => ErrorResponse(message, StatusCodes.Status400BadRequest, errors);
+
+    protected IActionResult NotFoundResponse(string message)
+        => ErrorResponse(message, StatusCodes.Status404NotFound);
 }

@@ -5,41 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
 
-public class ReviewRepository : IReviewRepository
+public class ReviewRepository : BaseRepository<Review>, IReviewRepository
 {
-    private readonly ApplicationDbContext _context;
-
-    public ReviewRepository(ApplicationDbContext context)
+    public ReviewRepository(ApplicationDbContext context) : base(context)
     {
-        _context = context;
-    }
-
-    public async Task<Review?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Reviews.FindAsync(new object[] { id }, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<Review>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Reviews.AsNoTracking().ToListAsync(cancellationToken);
-    }
-
-    public async Task<Review> AddAsync(Review entity, CancellationToken cancellationToken = default)
-    {
-        await _context.Reviews.AddAsync(entity, cancellationToken);
-        return entity;
-    }
-
-    public Task UpdateAsync(Review entity, CancellationToken cancellationToken = default)
-    {
-        _context.Reviews.Update(entity);
-        return Task.CompletedTask;
-    }
-
-    public Task DeleteAsync(Review entity, CancellationToken cancellationToken = default)
-    {
-        _context.Reviews.Remove(entity);
-        return Task.CompletedTask;
     }
 
     public async Task<bool> HasUserReviewedBookingAsync(Guid bookingId, CancellationToken cancellationToken = default)

@@ -9,16 +9,24 @@ public class SportCenter : BaseEntity, IAggregateRoot
 
     private SportCenter() { }
 
-    public SportCenter(string name, Address address, string? description, string? phoneNumber)
+    public SportCenter(string name, Guid ownerId, Address address, string? description, string? phoneNumber)
     {
         Name = name;
+        OwnerId = ownerId;
         Address = address;
         Description = description;
         PhoneNumber = phoneNumber;
         IsActive = true;
     }
 
+    public void UpdateAddress(Address address)
+    {
+        Address = address;
+        MarkAsUpdated();
+    }
+
     public string Name { get; private set; } = null!;
+    public Guid OwnerId { get; private set; }
     public Address Address { get; private set; } = null!;
     public string? Description { get; private set; }
     public string? PhoneNumber { get; private set; }

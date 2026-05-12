@@ -53,6 +53,7 @@ public class FacebookLoginCommandHandler : IRequestHandler<FacebookLoginCommand,
                     email: fbUser.Email,
                     fullName: fbUser.Name,
                     phoneNumber: "", 
+                    address: null,
                     passwordHash: "EXTERNAL_AUTH_FB_" + Guid.NewGuid().ToString("N"),
                     role: UserRole.Customer
                 );

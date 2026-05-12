@@ -42,6 +42,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Au
             request.Email,
             request.FullName,
             request.PhoneNumber,
+            request.Address,
             passwordHash,
             request.Role
         );

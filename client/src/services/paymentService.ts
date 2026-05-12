@@ -23,19 +23,16 @@ export interface PaymentTransactionDto {
 
 export const paymentService = {
   createPayment: async (request: CreatePaymentRequest): Promise<CreatePaymentResponse> => {
-    const response = await api.post('/payments/create', request);
-    return response.data;
+    return await api.post('/payments/create', request);
   },
 
   getTransaction: async (transactionId: string): Promise<PaymentTransactionDto> => {
-    const response = await api.get(`/payments/transactions/${transactionId}`);
-    return response.data;
+    return await api.get(`/payments/transactions/${transactionId}`);
   },
 
   getMyHistory: async (pageNumber = 1, pageSize = 10): Promise<any> => {
-    const response = await api.get('/payments/my-history', {
+    return await api.get('/payments/my-history', {
       params: { pageNumber, pageSize }
     });
-    return response.data;
   }
 };

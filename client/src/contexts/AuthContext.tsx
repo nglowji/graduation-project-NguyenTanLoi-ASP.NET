@@ -11,6 +11,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isOwner: boolean;
   isCustomer: boolean;
+  updateUser: (data: Partial<AuthResponse>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,6 +51,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((data: Partial<AuthResponse>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...data };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -57,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading,
       login,
       logout,
+      updateUser,
       isAuthenticated: !!token,
       isAdmin: user?.role === 3,
       isOwner: user?.role === 2,

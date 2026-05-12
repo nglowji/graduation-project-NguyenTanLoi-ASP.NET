@@ -1,3 +1,4 @@
+using Application.Common.DTOs;
 using Application.Features.AI.Commands.ChatWithAI;
 using Application.Features.AI.Queries.GetDirections;
 using Application.Features.AI.Queries.GetPitchRecommendations;
@@ -19,12 +20,9 @@ public class AIController : ApiControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Chat với AI assistant
-    /// </summary>
     [HttpPost("chat")]
-    [ProducesResponseType(typeof(ChatWithAIResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<ChatWithAIResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Chat(
         [FromBody] ChatRequest request,
         CancellationToken cancellationToken)
@@ -41,14 +39,11 @@ public class AIController : ApiControllerBase
         };
 
         var response = await _mediator.Send(command, cancellationToken);
-        return Ok(response);
+        return OkResponse(response);
     }
 
-    /// <summary>
-    /// Lấy gợi ý sân dựa trên preferences và AI
-    /// </summary>
     [HttpGet("recommendations")]
-    [ProducesResponseType(typeof(Application.Common.Interfaces.PitchRecommendationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<Application.Common.Interfaces.PitchRecommendationResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRecommendations(
         [FromQuery] string? query,
         [FromQuery] double? latitude,
@@ -68,15 +63,12 @@ public class AIController : ApiControllerBase
         };
 
         var response = await _mediator.Send(queryObj, cancellationToken);
-        return Ok(response);
+        return OkResponse(response);
     }
 
-    /// <summary>
-    /// Lấy chỉ đường đến sân
-    /// </summary>
     [HttpGet("directions")]
-    [ProducesResponseType(typeof(Application.Common.Interfaces.DirectionsResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<Application.Common.Interfaces.DirectionsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDirections(
         [FromQuery] double fromLatitude,
         [FromQuery] double fromLongitude,
@@ -93,6 +85,6 @@ public class AIController : ApiControllerBase
         };
 
         var response = await _mediator.Send(query, cancellationToken);
-        return Ok(response);
+        return OkResponse(response);
     }
 }

@@ -13,11 +13,12 @@ public class User : BaseEntity, IAggregateRoot
 
     private User() { } // EF Core constructor
 
-    private User(string email, string fullName, string phoneNumber, string passwordHash, UserRole role)
+    private User(string email, string fullName, string phoneNumber, string? address, string passwordHash, UserRole role)
     {
         Email = email;
         FullName = fullName;
         PhoneNumber = phoneNumber;
+        Address = address;
         PasswordHash = passwordHash;
         Role = role;
         IsActive = true;
@@ -26,24 +27,28 @@ public class User : BaseEntity, IAggregateRoot
     public string Email { get; private set; } = string.Empty;
     public string FullName { get; private set; } = string.Empty;
     public string PhoneNumber { get; private set; } = string.Empty;
+    public string? Address { get; private set; }
+    public string? MapLink { get; private set; }
     public string PasswordHash { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
 
-    public static User Create(string email, string fullName, string phoneNumber, string passwordHash, UserRole role)
+    public static User Create(string email, string fullName, string phoneNumber, string? address, string passwordHash, UserRole role)
     {
         ValidateCreationParameters(email, fullName, phoneNumber, passwordHash);
-        return new User(email, fullName, phoneNumber, passwordHash, role);
+        return new User(email, fullName, phoneNumber, address, passwordHash, role);
     }
 
-    public void UpdateProfile(string fullName, string phoneNumber)
+    public void UpdateProfile(string fullName, string phoneNumber, string? address, string? mapLink = null)
     {
         ValidateFullName(fullName);
         ValidatePhoneNumber(phoneNumber);
 
         FullName = fullName;
         PhoneNumber = phoneNumber;
+        Address = address;
+        MapLink = mapLink;
         MarkAsUpdated();
     }
 

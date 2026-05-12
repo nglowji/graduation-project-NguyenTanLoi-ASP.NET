@@ -5,7 +5,7 @@ import {
   Camera, MapPin, Phone, Mail, ChevronRight,
   ShieldCheck, Clock,
   AlertCircle, Save, Loader2, Edit3, X,
-  ExternalLink, MailCheck
+  ExternalLink, MailCheck, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
@@ -14,10 +14,11 @@ import { useVietnamLocations, type Province, type District, type Ward } from '..
 type TabType = 'profile' | 'bookings' | 'notifications' | 'security';
 
 const Profile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
 
@@ -35,15 +36,45 @@ const Profile: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     email: user?.email || '',
-    phoneNumber: '',
-    address: ''
+    phoneNumber: user?.phoneNumber || '',
+    address: user?.address || '',
+    mapLink: user?.mapLink || ''
   });
 
   useEffect(() => {
+    fetchProfile();
     if (activeTab === 'bookings') {
       fetchBookings();
     }
   }, [activeTab]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await api.get('/users/profile');
+      if (res.data) {
+        setFormData({
+          fullName: res.data.fullName || '',
+          email: res.data.email || '',
+          phoneNumber: res.data.phoneNumber || '',
+          address: res.data.address || '',
+          mapLink: res.data.mapLink || ''
+        });
+        updateUser(res.data);
+      }
+    } catch (err: any) {
+      if (err.response?.status === 404 && err.response?.data?.title === 'User not found') {
+         setNotification({ type: 'error', message: 'Dữ liệu người dùng đã thay đổi. Vui lòng đăng xuất và đăng nhập lại để tiếp tục.' });
+      }
+    }
+  };
+
+  // Auto-clear notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const fetchBookings = async () => {
     setIsLoadingBookings(true);
@@ -69,14 +100,37 @@ const Profile: React.FC = () => {
     setIsSaving(true);
     try {
       const locationString = `${selectedWard?.name || ''}, ${selectedDistrict?.name || ''}, ${selectedProvince?.name || ''}`;
+      const finalAddress = locationString.trim() === ', ,' ? formData.address : locationString;
+
       await api.patch('/users/profile', {
         ...formData,
-        address: locationString.trim() === ', ,' ? formData.address : locationString
+        address: finalAddress
       });
+      
+      // Update global context immediately
+      updateUser({
+        fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber,
+        address: finalAddress,
+        mapLink: formData.mapLink
+      });
+
       setIsEditing(false);
-      alert('Đã cập nhật thông tin thành công!');
-    } catch (err) {
-      alert('Không thể cập nhật thông tin. Vui lòng thử lại.');
+      setNotification({ type: 'success', message: 'Cập nhật thành công!' });
+    } catch (err: any) {
+      const data = err.response?.data;
+      let msg = data?.detail || data?.message || (typeof data === 'string' ? data : null) || 'Không thể cập nhật thông tin.';
+      
+      if (msg === 'User not found') {
+        msg = 'Phiên đăng nhập đã hết hạn hoặc dữ liệu không khớp. Vui lòng ĐĂNG XUẤT và ĐĂNG NHẬP lại.';
+      }
+
+      if (data?.errors) {
+        const validationErrors = Object.values(data.errors).flat().join(', ');
+        setNotification({ type: 'error', message: `Lỗi: ${validationErrors}` });
+      } else {
+        setNotification({ type: 'error', message: msg });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -303,6 +357,42 @@ const Profile: React.FC = () => {
                               </div>
                             </>
                           )}
+
+                          {/* Địa chỉ chi tiết */}
+                          <div className="md:col-span-2 space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Địa chỉ chi tiết (hoặc địa chỉ hiện tại)</label>
+                            <div className="relative group">
+                              <MapPin className="absolute left-5 top-5 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
+                              <textarea 
+                                value={formData.address}
+                                readOnly={!isEditing}
+                                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                                rows={2}
+                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all resize-none ${
+                                  isEditing ? 'bg-white border-primary ring-4 ring-primary/5' : 'bg-slate-50 border-slate-100 text-slate-500'
+                                }`}
+                                placeholder="Số nhà, tên đường..."
+                              />
+                            </div>
+                          </div>
+
+                          {/* Link Google Map */}
+                          <div className="md:col-span-2 space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Link Google Map (Tọa độ cụ thể)</label>
+                            <div className="relative group">
+                              <ExternalLink className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18} />
+                              <input 
+                                type="url" 
+                                value={formData.mapLink}
+                                readOnly={!isEditing}
+                                onChange={(e) => setFormData({...formData, mapLink: e.target.value})}
+                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all ${
+                                  isEditing ? 'bg-white border-primary ring-4 ring-primary/5' : 'bg-slate-50 border-slate-100 text-slate-500'
+                                }`}
+                                placeholder="https://www.google.com/maps/place/..."
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         {isEditing && (
@@ -506,6 +596,52 @@ const Profile: React.FC = () => {
 
         </div>
       </div>
+
+      {/* Premium Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] min-w-[320px]"
+          >
+            <div className={`p-1 rounded-[2rem] shadow-2xl backdrop-blur-xl ${
+              notification.type === 'success' 
+                ? 'bg-emerald-500/10 border border-emerald-500/20 shadow-emerald-500/10' 
+                : 'bg-red-500/10 border border-red-500/20 shadow-red-500/10'
+            }`}>
+              <div className="flex items-center gap-4 px-6 py-4 bg-white dark:bg-[#1a1c26] rounded-[1.8rem]">
+                {notification.type === 'success' ? (
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+                    <CheckCircle2 size={20} />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
+                    <AlertCircle size={20} />
+                  </div>
+                )}
+                <div className="flex-1 pr-4">
+                  <p className={`text-[10px] font-black uppercase tracking-widest ${
+                    notification.type === 'success' ? 'text-emerald-500' : 'text-red-400'
+                  }`}>
+                    {notification.type === 'success' ? 'Thành công' : 'Thất bại'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-white/80 mt-0.5 leading-tight">
+                    {notification.message}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setNotification(null)}
+                  className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 transition-all flex items-center justify-center"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

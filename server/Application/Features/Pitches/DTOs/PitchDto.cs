@@ -49,8 +49,8 @@ public class PitchDetailDto : PitchDto
 public class TimeSlotDto
 {
     public Guid Id { get; set; }
-    public string StartTime { get; set; } = string.Empty;
-    public string EndTime { get; set; } = string.Empty;
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
     public decimal Price { get; set; }
     public string Currency { get; set; } = "VND";
     public bool IsActive { get; set; }
