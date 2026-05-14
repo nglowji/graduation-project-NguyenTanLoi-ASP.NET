@@ -1,79 +1,84 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Star, Search, ChevronDown } from 'lucide-react';
+import { Star, MapPin, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface PitchCardProps {
   id: string;
   name: string;
-  location: string;
+  typeDisplay: string;
   price: string;
   rating: number;
   reviews: number;
   image: string;
 }
 
-export const PitchCard: React.FC<PitchCardProps> = ({ id, name, location, price, rating, reviews, image }) => (
-  <Link to={`/field/${id}`} className="block h-full">
-    <motion.div 
-      whileHover={{ y: -12, boxShadow: "0 40px 80px -20px rgba(0,0,0,0.15)" }}
-      className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 group cursor-pointer transition-all h-full flex flex-col relative"
-    >
-      {/* Sport Badge */}
-      <div className="absolute top-5 left-5 z-10 flex flex-col gap-2">
-        <div className="bg-slate-900/90 backdrop-blur-md text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] shadow-xl flex items-center gap-2 border border-white/10">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          Sân Bóng Đá
-        </div>
-      </div>
+export const PitchCard: React.FC<PitchCardProps> = ({ id, name, typeDisplay, price, rating, image }) => {
+  const getPitchTypeLabel = (type: string) => {
+    if (!type || type === "0") return "Sân Đấu";
+    const mapping: Record<string, string> = {
+      'Football5': 'Bóng đá 5', 'Football7': 'Bóng đá 7', 'Football11': 'Bóng đá 11',
+      'Tennis': 'Tennis', 'Badminton': 'Cầu lông', 'Pickleball': 'Pickleball',
+      'Basketball': 'Bóng rổ', 'Volleyball': 'Bóng chuyền', 'TableTennis': 'Bóng bàn'
+    };
+    return mapping[type] || type;
+  };
 
-      {/* Image container */}
-      <div className="relative h-64 overflow-hidden shrink-0">
-        <img 
-          src={image} 
-          alt={name} 
-          className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-700" />
-        
-        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between">
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl flex items-center gap-2 border border-white/20">
-            <Star size={16} className="text-yellow-400 fill-current" />
-            <span className="text-white font-black text-sm">{rating.toFixed(1)}</span>
-            <span className="text-white/60 font-bold text-xs">({reviews})</span>
-          </div>
+  return (
+    <Link to={`/field/${id}`} className="block h-full group">
+      <motion.div 
+        whileHover={{ y: -12 }}
+        className="bg-white dark:bg-[#11131a] rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-white/5 shadow-sm hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] transition-all duration-500 h-full flex flex-col relative"
+      >
+        {/* Visual Header */}
+        <div className="relative h-64 overflow-hidden shrink-0">
+          <img 
+            src={image} 
+            alt={name} 
+            className="w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-1000" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           
-          <button className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-900 shadow-xl shadow-slate-900/20 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-            <Search size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-8 flex flex-col flex-1">
-        <h3 className="text-2xl font-black mb-3 text-slate-900 line-clamp-1 group-hover:text-primary transition-colors leading-tight tracking-tight">{name}</h3>
-        
-        <div className="flex items-center gap-3 text-slate-500 text-sm mb-8 font-bold">
-          <div className="w-8 h-8 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-            <MapPin size={16} className="shrink-0" />
-          </div>
-          <span className="truncate">{location}</span>
-        </div>
-
-        <div className="mt-auto flex items-end justify-between pt-6 border-t border-slate-50">
-          <div className="flex flex-col">
-            <span className="text-[9px] uppercase tracking-[0.25em] font-black text-slate-400 mb-1">Giá trải nghiệm</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black text-primary">{price}</span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">/h</span>
+          {/* Status Badges */}
+          <div className="absolute top-5 left-5 right-5 flex justify-between items-start">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 text-white px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {getPitchTypeLabel(typeDisplay)}
+            </div>
+            <div className="bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl flex items-center gap-1.5 border border-white shadow-xl">
+              <Star size={12} className="text-amber-500 fill-current" />
+              <span className="text-slate-900 font-black text-[11px] leading-none">{rating.toFixed(1)}</span>
             </div>
           </div>
-          
-          <div className="flex items-center gap-1.5 text-primary font-black text-xs uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-xl group-hover:bg-primary group-hover:text-white transition-all duration-300">
-            Đặt sân <ChevronDown className="-rotate-90" size={14} />
+
+          {/* Bottom Info Overlay */}
+          <div className="absolute bottom-5 left-6 right-6">
+            <h3 className="text-xl font-black text-white leading-tight tracking-tight drop-shadow-lg line-clamp-2">{name}</h3>
           </div>
         </div>
-      </div>
-    </motion.div>
-  </Link>
-);
+
+        {/* Details Area */}
+        <div className="p-6 flex flex-col flex-1">
+          <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[10px] mb-6 font-black uppercase tracking-[0.2em]">
+            <MapPin size={12} className="text-red-500" />
+            <span className="truncate">Sân bóng tiêu chuẩn • Hoạt động 24/7</span>
+          </div>
+
+          <div className="mt-auto flex items-center justify-between pt-6 border-t border-slate-50 dark:border-white/5">
+            <div className="space-y-0.5">
+              <p className="text-[9px] uppercase tracking-widest font-black text-slate-300 dark:text-slate-600">Bắt đầu từ</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-black text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.2)]">{price}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">đ/h</span>
+              </div>
+            </div>
+            
+            <div className="w-12 h-12 rounded-[1.25rem] bg-slate-50 dark:bg-white/5 text-slate-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-2xl group-hover:shadow-blue-600/30 transition-all duration-500">
+              <ArrowRight size={20} strokeWidth={3} className="-rotate-45 group-hover:rotate-0 transition-transform duration-500" />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </Link>
+  );
+};

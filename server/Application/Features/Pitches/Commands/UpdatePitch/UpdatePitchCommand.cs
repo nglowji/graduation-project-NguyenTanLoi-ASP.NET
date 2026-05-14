@@ -8,7 +8,6 @@ public record UpdatePitchCommand(
     Guid Id,
     Guid OwnerId,
     string Name,
-    string Address,
     string? Description,
     PitchType PitchType,
     bool IsIndoor,

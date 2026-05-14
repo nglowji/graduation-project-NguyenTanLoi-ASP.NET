@@ -69,7 +69,7 @@ const PartnerPortal: React.FC = () => {
       });
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err.response?.data?.Detail || 'Đăng ký đối tác thất bại. Vui lòng thử lại.');
+      setError(err.message || 'Đăng ký đối tác thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +82,7 @@ const PartnerPortal: React.FC = () => {
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse" />
           <div className="absolute top-1/2 -right-24 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px]" />
-          <div className="absolute bottom-0 left-1/4 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+          <div className="absolute bottom-0 left-1/4 w-full h-[1px] bg-linear-to-r from-transparent via-primary/30 to-transparent" />
         </div>
 
         <div className="container mx-auto px-6 relative z-10">
@@ -101,7 +101,7 @@ const PartnerPortal: React.FC = () => {
                 className="text-5xl md:text-7xl font-black text-white mb-8 leading-[1.1] tracking-tight"
               >
                 Số hóa sân bãi <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Đột phá doanh thu</span>
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-blue-400">Đột phá doanh thu</span>
               </motion.h1>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
@@ -138,7 +138,7 @@ const PartnerPortal: React.FC = () => {
                   alt="Stadium Management" 
                   className="w-full aspect-square object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1d]/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-[#0a0f1d]/60 via-transparent to-transparent" />
               </div>
               {/* Floating Badge */}
               <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-3xl shadow-2xl z-20 animate-bounce-slow">
@@ -214,7 +214,7 @@ const PartnerPortal: React.FC = () => {
                   </li>
                 </ul>
               </div>
-              <div className="bg-gradient-to-br from-primary to-blue-600 rounded-[2.5rem] p-1 shadow-2xl relative z-10 group transition-transform hover:scale-105 duration-500">
+              <div className="bg-linear-to-br from-primary to-blue-600 rounded-[2.5rem] p-1 shadow-2xl relative z-10 group transition-transform hover:scale-105 duration-500">
                 <div className="bg-slate-900 rounded-[2.3rem] p-12 text-center">
                   <span className="text-sm font-black text-primary uppercase tracking-[0.3em] block mb-4">Chiết khấu</span>
                   <div className="relative inline-block">
@@ -294,7 +294,7 @@ const PartnerPortal: React.FC = () => {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-6 mb-10">
-                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 relative overflow-hidden group/card">
+                    <div className="bg-slate-50 p-6 rounded-4xl border border-slate-100 relative overflow-hidden group/card">
                       <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -mr-8 -mt-8" />
                       <span className="text-xs text-slate-400 font-black uppercase tracking-widest block mb-2">Tổng doanh thu</span>
                       <span className="text-2xl font-black text-slate-900">42,500,000đ</span>
@@ -303,7 +303,7 @@ const PartnerPortal: React.FC = () => {
                         <span className="text-[10px] text-green-600 font-black">+12.5%</span>
                       </div>
                     </div>
-                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 relative overflow-hidden">
+                    <div className="bg-slate-50 p-6 rounded-4xl border border-slate-100 relative overflow-hidden">
                       <span className="text-xs text-slate-400 font-black uppercase tracking-widest block mb-2">Tỷ lệ lấp đầy</span>
                       <span className="text-2xl font-black text-slate-900">86.4%</span>
                       <div className="flex items-center gap-1 mt-2">
@@ -581,7 +581,7 @@ const PartnerPortal: React.FC = () => {
 };
 
 const BenefitCard: React.FC<{ icon: React.ReactNode, title: string, description: string }> = ({ icon, title, description }) => (
-  <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:border-primary/50 transition-all duration-300">
+  <div className="bg-white p-8 rounded-4xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-primary/50 transition-all duration-300">
     <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6">
       {icon}
     </div>

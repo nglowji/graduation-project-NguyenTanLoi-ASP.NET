@@ -4,6 +4,7 @@ using Application.Features.Pitches.Commands.UpdatePitch;
 using Application.Features.Pitches.Commands.DeletePitch;
 using Application.Features.Pitches.DTOs;
 using Application.Features.Pitches.Queries.GetAvailableTimeSlots;
+using Application.Features.Pitches.Queries.GetPitchById;
 using Application.Features.Pitches.Queries.SearchPitches;
 using Application.Features.Dashboard.Queries;
 using Domain.Enums;
@@ -60,6 +61,7 @@ public class PitchesController : ApiControllerBase
     }
 
     [HttpGet("{pitchId:guid}/available-slots")]
+    [HttpGet("{pitchId:guid}/timeslots")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<List<TimeSlotDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -73,6 +75,23 @@ public class PitchesController : ApiControllerBase
 
         if (!result.IsSuccess)
             return BadRequestResponse(result.ErrorMessage ?? "Failed to get available slots");
+
+        return OkResponse(result.Value);
+    }
+
+    [HttpGet("{pitchId:guid}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<PitchDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(
+        Guid pitchId,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetPitchByIdQuery(pitchId);
+        var result = await _mediator.Send(query, cancellationToken);
+
+        if (!result.IsSuccess)
+            return NotFoundResponse(result.ErrorMessage ?? "Pitch not found");
 
         return OkResponse(result.Value);
     }

@@ -25,6 +25,7 @@ public class Review : BaseEntity, IAggregateRoot
     public Guid BookingId { get; private set; }
     public int Rating { get; private set; }
     public string? Comment { get; private set; }
+    public string? OwnerReply { get; private set; }
 
     public Pitch Pitch { get; private set; } = null!;
     public User User { get; private set; } = null!;
@@ -42,6 +43,15 @@ public class Review : BaseEntity, IAggregateRoot
 
         Rating = rating;
         Comment = comment;
+        MarkAsUpdated();
+    }
+
+    public void Reply(string reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply))
+            throw new DomainException("Reply content is required");
+
+        OwnerReply = reply.Trim();
         MarkAsUpdated();
     }
 

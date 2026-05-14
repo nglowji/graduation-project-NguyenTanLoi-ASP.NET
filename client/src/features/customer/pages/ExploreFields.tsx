@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Globe, MapPin, Users, DollarSign, Star, Navigation, Trophy, Check, Filter } from 'lucide-react';
+import { Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { pitchService } from '../../../services/pitchService';
 import type { PitchResponse } from '../../../services/pitchService';
@@ -18,21 +18,23 @@ const CustomDropdown: React.FC<{
   const selectedLabel = options.find(opt => opt.value === value)?.label || label;
 
   return (
-    <div className="relative flex-1 min-w-[160px]">
+    <div className="relative flex-1 min-w-[200px]">
       <button 
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-body font-bold text-sm transition-all duration-300 border
+        className={`w-full flex items-center justify-between px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all duration-300 border-2
           ${disabled 
             ? 'bg-slate-50 text-slate-300 border-transparent cursor-not-allowed' 
             : isOpen 
-              ? 'bg-white border-primary text-primary shadow-[0_0_0_4px_rgba(var(--primary-rgb),0.1)]' 
-              : 'bg-slate-50/50 border-transparent text-slate-600 hover:bg-slate-100/80 hover:text-primary'
+              ? 'bg-white border-blue-500 text-blue-600 shadow-2xl shadow-blue-500/10' 
+              : 'bg-white dark:bg-[#11131a] border-slate-100 dark:border-white/5 text-slate-500 hover:border-blue-500/30 hover:text-blue-500'
           }`}
       >
-        <span className={`${isOpen ? 'text-primary' : 'text-slate-400'}`}>{icon}</span>
-        <span className="truncate flex-1 text-left">{selectedLabel}</span>
-        <motion.span animate={{ rotate: isOpen ? 180 : 0 }} className="text-[10px] opacity-50">▼</motion.span>
+        <div className="flex items-center gap-3">
+          <span className={isOpen ? 'text-blue-500' : 'text-slate-400'}>{icon}</span>
+          <span className="truncate">{selectedLabel}</span>
+        </div>
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -40,12 +42,12 @@ const CustomDropdown: React.FC<{
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
             <motion.div 
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              initial={{ opacity: 0, y: 15, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden"
+              exit={{ opacity: 0, y: 15, scale: 0.95 }}
+              className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-[#1a1c26] rounded-[2rem] shadow-2xl border border-slate-100 dark:border-white/5 z-50 overflow-hidden"
             >
-              <div className="max-height-[300px] overflow-y-auto p-2 scrollbar-hide">
+              <div className="max-h-[350px] overflow-y-auto p-3 custom-scrollbar">
                 {options.map((opt) => (
                   <button
                     key={opt.value}
@@ -54,14 +56,14 @@ const CustomDropdown: React.FC<{
                       onChange(opt.value);
                       setIsOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-body font-bold text-sm transition-all
+                    className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl font-bold text-sm transition-all
                       ${value === opt.value 
-                        ? 'bg-primary/5 text-primary' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-primary'
+                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' 
+                        : 'text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5'
                       }`}
                   >
                     {opt.label}
-                    {value === opt.value && <Check size={14} strokeWidth={3} />}
+                    {value === opt.value && <Check size={16} strokeWidth={3} />}
                   </button>
                 ))}
               </div>
@@ -79,7 +81,7 @@ const ExploreFields: React.FC = () => {
   const [provinceCode, setProvinceCode] = useState<number | undefined>(undefined);
   const [district, setDistrict] = useState('');
   const [districtCode, setDistrictCode] = useState<number | undefined>(undefined);
-  const [sportType, setSportType] = useState('Football');
+  const [sportType, setSportType] = useState('');
   const [pitchType, setPitchType] = useState('');
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
@@ -91,9 +93,13 @@ const ExploreFields: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 12;
+
   useEffect(() => {
     fetchPitches();
-  }, [province, district, sportType, pitchType, maxPrice, minRating, isNearMe, coords]);
+  }, [province, district, sportType, pitchType, maxPrice, minRating, isNearMe, coords, searchQuery, page]);
 
   const fetchPitches = async () => {
     setIsLoading(true);
@@ -109,14 +115,21 @@ const ExploreFields: React.FC = () => {
         latitude: isNearMe ? coords?.lat : undefined,
         longitude: isNearMe ? coords?.lng : undefined,
         radiusKm: isNearMe ? 10 : undefined,
-        pageSize: 12
-      });
-      setPitches(result.items);
-      setTotalCount(result.totalCount);
+        pageNumber: page,
+        pageSize: pageSize
+      }) as any;
+      
+      const items = result?.items || result?.Items || [];
+      const total = result?.totalCount ?? result?.TotalCount ?? items.length;
+      const totalP = result?.totalPages ?? result?.TotalPages ?? Math.ceil(total / pageSize);
+      
+      setPitches(items);
+      setTotalCount(total);
+      setTotalPages(totalP);
     } catch (error) {
       console.error("Failed to fetch pitches:", error);
     } finally {
-      setTimeout(() => setIsLoading(false), 600);
+      setTimeout(() => setIsLoading(false), 500);
     }
   };
 
@@ -124,14 +137,9 @@ const ExploreFields: React.FC = () => {
     if (!isNearMe) {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition((position) => {
-          setCoords({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
+          setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
           setIsNearMe(true);
-        }, (error) => {
-          console.error("Geolocation error:", error);
-        });
+        }, (error) => console.error(error));
       }
     } else {
       setIsNearMe(false);
@@ -140,61 +148,61 @@ const ExploreFields: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white font-body">
-      {/* Hero Header */}
-      <section className="pt-24 pb-16 bg-[radial-gradient(circle_at_top_right,_rgba(var(--primary-rgb),0.08),transparent),_radial-gradient(circle_at_bottom_left,_rgba(var(--secondary-rgb),0.05),transparent)]">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="font-heading font-black text-5xl md:text-6xl text-slate-900 leading-tight tracking-tight mb-12">
-              Khám phá <span className="text-primary block md:inline">Sân bóng chuyên nghiệp</span>
-            </h1>
-          </motion.div>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0b10] animate-in fade-in duration-1000">
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-24 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,_rgba(37,99,235,0.08),transparent),_radial-gradient(circle_at_20%_80%,_rgba(16,185,129,0.05),transparent)]" />
+        <div className="max-w-[1600px] mx-auto px-6 relative z-10">
+          <div className="max-w-4xl mx-auto text-center space-y-12">
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+              <h1 className="text-6xl md:text-8xl font-black text-slate-900 dark:text-white tracking-tighter leading-none mb-6">
+                Discovery <span className="text-blue-600">Pitches</span>
+              </h1>
+              <p className="text-xl font-bold text-slate-400 uppercase tracking-[0.3em] mb-12">Hệ thống sân đấu tiêu chuẩn quốc tế</p>
+            </motion.div>
 
-          <div className="max-w-4xl mx-auto">
-            <form 
-              onSubmit={(e) => { e.preventDefault(); fetchPitches(); }} 
-              className="bg-white p-2 rounded-[2.5rem] flex items-center shadow-[0_25px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-50 mb-8"
-            >
-              <div className="flex-1 flex items-center pl-6">
-                <Search size={22} className="text-slate-300" />
-                <input 
-                  type="text" 
-                  placeholder="Tìm tên sân hoặc khu vực của bạn..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full border-none px-6 py-4 font-body font-bold text-lg text-slate-800 focus:outline-none placeholder:text-slate-300"
-                />
-              </div>
-              <button 
-                type="submit" 
-                className="bg-primary text-white px-10 py-4 rounded-[2rem] font-heading font-black text-sm uppercase tracking-widest transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_15px_30px_-10px_rgba(var(--primary-rgb),0.4)] active:scale-95"
+            <div className="relative group">
+              <form 
+                onSubmit={(e) => { e.preventDefault(); setPage(1); fetchPitches(); }} 
+                className="flex items-center bg-white dark:bg-[#11131a] p-3 rounded-[3rem] shadow-2xl shadow-blue-500/10 border-2 border-slate-100 dark:border-white/5 group-focus-within:border-blue-500/30 transition-all"
               >
-                Tìm ngay
-              </button>
-            </form>
+                <div className="flex-1 flex items-center pl-8">
+                  <Search size={28} className="text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="Tìm tên sân, khu vực hoặc môn thể thao..." 
+                    value={searchQuery} 
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                    className="w-full bg-transparent border-none px-6 py-6 text-xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 focus:outline-none"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  className="bg-blue-600 text-white px-12 py-6 rounded-[2.5rem] font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-blue-600/20"
+                >
+                  Tìm ngay
+                </button>
+              </form>
+            </div>
 
             <div className="flex justify-center gap-3 flex-wrap">
               {[
+                { id: '', label: 'Tất cả', icon: '🌟' },
                 { id: 'Football', label: 'Bóng đá', icon: '⚽' },
                 { id: 'Badminton', label: 'Cầu lông', icon: '🏸' },
                 { id: 'Tennis', label: 'Tennis', icon: '🎾' },
                 { id: 'Pickleball', label: 'Pickleball', icon: '🥒' },
-                { id: 'Basketball', label: 'Bóng rổ', icon: '🏀' },
-                { id: 'Volleyball', label: 'Bóng chuyền', icon: '🏐' }
+                { id: 'Basketball', label: 'Bóng rổ', icon: '🏀' }
               ].map(sport => (
                 <button 
                   key={sport.id} 
-                  onClick={() => setSportType(sport.id)} 
-                  className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl font-body font-extrabold text-sm transition-all duration-300 border
+                  onClick={() => { setSportType(sport.id); setPage(1); }} 
+                  className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2
                     ${sportType === sport.id 
-                      ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105' 
-                      : 'bg-white text-slate-500 border-slate-100 hover:border-primary/30 hover:text-primary shadow-sm'}`}
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-500/20' 
+                      : 'bg-white dark:bg-[#11131a] text-slate-500 dark:text-white/40 border-slate-100 dark:border-white/5 hover:border-blue-500/30 hover:text-blue-500'}`}
                 >
-                  <span className="text-lg">{sport.icon}</span> {sport.label}
+                  <span className="text-xl">{sport.icon}</span> {sport.label}
                 </button>
               ))}
             </div>
@@ -202,13 +210,13 @@ const ExploreFields: React.FC = () => {
         </div>
       </section>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      {/* Discovery Section */}
+      <main className="max-w-[1600px] mx-auto px-6 py-12 space-y-16">
         {/* Filters Ribbon */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/20 mb-12">
-          <div className="flex-1 flex flex-wrap items-center gap-3 p-1">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-6 p-4 bg-white dark:bg-[#11131a] rounded-[3.5rem] border-2 border-slate-100 dark:border-white/5 shadow-2xl shadow-black/5">
+          <div className="flex-1 flex flex-wrap items-center gap-4">
             <CustomDropdown 
-              label="Toàn quốc"
+              label="Tỉnh / Thành phố"
               icon={<Globe size={18} />}
               value={provinceCode || ''}
               options={[{ label: 'Toàn quốc', value: '' }, ...provinces.map(p => ({ label: p.name, value: p.code }))]}
@@ -218,6 +226,7 @@ const ExploreFields: React.FC = () => {
                 setProvince(p?.name || '');
                 setDistrictCode(undefined);
                 setDistrict('');
+                setPage(1);
               }}
             />
 
@@ -226,16 +235,17 @@ const ExploreFields: React.FC = () => {
               icon={<MapPin size={18} />}
               disabled={!provinceCode}
               value={districtCode || ''}
-              options={[{ label: 'Mọi Quận / Huyện', value: '' }, ...districts.map(d => ({ label: d.name, value: d.code }))]}
+              options={[{ label: 'Mọi khu vực', value: '' }, ...districts.map(d => ({ label: d.name, value: d.code }))]}
               onChange={(code) => {
                 const d = districts.find(x => x.code === code);
                 setDistrictCode(code || undefined);
                 setDistrict(d?.name || '');
+                setPage(1);
               }}
             />
 
             <CustomDropdown 
-              label="Mọi quy mô"
+              label="Quy mô sân"
               icon={<Users size={18} />}
               value={pitchType}
               options={[
@@ -244,61 +254,48 @@ const ExploreFields: React.FC = () => {
                 { label: 'Sân 7 người', value: 'Football7' },
                 { label: 'Sân 11 người', value: 'Football11' },
               ]}
-              onChange={setPitchType}
+              onChange={(val) => { setPitchType(val); setPage(1); }}
             />
 
             <CustomDropdown 
-              label="Mọi mức giá"
+              label="Mức giá tối đa"
               icon={<DollarSign size={18} />}
               value={maxPrice || ''}
               options={[
                 { label: 'Mọi mức giá', value: '' },
-                { label: 'Dưới 100k', value: 100000 },
                 { label: 'Dưới 300k', value: 300000 },
                 { label: 'Dưới 500k', value: 500000 },
-                { label: 'Dưới 1M', value: 1000000 },
+                { label: 'Dưới 1 triệu', value: 1000000 },
               ]}
-              onChange={(val) => setMaxPrice(val || undefined)}
-            />
-
-            <CustomDropdown 
-              label="Mọi đánh giá"
-              icon={<Star size={18} />}
-              value={minRating || ''}
-              options={[
-                { label: 'Mọi đánh giá', value: '' },
-                { label: 'Từ 4.0 sao', value: 4.0 },
-                { label: 'Từ 4.5 sao', value: 4.5 },
-              ]}
-              onChange={(val) => setMinRating(val || undefined)}
+              onChange={(val) => { setMaxPrice(val || undefined); setPage(1); }}
             />
           </div>
 
-          <div className="flex items-center gap-6 px-6 lg:border-l lg:border-slate-100">
+          <div className="flex items-center gap-8 px-10 lg:border-l-2 lg:border-slate-100 dark:lg:border-white/5">
             <div className="text-right">
-              <div className="text-3xl font-heading font-black text-slate-900 leading-none">{totalCount}</div>
-              <div className="text-[10px] font-heading font-black text-slate-400 uppercase tracking-[0.2em] mt-1.5">Sân bãi</div>
+              <p className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">{totalCount}</p>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2">Đang mở cửa</p>
             </div>
             <button 
-              onClick={toggleNearMe} 
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300
+              onClick={() => { toggleNearMe(); setPage(1); }} 
+              className={`w-16 h-16 rounded-[2rem] flex items-center justify-center transition-all duration-500
                 ${isNearMe 
-                  ? 'bg-primary text-white shadow-xl shadow-primary/30' 
-                  : 'bg-slate-50 text-slate-400 hover:text-primary hover:bg-primary/5 hover:shadow-lg'}`}
+                  ? 'bg-blue-600 text-white shadow-2xl shadow-blue-500/40' 
+                  : 'bg-slate-50 dark:bg-white/5 text-slate-400 hover:text-blue-500 hover:shadow-xl'}`}
             >
-              <Navigation size={24} fill={isNearMe ? "currentColor" : "none"} strokeWidth={2.5} />
+              <Navigation size={26} fill={isNearMe ? "currentColor" : "none"} strokeWidth={3} />
             </button>
           </div>
         </div>
 
-        {/* Results Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
+        {/* Grid Area */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[4/3] bg-slate-100 rounded-[2.5rem] mb-6" />
-                <div className="h-8 bg-slate-100 rounded-full w-3/4 mb-4" />
-                <div className="h-5 bg-slate-50 rounded-full w-1/2" />
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="space-y-6">
+                <div className="aspect-[4/5] bg-slate-100 dark:bg-white/5 rounded-[3rem] animate-pulse" />
+                <div className="h-6 bg-slate-100 dark:bg-white/5 rounded-full w-3/4 animate-pulse" />
+                <div className="h-4 bg-slate-100 dark:bg-white/5 rounded-full w-1/2 animate-pulse" />
               </div>
             ))
           ) : pitches.length > 0 ? (
@@ -306,48 +303,81 @@ const ExploreFields: React.FC = () => {
               {pitches.map((pitch, index) => (
                 <motion.div 
                   key={pitch.id} 
-                  layout 
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-                  animate={{ opacity: 1, scale: 1, y: 0 }} 
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
+                  transition={{ delay: index * 0.05 }}
                 >
                   <PitchCard 
                     id={pitch.id} 
                     name={pitch.name} 
-                    location={`${pitch.district}, ${pitch.province}`} 
-                    price={new Intl.NumberFormat('vi-VN').format(pitch.basePrice)} 
+                    typeDisplay={pitch.typeDisplay} 
+                    price={new Intl.NumberFormat('vi-VN').format(pitch.minPrice || 0)} 
                     rating={pitch.averageRating} 
                     reviews={pitch.totalReviews}
-                    image={pitch.images?.[0] || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"}
+                    image={pitch.images?.find(img => img.isPrimary)?.imageUrl || pitch.images?.[0]?.imageUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"}
                   />
                 </motion.div>
               ))}
             </AnimatePresence>
           ) : (
-            <div className="col-span-full py-40 text-center bg-slate-50/50 rounded-[4rem] border-2 border-dashed border-slate-200">
-              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl">
+            <div className="col-span-full py-48 text-center bg-white dark:bg-[#11131a] rounded-[4rem] border-4 border-dashed border-slate-100 dark:border-white/5">
+              <div className="w-24 h-24 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8">
                 <Trophy size={48} className="text-slate-200" />
               </div>
-              <h3 className="text-3xl font-heading font-black text-slate-900 mb-4">Chưa tìm thấy sân phù hợp</h3>
-              <p className="text-slate-400 font-bold text-lg mb-12">Thử nới lỏng các bộ lọc hoặc tìm kiếm khu vực khác nhé!</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Chưa có kết quả trùng khớp</h3>
+              <p className="text-slate-400 font-bold mb-12 uppercase tracking-widest text-sm">Hãy thử nới lỏng các điều kiện lọc nhé!</p>
               <button 
                 onClick={() => { 
-                  setMaxPrice(undefined); 
-                  setMinRating(undefined); 
-                  setPitchType(''); 
-                  setProvinceCode(undefined); 
-                  setProvince(''); 
-                  setDistrictCode(undefined); 
-                  setDistrict(''); 
+                  setMaxPrice(undefined); setMinRating(undefined); setPitchType(''); 
+                  setProvinceCode(undefined); setProvince(''); setDistrictCode(undefined); setDistrict(''); setPage(1);
                 }} 
-                className="bg-slate-900 text-white px-12 py-4 rounded-2xl font-heading font-black text-sm uppercase tracking-widest transition-all hover:bg-primary hover:shadow-2xl active:scale-95"
+                className="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/30 hover:scale-105 transition-all"
               >
-                Đặt lại tất cả bộ lọc
+                Đặt lại bộ lọc
               </button>
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 py-12">
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-14 h-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500 disabled:opacity-20 transition-all"
+            >
+              <ChevronDown className="rotate-90" size={24} />
+            </button>
+            <div className="flex gap-3">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setPage(i + 1)}
+                  className={`w-14 h-14 rounded-2xl font-black text-sm transition-all
+                    ${page === i + 1 
+                      ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' 
+                      : 'bg-white dark:bg-[#11131a] text-slate-400 border-2 border-slate-100 dark:border-white/5 hover:border-blue-500/30'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="w-14 h-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500 disabled:opacity-20 transition-all"
+            >
+              <ChevronDown className="-rotate-90" size={24} />
+            </button>
+          </div>
+        )}
       </main>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb), 0.1); border-radius: 10px; }
+      `}</style>
     </div>
   );
 };

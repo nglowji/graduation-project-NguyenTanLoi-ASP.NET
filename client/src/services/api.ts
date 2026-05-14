@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5164/api/v1';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5164/api/v1',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,12 +22,26 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     const { data } = response;
+
+    const withDataAlias = (payload: any) => {
+      if (payload && (typeof payload === 'object' || typeof payload === 'function')) {
+        if (!Object.prototype.hasOwnProperty.call(payload, 'data')) {
+          Object.defineProperty(payload, 'data', {
+            value: payload,
+            enumerable: false,
+            configurable: true,
+          });
+        }
+        return payload;
+      }
+
+      return { data: payload, value: payload };
+    };
     
     // Check if response follows the unified format { success, message, data }
     if (data && typeof data.success === 'boolean') {
       if (data.success) {
-        // Return only the payload to the calling service
-        return data.data; 
+        return withDataAlias(data.data);
       } else {
         // If success is false, reject with the error message/details
         return Promise.reject({
@@ -37,7 +53,7 @@ api.interceptors.response.use(
     }
     
     // Fallback for non-unified responses
-    return data;
+    return withDataAlias(data);
   },
   (error) => {
     // Handle HTTP errors

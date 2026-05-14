@@ -7,6 +7,7 @@ using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace Api.Controllers;
 
@@ -14,10 +15,12 @@ namespace Api.Controllers;
 public class PaymentsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IConfiguration _configuration;
 
-    public PaymentsController(IMediator mediator)
+    public PaymentsController(IMediator mediator, IConfiguration configuration)
     {
         _mediator = mediator;
+        _configuration = configuration;
     }
 
     [HttpPost("create")]
@@ -33,7 +36,12 @@ public class PaymentsController : ApiControllerBase
             return Unauthorized();
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-        var command = new CreatePaymentCommand(request.BookingId, request.ReturnUrl, ipAddress);
+        var configuredReturnUrl = _configuration["VnPay:ReturnUrl"];
+        var returnUrl = string.IsNullOrWhiteSpace(configuredReturnUrl)
+            ? request.ReturnUrl
+            : configuredReturnUrl;
+
+        var command = new CreatePaymentCommand(request.BookingId, returnUrl, ipAddress);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
@@ -56,13 +64,13 @@ public class PaymentsController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess || result.Value == null)
-            return Redirect($"/payment-failed?message={result.ErrorMessage}");
+            return Redirect(BuildClientPaymentResultUrl(false, null, result.ErrorMessage));
 
         var callbackResult = result.Value;
 
         return callbackResult.IsSuccess
-            ? Redirect($"/payment-success?bookingId={callbackResult.BookingId}")
-            : Redirect($"/payment-failed?bookingId={callbackResult.BookingId}&message={callbackResult.Message}");
+            ? Redirect(BuildClientPaymentResultUrl(true, callbackResult.BookingId, callbackResult.Message))
+            : Redirect(BuildClientPaymentResultUrl(false, callbackResult.BookingId, callbackResult.Message));
     }
 
     [HttpGet("transactions/{transactionId:guid}")]
@@ -101,5 +109,20 @@ public class PaymentsController : ApiControllerBase
             return BadRequestResponse(result.ErrorMessage ?? "Failed to get payment history");
 
         return OkResponse(result.Value);
+    }
+
+    private string BuildClientPaymentResultUrl(bool success, Guid? bookingId, string? message)
+    {
+        var baseUrl = _configuration["ClientApp:PaymentResultUrl"]
+            ?? _configuration["ClientApp:BaseUrl"]?.TrimEnd('/') + "/payment-result"
+            ?? "http://localhost:5173/payment-result";
+
+        var query = new List<string> { $"success={success.ToString().ToLowerInvariant()}" };
+        if (bookingId.HasValue)
+            query.Add($"bookingId={bookingId.Value}");
+        if (!string.IsNullOrWhiteSpace(message))
+            query.Add($"message={Uri.EscapeDataString(message)}");
+
+        return $"{baseUrl}?{string.Join("&", query)}";
     }
 }

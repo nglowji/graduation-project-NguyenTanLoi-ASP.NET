@@ -499,6 +499,9 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("OwnerReply")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("PitchId")
                         .HasColumnType("uniqueidentifier");
 
@@ -636,6 +639,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("MapLink")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -728,59 +734,6 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserPreferences", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.Voucher", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("ExpiryDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal>("MinimumOrderAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UsageCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UsageLimit")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Vouchers", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WaitlistEntry", b =>
@@ -964,6 +917,7 @@ namespace Infrastructure.Migrations
                                 .HasColumnType("uniqueidentifier");
 
                             b1.Property<decimal>("Amount")
+                                .HasPrecision(18, 2)
                                 .HasColumnType("decimal(18,2)")
                                 .HasColumnName("PriceAmount");
 

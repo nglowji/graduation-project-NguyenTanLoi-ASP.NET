@@ -30,18 +30,10 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
         var lastMonthStart = thisMonthStart.AddMonths(-1);
         var lastMonthEnd = thisMonthStart.AddDays(-1);
 
-        // Fetch data in parallel
-        var usersTask = _userRepository.GetAllAsync(cancellationToken);
-        var thisMonthBookingsTask = _bookingRepository.GetAllByDateRangeAsync(thisMonthStart, today, cancellationToken);
-        var lastMonthBookingsTask = _bookingRepository.GetAllByDateRangeAsync(lastMonthStart, lastMonthEnd, cancellationToken);
-        var pendingPitchesTask = _pitchRepository.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, cancellationToken);
-
-        await Task.WhenAll(usersTask, thisMonthBookingsTask, lastMonthBookingsTask, pendingPitchesTask);
-
-        var users = await usersTask;
-        var thisMonthBookings = await thisMonthBookingsTask;
-        var lastMonthBookings = await lastMonthBookingsTask;
-        var pendingPitches = await pendingPitchesTask;
+        var users = await _userRepository.GetAllAsync(cancellationToken);
+        var thisMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(thisMonthStart, today, cancellationToken);
+        var lastMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(lastMonthStart, lastMonthEnd, cancellationToken);
+        var pendingPitches = await _pitchRepository.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, cancellationToken);
 
         const decimal commissionRate = 0.10m;
         var thisMonthRevenue = thisMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
@@ -179,25 +171,59 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
             summaries.Add(new OwnerPitchSummaryDto(
                 pitch.Id,
                 pitch.Name,
-                pitch.Type.ToString(),
+                NormalizePitchType(pitch.Type).ToString(),
+                GetPitchTypeDisplay(NormalizePitchType(pitch.Type)),
                 pitch.Status.ToString(),
                 confirmed.Count,
                 confirmed.Sum(b => b.TotalPrice.Amount),
                 (double)pitch.AverageRating,
-                pitch.SportCenter?.Address?.ToString() ?? "",
+                pitch.SportCenter?.Address?.GetFullAddress() ?? "",
                 pitch.IsIndoor,
-                pitch.Images.Select(img => new PitchImageDto { Id = img.Id, ImageUrl = img.ImageUrl }).ToList(),
-                pitch.TimeSlots.Select(ts => new TimeSlotDto { 
+                pitch.Images
+                    .OrderByDescending(img => img.IsPrimary)
+                    .ThenBy(img => img.DisplayOrder)
+                    .Select(img => new PitchImageDto
+                    {
+                        Id = img.Id,
+                        ImageUrl = img.ImageUrl,
+                        IsPrimary = img.IsPrimary,
+                        DisplayOrder = img.DisplayOrder
+                    })
+                    .ToList(),
+                pitch.TimeSlots.Where(ts => ts.IsActive).Select(ts => new TimeSlotDto { 
                     Id = ts.Id, 
                     StartTime = ts.TimeRange.StartTime, 
                     EndTime = ts.TimeRange.EndTime, 
-                    Price = ts.Price.Amount 
+                    Price = ts.Price.Amount,
+                    IsActive = ts.IsActive
                 }).ToList(),
-                pitch.TimeSlots.Any() ? pitch.TimeSlots.Min(ts => ts.Price.Amount) : 0
+                pitch.TimeSlots.Where(ts => ts.IsActive).Any() ? pitch.TimeSlots.Where(ts => ts.IsActive).Min(ts => ts.Price.Amount) : 0
             ));
         }
 
         return Result<List<OwnerPitchSummaryDto>>.Success(summaries);
+    }
+
+    private static PitchType NormalizePitchType(PitchType type)
+    {
+        return Enum.IsDefined(typeof(PitchType), type) ? type : PitchType.Football5;
+    }
+
+    private static string GetPitchTypeDisplay(PitchType type)
+    {
+        return type switch
+        {
+            PitchType.Football5 => "Football 5",
+            PitchType.Football7 => "Football 7",
+            PitchType.Football11 => "Football 11",
+            PitchType.Tennis => "Tennis",
+            PitchType.Badminton => "Badminton",
+            PitchType.Pickleball => "Pickleball",
+            PitchType.Basketball => "Basketball",
+            PitchType.Volleyball => "Volleyball",
+            PitchType.TableTennis => "Table tennis",
+            _ => "Football 5"
+        };
     }
 }
 

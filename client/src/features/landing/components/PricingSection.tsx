@@ -51,7 +51,7 @@ const PricingSection: React.FC = () => {
         >
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-[3rem] text-center shadow-2xl relative">
             <h3 className="text-2xl text-slate-300 mb-2 font-medium">Chiết khấu hệ thống</h3>
-            <div className="text-[8rem] font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 leading-none mb-6">
+            <div className="text-[8rem] font-black text-transparent bg-clip-text bg-linear-to-br from-white to-slate-400 leading-none mb-6">
               10<span className="text-[4rem] text-primary">%</span>
             </div>
             <p className="text-lg text-slate-400">Trên mỗi lượt đặt sân thành công</p>

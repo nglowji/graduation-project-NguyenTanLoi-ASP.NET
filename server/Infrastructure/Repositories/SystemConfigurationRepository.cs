@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
@@ -19,7 +20,18 @@ public class SystemConfigurationRepository : BaseRepository<SystemConfiguration>
 
     public async Task<string> GetValueAsync(string key, string defaultValue, CancellationToken cancellationToken = default)
     {
-        var config = await GetByKeyAsync(key, cancellationToken);
-        return config?.Value ?? defaultValue;
+        try
+        {
+            var config = await GetByKeyAsync(key, cancellationToken);
+            return config?.Value ?? defaultValue;
+        }
+        catch (InvalidOperationException)
+        {
+            return defaultValue;
+        }
+        catch (DbException)
+        {
+            return defaultValue;
+        }
     }
 }

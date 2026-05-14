@@ -8,10 +8,15 @@ namespace Infrastructure.Services;
 public class CacheService : ICacheService
 {
     private readonly IDistributedCache _cache;
-    private readonly IConnectionMultiplexer _redis;
+    private readonly IConnectionMultiplexer? _redis;
     private readonly DistributedCacheEntryOptions _defaultOptions;
 
-    public CacheService(IDistributedCache cache, IConnectionMultiplexer redis)
+    public CacheService(IDistributedCache cache)
+        : this(cache, null)
+    {
+    }
+
+    public CacheService(IDistributedCache cache, IConnectionMultiplexer? redis)
     {
         _cache = cache;
         _redis = redis;
@@ -47,8 +52,14 @@ public class CacheService : ICacheService
 
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
     {
+        if (_redis == null || !_redis.IsConnected)
+            return;
+
         // This is more complex with IDistributedCache, using StackExchange.Redis directly
         var endpoints = _redis.GetEndPoints();
+        if (endpoints.Length == 0)
+            return;
+
         var server = _redis.GetServer(endpoints[0]);
         var keys = server.Keys(pattern: $"{prefix}*");
 

@@ -1,6 +1,7 @@
 using Application.Features.Auth.Commands.Login;
 using Application.Features.Auth.Commands.Register;
 using Application.Common.DTOs;
+using Application.Features.Auth.Queries.GetProfile;
 using Api.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -94,10 +95,20 @@ public class AuthController : ApiControllerBase
 
     [HttpGet("profile")]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetProfile()
+    [ProducesResponseType(typeof(ApiResponse<Application.Features.Auth.DTOs.UserProfileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
     {
-        return OkResponse(new { Message = "Profile endpoint - To be implemented" });
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var result = await _mediator.Send(new GetProfileQuery(userId), cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get profile");
+
+        return OkResponse(result.Value);
     }
 
     [HttpPost("logout")]

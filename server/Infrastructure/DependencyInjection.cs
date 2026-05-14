@@ -5,6 +5,7 @@ using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using StackExchange.Redis;
 
 namespace Infrastructure;
@@ -22,17 +23,41 @@ public static class DependencyInjection
             )
         );
 
-        // Redis Caching
-        var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-        
-        services.AddSingleton<IConnectionMultiplexer>(sp => 
-            ConnectionMultiplexer.Connect(redisConnectionString));
-
-        services.AddStackExchangeRedisCache(options =>
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
         {
-            options.Configuration = redisConnectionString;
-            options.InstanceName = "SmartSport_";
-        });
+            var redisOptions = ConfigurationOptions.Parse(redisConnectionString);
+            redisOptions.AbortOnConnectFail = false;
+            redisOptions.ConnectRetry = 1;
+            redisOptions.ConnectTimeout = 1000;
+
+            try
+            {
+                var redis = ConnectionMultiplexer.Connect(redisOptions);
+                if (redis.IsConnected)
+                {
+                    services.AddSingleton<IConnectionMultiplexer>(redis);
+                    services.AddStackExchangeRedisCache(options =>
+                    {
+                        options.ConfigurationOptions = redisOptions;
+                        options.InstanceName = "SmartSport_";
+                    });
+                }
+                else
+                {
+                    redis.Dispose();
+                    services.AddDistributedMemoryCache();
+                }
+            }
+            catch
+            {
+                services.AddDistributedMemoryCache();
+            }
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
 
         services.AddScoped<ICacheService, CacheService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
@@ -63,6 +88,10 @@ public static class DependencyInjection
         // AI & Maps Services
         services.AddHttpClient<IGeminiAIService, GeminiAIService>();
         services.AddHttpClient<IMapService, GoogleMapsService>();
+
+        // MongoDB Registration
+        services.AddSingleton<IMongoDbContext, MongoDbContext>();
+        services.AddScoped<ISystemLogRepository, SystemLogRepository>();
 
         return services;
     }

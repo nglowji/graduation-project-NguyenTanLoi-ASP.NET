@@ -106,21 +106,21 @@ const WorkflowSection: React.FC = () => {
               >
                 {/* 3 Bước cho Chủ sân */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="bg-emerald-50 rounded-[2rem] p-8 border-2 border-emerald-100 hover:border-emerald-300 transition-colors">
+                  <div className="bg-emerald-50 rounded-4xl p-8 border-2 border-emerald-100 hover:border-emerald-300 transition-colors">
                     <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-emerald-600/30">
                       <UserPlus size={32} />
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 mb-3">01. Mở Tài Khoản</h3>
                     <p className="text-slate-600 font-medium text-lg leading-relaxed">Đăng ký tài khoản Đối tác hoàn toàn miễn phí chỉ trong vòng 3 phút.</p>
                   </div>
-                  <div className="bg-teal-50 rounded-[2rem] p-8 border-2 border-teal-100 hover:border-teal-300 transition-colors">
+                  <div className="bg-teal-50 rounded-4xl p-8 border-2 border-teal-100 hover:border-teal-300 transition-colors">
                     <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-teal-600/30">
                       <Settings size={32} />
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 mb-3">02. Thiết Lập Sân</h3>
                     <p className="text-slate-600 font-medium text-lg leading-relaxed">Đăng tải hình ảnh sân bãi và thiết lập giá tiền theo từng khung giờ linh hoạt.</p>
                   </div>
-                  <div className="bg-cyan-50 rounded-[2rem] p-8 border-2 border-cyan-100 hover:border-cyan-300 transition-colors">
+                  <div className="bg-cyan-50 rounded-4xl p-8 border-2 border-cyan-100 hover:border-cyan-300 transition-colors">
                     <div className="w-16 h-16 rounded-2xl bg-cyan-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-cyan-600/30">
                       <TrendingUp size={32} />
                     </div>
@@ -161,7 +161,7 @@ const WorkflowSection: React.FC = () => {
                   </div>
                   
                   {/* Cục 10% Siêu nét */}
-                  <div className="w-full md:w-auto bg-green-500 rounded-[2rem] p-10 flex flex-col items-center justify-center shrink-0 shadow-2xl shadow-green-500/20 transform md:rotate-3 hover:rotate-0 transition-transform duration-300">
+                  <div className="w-full md:w-auto bg-green-500 rounded-4xl p-10 flex flex-col items-center justify-center shrink-0 shadow-2xl shadow-green-500/20 transform md:rotate-3 hover:rotate-0 transition-transform duration-300">
                     <span className="text-green-950 text-xl font-black uppercase tracking-widest mb-2">Phí nền tảng</span>
                     <span className="text-white text-8xl md:text-9xl font-black leading-none drop-shadow-sm">
                       10%

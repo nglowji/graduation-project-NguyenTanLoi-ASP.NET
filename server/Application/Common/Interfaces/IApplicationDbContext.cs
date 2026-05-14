@@ -19,7 +19,6 @@ public interface IApplicationDbContext
     DbSet<Review> Reviews { get; }
     DbSet<WaitlistEntry> WaitlistEntries { get; }
     DbSet<Notification> Notifications { get; }
-    DbSet<Voucher> Vouchers { get; }
     DbSet<AdditionalService> AdditionalServices { get; }
     DbSet<BookingService> BookingServices { get; }
 

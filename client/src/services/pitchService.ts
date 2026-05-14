@@ -2,19 +2,42 @@ import api from './api';
 
 export interface PitchResponse {
   id: string;
+  ownerId?: string;
   name: string;
-  description: string;
-  address: string;
-  province: string;
-  district: string;
-  ward: string;
-  latitude: number;
-  longitude: number;
-  pitchTypes: string;
-  basePrice: number;
+  description?: string;
+  address: {
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+    fullAddress: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  type?: number | string;
+  typeDisplay: string;
+  minPrice: number;
+  maxPrice?: number;
   averageRating: number;
   totalReviews: number;
-  images: string[];
+  status?: number | string;
+  images: { id?: string; imageUrl: string, isPrimary?: boolean; displayOrder?: number }[];
+  timeSlots?: Array<{
+    id: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    currency: string;
+    isActive: boolean;
+    isAvailable?: boolean;
+  }>;
+  reviews?: Array<{
+    id: string;
+    userName: string;
+    rating: number;
+    comment?: string;
+    createdAt: string;
+  }>;
 }
 
 export interface PaginatedResult<T> {

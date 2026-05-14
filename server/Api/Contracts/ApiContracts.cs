@@ -15,6 +15,24 @@ public record GoogleLoginRequest(string AccessToken);
 
 public record FacebookLoginRequest(string AccessToken);
 
+// ── Admin ─────────────────────────────────────────────
+public record AdminCreateUserRequest(
+    string FullName,
+    string Email,
+    string PhoneNumber,
+    string Password,
+    int Role,
+    string? Address = null
+);
+
+// ── Owner Staff ───────────────────────────────────────
+public record OwnerCreateStaffRequest(
+    string FullName,
+    string Email,
+    string PhoneNumber,
+    string Password
+);
+
 // ── Bookings ──────────────────────────────────────────
 public record LockTimeSlotRequest(
     Guid TimeSlotId,
@@ -24,7 +42,8 @@ public record LockTimeSlotRequest(
 
 public record CreateBookingRequest(
     Guid TimeSlotId,
-    DateOnly BookingDate
+    DateOnly BookingDate,
+    List<Application.Features.Bookings.Commands.CreateBooking.BookingServiceRequest>? SelectedServices = null
 );
 
 public record CancelBookingRequest(string Reason);
@@ -42,6 +61,8 @@ public record CreateReviewRequest(
     int Rating,
     string? Comment
 );
+
+public record ReplyReviewRequest(string Content);
 
 // ── Waitlist ──────────────────────────────────────────
 public record JoinWaitlistRequest(

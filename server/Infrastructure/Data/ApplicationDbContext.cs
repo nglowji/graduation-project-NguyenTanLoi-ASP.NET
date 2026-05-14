@@ -25,7 +25,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
     public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<AdditionalService> AdditionalServices => Set<AdditionalService>();
     public DbSet<BookingService> BookingServices { get; set; }
 

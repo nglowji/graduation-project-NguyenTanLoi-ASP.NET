@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown, MapPin,
+  DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown,
   Star, CheckCircle, XCircle, Plus, ArrowUpRight,
   Clock, Activity, ChevronRight, Filter
 } from 'lucide-react';
@@ -78,9 +78,9 @@ const OwnerDashboard: React.FC = () => {
         api.get('/dashboard/owner/stats'),
         api.get('/pitches/my'),
       ]);
-      setStats(statsRes.data);
-      setPitches(pitchesRes.data);
-    } catch (err) {
+      setStats(statsRes as any);
+      setPitches(pitchesRes as any);
+    } catch {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
@@ -154,7 +154,7 @@ const OwnerDashboard: React.FC = () => {
             Bảng điều khiển đối tác
           </div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            Chào {user?.fullName?.split(' ').pop()}, <span className="text-primary">lại là một ngày tuyệt vời!</span>
+            Chào {user?.fullName?.split(' ')?.pop() || 'bạn'}, <span className="text-primary">lại là một ngày tuyệt vời!</span>
           </h1>
           <p className="text-slate-500 dark:text-white/40 text-sm mt-2 font-medium">
             Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}.
@@ -199,10 +199,10 @@ const OwnerDashboard: React.FC = () => {
             whileHover={{ y: -5 }}
             className="relative group bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-3xl p-6 overflow-hidden shadow-sm hover:shadow-xl transition-all"
           >
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${s.color} opacity-[0.03] dark:opacity-[0.05] rounded-bl-[5rem]`} />
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${s.color} opacity-[0.03] dark:opacity-[0.05] rounded-bl-[5rem]`} />
             
             <div className="flex items-center justify-between mb-6">
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg`}>
+              <div className={`w-12 h-12 rounded-2xl bg-linear-to-br ${s.color} flex items-center justify-center text-white shadow-lg`}>
                 {s.icon}
               </div>
               <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black ${s.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
@@ -229,7 +229,7 @@ const OwnerDashboard: React.FC = () => {
                 <p className="text-slate-400 dark:text-white/40 text-xs mt-1">Sự biến động doanh thu theo thời gian</p>
               </div>
             </div>
-            <div className="h-64 w-full flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl bg-slate-50 dark:bg-white/[0.01]">
+            <div className="h-64 w-full flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl bg-slate-50 dark:bg-white/1">
               <div className="text-center">
                 <Activity size={32} className="mx-auto mb-3 text-slate-300 dark:text-white/5" />
                 <p className="text-slate-400 dark:text-white/20 text-[10px] font-black uppercase tracking-widest italic">Calculating metrics...</p>
@@ -269,7 +269,7 @@ const OwnerDashboard: React.FC = () => {
                 {bookings.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-center py-20 bg-slate-50 dark:bg-white/2 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/5"
+                    className="text-center py-20 bg-slate-50 dark:bg-white/2 rounded-4xl border border-dashed border-slate-200 dark:border-white/5"
                   >
                     <Clock size={24} className="mx-auto mb-4 text-slate-300 dark:text-white/10" />
                     <p className="text-slate-400 dark:text-white/20 font-bold text-xs uppercase tracking-widest">Không có dữ liệu</p>
@@ -282,7 +282,7 @@ const OwnerDashboard: React.FC = () => {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 dark:bg-[#1e202b] rounded-[1.5rem] border border-slate-100 dark:border-white/5 hover:border-primary/30 transition-all shadow-sm hover:shadow-md"
+                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 dark:bg-[#1e202b] rounded-3xl border border-slate-100 dark:border-white/5 hover:border-primary/30 transition-all shadow-sm hover:shadow-md"
                       >
                         <div className="flex gap-4 items-center mb-4 sm:mb-0">
                           <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-lg">
@@ -350,7 +350,7 @@ const OwnerDashboard: React.FC = () => {
                 </div>
               ) : (
                 pitches.slice(0, 3).map((p) => (
-                  <div key={p.id} className="p-5 bg-slate-50 dark:bg-[#1e202b] rounded-[1.5rem] border border-slate-100 dark:border-white/5 group hover:border-primary/20 transition-all">
+                  <div key={p.id} className="p-5 bg-slate-50 dark:bg-[#1e202b] rounded-3xl border border-slate-100 dark:border-white/5 group hover:border-primary/20 transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <h4 className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">{p.name}</h4>

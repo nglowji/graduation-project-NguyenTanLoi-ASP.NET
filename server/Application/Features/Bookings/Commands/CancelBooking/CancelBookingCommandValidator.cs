@@ -10,9 +10,9 @@ public class CancelBookingCommandValidator : AbstractValidator<CancelBookingComm
             .NotEmpty()
             .WithMessage("Booking ID is required");
 
-        RuleFor(x => x.UserId)
+        RuleFor(x => x.RequesterId)
             .NotEmpty()
-            .WithMessage("User ID is required");
+            .WithMessage("Requester ID is required");
 
         RuleFor(x => x.Reason)
             .NotEmpty()

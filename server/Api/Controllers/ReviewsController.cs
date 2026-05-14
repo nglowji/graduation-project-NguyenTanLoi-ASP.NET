@@ -1,8 +1,11 @@
 using Application.Common.DTOs;
 using Application.Features.Reviews.Commands.CreateReview;
+using Application.Features.Reviews.Commands.ReplyReview;
 using Application.Features.Reviews.DTOs;
 using Application.Features.Reviews.Queries.GetPitchReviews;
+using Application.Features.Reviews.Queries.GetOwnerReviews;
 using Api.Contracts;
+using Application.Common.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +16,12 @@ namespace Api.Controllers;
 public class ReviewsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IUserRepository _userRepository;
 
-    public ReviewsController(IMediator mediator)
+    public ReviewsController(IMediator mediator, IUserRepository userRepository)
     {
         _mediator = mediator;
+        _userRepository = userRepository;
     }
 
     [HttpGet("pitches/{pitchId:guid}/reviews")]
@@ -57,5 +62,53 @@ public class ReviewsController : ApiControllerBase
             return BadRequestResponse(result.ErrorMessage ?? "Failed to create review");
 
         return CreatedResponse(nameof(GetByPitch), new { pitchId = Guid.Empty }, result.Value!, "Review created successfully");
+    }
+
+    [HttpGet("owner/reviews")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
+    [ProducesResponseType(typeof(ApiResponse<List<OwnerReviewDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOwnerReviews(CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var ownerId = userId;
+        if (User.IsInRole("PitchStaff"))
+        {
+            var staff = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (staff?.OwnerId == null)
+                return BadRequestResponse("Staff account is not linked to an owner");
+
+            ownerId = staff.OwnerId.Value;
+        }
+
+        var result = await _mediator.Send(new GetOwnerReviewsQuery(ownerId), cancellationToken);
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get owner reviews");
+
+        return OkResponse(result.Value);
+    }
+
+    [HttpPost("owner/reviews/{reviewId:guid}/reply")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReplyToReview(
+        Guid reviewId,
+        [FromBody] ReplyReviewRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new ReplyReviewCommand(reviewId, userId, request.Content);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to reply to review");
+
+        return OkResponse<object?>(null, "Reply submitted successfully");
     }
 }

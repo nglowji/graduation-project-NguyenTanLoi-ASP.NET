@@ -12,6 +12,7 @@ namespace Application.Features.Bookings.Commands.CancelBooking;
 public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand, Result>
 {
     private readonly IBookingRepository _bookingRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IWaitlistRepository _waitlistRepository;
     private readonly ISystemConfigurationRepository _systemConfigRepository;
     private readonly IPaymentService _paymentService;
@@ -24,6 +25,7 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
 
     public CancelBookingCommandHandler(
         IBookingRepository bookingRepository,
+        IUserRepository userRepository,
         IWaitlistRepository waitlistRepository,
         ISystemConfigurationRepository systemConfigRepository,
         IPaymentService paymentService,
@@ -34,6 +36,7 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
         ILogger<CancelBookingCommandHandler> logger)
     {
         _bookingRepository = bookingRepository;
+        _userRepository = userRepository;
         _waitlistRepository = waitlistRepository;
         _systemConfigRepository = systemConfigRepository;
         _paymentService = paymentService;
@@ -52,7 +55,23 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
         if (booking == null)
             return Result.Failure("Booking not found");
 
-        if (booking.UserId != request.UserId)
+        var requester = await _userRepository.GetByIdAsync(request.RequesterId, cancellationToken);
+        if (requester == null)
+            return Result.Failure("User not found");
+
+        var timeSlot = booking.TimeSlot;
+        var pitch = timeSlot?.Pitch;
+        if (timeSlot == null || pitch == null)
+            return Result.Failure("Pitch owner not found");
+
+        var pitchOwnerId = pitch.OwnerId;
+
+        var isAuthorized = booking.UserId == requester.Id
+            || requester.IsAdmin()
+            || (requester.IsPitchOwner() && requester.Id == pitchOwnerId)
+            || (requester.IsPitchStaff() && requester.OwnerId == pitchOwnerId);
+
+        if (!isAuthorized)
             return Result.Failure("You are not authorized to cancel this booking");
 
         if (!booking.CanBeCancelled())
@@ -142,20 +161,20 @@ public class CancelBookingCommandHandler : IRequestHandler<CancelBookingCommand,
 
             // Notify real-time status update
             await _notificationService.NotifyBookingCancelledAsync(
-                booking.TimeSlot.PitchId,
-                booking.TimeSlotId,
+                pitch.Id,
+                timeSlot.Id,
                 booking.BookingDate,
                 cancellationToken
             );
 
             // Invalidate Cache
-            var cacheKey = $"available_slots_{booking.TimeSlot.PitchId}_{booking.BookingDate:yyyyMMdd}";
+            var cacheKey = $"available_slots_{pitch.Id}_{booking.BookingDate:yyyyMMdd}";
             await _cacheService.RemoveAsync(cacheKey, cancellationToken);
 
             _logger.LogInformation(
                 "Booking {BookingId} cancelled by user {UserId}. Reason: {Reason}",
                 booking.Id,
-                request.UserId,
+                request.RequesterId,
                 request.Reason
             );
 

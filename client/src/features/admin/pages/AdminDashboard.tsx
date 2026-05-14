@@ -5,61 +5,20 @@ import {
   Search, CheckCircle, XCircle, Eye, Ban,
   Activity, MoreVertical,
   Lock, UserCheck, AlertCircle, ChevronRight, BarChart3,
-  Calendar
+  Calendar, Zap, TrendingUp, ArrowUpRight, ArrowDownRight,
+  Filter, Globe, Server
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
-
-const fadeIn = { 
-  hidden: { opacity: 0, y: 20 }, 
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } 
-} as const;
-
-const stagger = {
-  show: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-} as const;
-
-interface AdminStats {
-  totalUsers: number;
-  activeOwners: number;
-  platformCommission: number;
-  pendingApprovals: number;
-  userGrowth: number;
-  commissionGrowth: number;
-}
-
-interface UserItem {
-  id: string;
-  fullName: string;
-  email: string;
-  role: number;
-  createdAt: string;
-  isActive: boolean;
-}
-
-interface ApprovalItem {
-  id: string;
-  pitchName: string;
-  ownerName: string;
-  ownerEmail: string;
-  submittedAt: string;
-  pitchType: string;
-  address: string;
-  status: string;
-}
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [userTab, setUserTab] = useState<'all' | 'owners' | 'customers'>('all');
   const [search, setSearch] = useState('');
   const [approvalTab, setApprovalTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -78,8 +37,8 @@ const AdminDashboard: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const statsRes = await api.get('/dashboard/admin/stats');
-      setStats(statsRes.data);
+      const statsRes = await api.get('/dashboard/admin/stats') as any;
+      setStats(statsRes);
     } catch {
       setError('Không thể tải dữ liệu thống kê.');
     } finally {
@@ -90,8 +49,8 @@ const AdminDashboard: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const roleFilter = userTab === 'owners' ? 2 : userTab === 'customers' ? 1 : undefined;
-      const res = await api.get('/admin/users', { params: { search: search || undefined, role: roleFilter, pageSize: 20 } });
-      setUsers(res.data?.items || res.data || []);
+      const res = await api.get('/admin/users', { params: { search: search || undefined, role: roleFilter, pageSize: 20 } }) as any;
+      setUsers(res?.items || res || []);
     } catch {
       setUsers([]);
     }
@@ -99,8 +58,8 @@ const AdminDashboard: React.FC = () => {
 
   const fetchApprovals = async () => {
     try {
-      const res = await api.get('/admin/pitch-approvals', { params: { status: approvalTab } });
-      setApprovals(res.data?.items || res.data || []);
+      const res = await api.get('/admin/pitch-approvals', { params: { status: approvalTab } }) as any;
+      setApprovals(res?.items || res || []);
     } catch {
       setApprovals([]);
     }
@@ -131,135 +90,128 @@ const AdminDashboard: React.FC = () => {
   const roleLabel = (r: number) => r === 3 ? 'Admin' : r === 2 ? 'Chủ sân' : 'Khách';
   
   const roleStyles = (r: number) => {
-    if (r === 3) return 'bg-primary/10 text-primary border-primary/20';
-    if (r === 2) return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20';
-    return 'bg-slate-400/10 text-slate-600 dark:text-slate-400 border-slate-400/20';
+    if (r === 3) return 'bg-blue-50 text-blue-600 border-blue-100';
+    if (r === 2) return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+    return 'bg-slate-50 text-slate-500 border-slate-100';
   };
-
-  const pitchTypeLabel = (t: string) => ({ 
-    Football5: 'Sân 5', Football7: 'Sân 7', Football11: 'Sân 11',
-    Tennis: 'Tennis', Badminton: 'Cầu lông' 
-  }[t] || t);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <div className="w-16 h-16 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
-        <p className="text-slate-400 dark:text-white/40 font-black uppercase tracking-widest text-[10px]">Initializing Admin Core...</p>
+      <div className="flex flex-col items-center justify-center py-40 gap-8 animate-in fade-in duration-700">
+        <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Initializing system core...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header Section */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex flex-col md:flex-row md:items-end justify-between gap-6"
-      >
-        <div>
-          <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-            <Lock size={12} /> Hệ thống quản trị tập trung
+    <div className="space-y-10 animate-in fade-in duration-700 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Administrative Engine</span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">SmartSport HQ</h1>
-          <p className="text-slate-500 dark:text-white/40 text-sm mt-2 font-medium">
-            Quản trị viên: <span className="text-primary font-bold">{user?.fullName}</span> • {new Date().toLocaleDateString('vi-VN', { weekday: 'long' })}
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">SmartSport HQ</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+            Quản trị viên: <span className="text-blue-600 font-bold">{user?.fullName}</span> • {new Date().toLocaleDateString('vi-VN', { weekday: 'long' })}
           </p>
         </div>
         
-        <div className="px-5 py-3 bg-primary/5 border border-primary/10 rounded-2xl flex items-center gap-3">
-          <Activity size={20} className="text-primary animate-pulse" />
-          <span className="text-[10px] font-black text-primary uppercase tracking-widest italic">System Status: Optimal</span>
+        <div className="px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-4 shadow-sm group">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest italic">System Status: Optimal</span>
         </div>
-      </motion.div>
+      </header>
 
       {error && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-3">
-          <AlertCircle size={18} /> {error}
-        </motion.div>
+        <div className="p-6 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-[2rem] text-red-600 text-xs font-black flex items-center gap-4">
+          <AlertCircle size={20} /> {error}
+        </div>
       )}
 
-      {/* Stats Grid */}
-      <motion.div 
-        variants={stagger}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[
-          { title: 'Người dùng', value: stats?.totalUsers.toString() || '0', change: `+${stats?.userGrowth || 0}%`, up: true, icon: <Users size={24} />, color: 'from-blue-600 to-indigo-700' },
-          { title: 'Chủ sân', value: stats?.activeOwners.toString() || '0', change: 'Ổn định', up: true, icon: <UserCheck size={24} />, color: 'from-primary to-indigo-600' },
-          { title: 'Hoa hồng', value: formatCurrency(stats?.platformCommission || 0), change: `+${stats?.commissionGrowth || 0}%`, up: true, icon: <DollarSign size={24} />, color: 'from-emerald-500 to-teal-600' },
-          { title: 'Phê duyệt', value: stats?.pendingApprovals.toString() || '0', change: 'Priority', up: false, icon: <ShieldCheck size={24} />, color: 'from-orange-500 to-rose-600' },
-        ].map((s) => (
+          { title: 'Tổng người dùng', value: stats?.totalUsers?.toLocaleString() || '0', change: `+${stats?.userGrowth || 0}%`, up: true, icon: <Users size={24} />, color: 'blue-600' },
+          { title: 'Chủ sân hoạt động', value: stats?.activeOwners?.toLocaleString() || '0', change: 'Stable', up: true, icon: <UserCheck size={24} />, color: 'indigo-600' },
+          { title: 'Hoa hồng nền tảng', value: formatCurrency(stats?.platformCommission || 0), change: `+${stats?.commissionGrowth || 0}%`, up: true, icon: <DollarSign size={24} />, color: 'emerald-600' },
+          { title: 'Chờ phê duyệt', value: stats?.pendingApprovals?.toLocaleString() || '0', change: 'Critical', up: false, icon: <ShieldCheck size={24} />, color: 'rose-600' },
+        ].map((s, i) => (
           <motion.div 
-            key={s.title} 
-            variants={fadeIn}
-            whileHover={{ y: -5 }}
-            className="group relative bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-3xl p-6 transition-all shadow-sm hover:shadow-xl"
+            key={s.title}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1 }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-8 relative overflow-hidden group hover:shadow-xl hover:border-blue-600/20 transition-all shadow-sm"
           >
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${s.color} opacity-[0.03] dark:opacity-[0.05] rounded-bl-[5rem]`} />
-            <div className="flex items-center justify-between mb-6">
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white shadow-lg`}>
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <div className={`w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-${s.color} border border-slate-100 dark:border-slate-700 shadow-inner group-hover:scale-110 transition-transform duration-500`}>
                 {s.icon}
               </div>
-              <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${s.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-primary/10 text-primary'}`}>
+              <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black ${s.up ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                {s.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                 {s.change}
-              </span>
+              </div>
             </div>
-            <p className="text-slate-400 dark:text-white/30 text-[10px] font-black uppercase tracking-widest mb-1">{s.title}</p>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{s.value}</h3>
+            <div className="relative z-10">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{s.title}</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">{s.value}</h3>
+            </div>
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-slate-50 dark:bg-slate-900/50 rounded-full opacity-50 group-hover:scale-110 transition-transform" />
           </motion.div>
         ))}
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-8">
-          {/* Performance Chart Placeholder */}
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-10">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Tăng trưởng hệ thống</h3>
-                <p className="text-slate-400 dark:text-white/40 text-xs mt-1">Tổng quan doanh thu & người dùng</p>
-              </div>
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
-                <button className="px-4 py-1.5 bg-primary text-white rounded-lg text-[9px] font-black uppercase tracking-widest">Revenue</button>
-                <button className="px-4 py-1.5 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors">Users</button>
-              </div>
-            </div>
-            <div className="h-56 w-full flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl bg-slate-50 dark:bg-white/[0.01]">
-              <div className="text-center">
-                <BarChart3 size={40} className="mx-auto mb-3 text-slate-200 dark:text-white/5" />
-                <p className="text-slate-400 dark:text-white/20 text-[10px] font-black uppercase tracking-widest italic">Synchronizing assets...</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* User Management */}
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] overflow-hidden shadow-sm">
-            <div className="p-8 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Users size={20} />
+          <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-10 shadow-sm group hover:shadow-xl transition-all">
+            <div className="flex items-center justify-between mb-12">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 border border-blue-100 dark:border-blue-500/20">
+                    <TrendingUp size={20} />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Tăng trưởng hệ thống</h3>
                 </div>
-                Quản lý người dùng
-              </h3>
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" size={16} />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-13">Thống kê doanh thu & Người dùng mới</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {['Revenue', 'Users'].map(t => (
+                  <button key={t} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${t === 'Revenue' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>{t}</button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/30 group-hover:bg-white dark:group-hover:bg-slate-800 transition-colors">
+              <BarChart3 size={48} className="text-slate-200 dark:text-slate-800 mb-6" />
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Analyzing market trends...</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] overflow-hidden shadow-sm shadow-slate-100">
+            <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
+                  <Users size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Quản lý người dùng</h3>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative group flex-1 md:w-64">
+                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={18} />
                   <input 
                     type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Tìm ID, Tên, Email..."
-                    className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl py-3.5 pl-11 pr-5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-primary/50 transition-all placeholder:text-slate-400 dark:placeholder:text-white/20 w-full sm:w-64"
+                    placeholder="ID, Tên, Email..."
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white font-bold focus:outline-none focus:border-blue-600 transition-all shadow-inner"
                   />
                 </div>
-                <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-2xl">
+                <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-2xl">
                   {(['all', 'owners', 'customers'] as const).map(tab => (
                     <button 
                       key={tab} onClick={() => setUserTab(tab)}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        userTab === tab ? 'bg-white dark:bg-primary text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 dark:text-white/40'
+                      className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        userTab === tab ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab === 'all' ? 'Tất cả' : tab === 'owners' ? 'Chủ sân' : 'Khách'}
@@ -269,50 +221,50 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto scrollbar-hide">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
                 <thead>
-                  <tr className="text-slate-400 dark:text-white/20 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/5">
-                    <th className="px-8 py-6 text-primary">Identity</th>
-                    <th className="px-4 py-6">Privileges</th>
-                    <th className="px-4 py-6">Status</th>
-                    <th className="px-8 py-6 text-right">Matrix</th>
+                  <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    <th className="px-10 py-6 border-b border-slate-100 dark:border-slate-800">Identity</th>
+                    <th className="px-6 py-6 border-b border-slate-100 dark:border-slate-800">Role</th>
+                    <th className="px-6 py-6 border-b border-slate-100 dark:border-slate-800">Status</th>
+                    <th className="px-10 py-6 border-b border-slate-100 dark:border-slate-800 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-8 py-5">
+                    <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="px-10 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center font-black shadow-lg">
-                            {u.fullName?.[0]}
+                          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+                            {u.fullName?.[0]?.toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors">{u.fullName}</p>
-                            <p className="text-[10px] text-slate-400 dark:text-white/30 font-medium">{u.email}</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{u.fullName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{u.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-5">
-                        <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${roleStyles(u.role)}`}>
+                      <td className="px-6 py-6">
+                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${roleStyles(u.role)}`}>
                           {roleLabel(u.role)}
                         </span>
                       </td>
-                      <td className="px-4 py-5">
+                      <td className="px-6 py-6">
                         <div className="flex items-center gap-2">
                           <div className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${u.isActive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-500'}`}>
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${u.isActive ? 'text-emerald-600' : 'text-red-500'}`}>
                             {u.isActive ? 'Active' : 'Locked'}
                           </span>
                         </div>
                       </td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button className="w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-primary dark:hover:text-white rounded-xl transition-all"><Eye size={16} /></button>
+                      <td className="px-10 py-6 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button className="w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 text-slate-400 hover:text-blue-600 rounded-xl border border-slate-100 dark:border-slate-800 transition-all"><Eye size={18} /></button>
                           {u.role !== 3 && (
-                            <button onClick={() => handleBanUser(u.id)} className="w-9 h-9 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"><Ban size={16} /></button>
+                            <button onClick={() => handleBanUser(u.id)} className="w-10 h-10 flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl border border-red-100 dark:border-red-500/20 transition-all"><Ban size={18} /></button>
                           )}
-                          <button className="w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all"><MoreVertical size={16} /></button>
+                          <button className="w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl border border-slate-100 dark:border-slate-800 transition-all"><MoreVertical size={18} /></button>
                         </div>
                       </td>
                     </tr>
@@ -320,20 +272,24 @@ const AdminDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-8">
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
+          <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-8 shadow-sm group">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Phê duyệt</h3>
-              <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 border border-indigo-100 dark:border-indigo-500/20">
+                  <ShieldCheck size={20} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Phê duyệt</h3>
+              </div>
+              <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl">
                 {(['pending', 'approved'] as const).map(tab => (
                   <button 
                     key={tab} onClick={() => setApprovalTab(tab)}
                     className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                      approvalTab === tab ? 'bg-primary text-white shadow-lg' : 'text-slate-400 dark:text-white/40'
+                      approvalTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >
                     {tab === 'pending' ? 'Chờ' : 'Xong'}
@@ -344,61 +300,71 @@ const AdminDashboard: React.FC = () => {
 
             <div className="space-y-4">
               {approvals.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 dark:bg-white/2 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/5">
-                  <ShieldCheck size={32} className="mx-auto mb-3 text-slate-200 dark:text-white/10" />
-                  <p className="text-[10px] text-slate-400 dark:text-white/20 font-black uppercase tracking-widest italic">All clear</p>
+                <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/30 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-800">
+                  <CheckCircle size={40} className="mx-auto mb-4 text-slate-200 dark:text-slate-800" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">All queues cleared</p>
                 </div>
               ) : (
                 approvals.map((a) => (
-                  <div key={a.id} className="p-5 bg-slate-50 dark:bg-[#1e202b] rounded-[1.5rem] border border-slate-100 dark:border-white/5 group hover:border-primary/30 transition-all">
+                  <div key={a.id} className="p-6 bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-blue-600/30 transition-all shadow-sm">
                     <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h4 className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors leading-tight mb-1">{a.pitchName}</h4>
-                        <p className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
-                          <Calendar size={10} /> {new Date(a.submittedAt).toLocaleDateString('vi-VN')}
-                        </p>
+                      <div className="space-y-1">
+                        <h4 className="font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors leading-tight">{a.pitchName}</h4>
+                        <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          <Calendar size={12} /> {new Date(a.submittedAt).toLocaleDateString('vi-VN')}
+                        </div>
                       </div>
-                      <div className="px-2 py-1 bg-white dark:bg-white/5 rounded-lg text-[8px] font-black text-slate-400 dark:text-white/40 uppercase">
-                        {pitchTypeLabel(a.pitchType)}
+                      <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-lg text-[8px] font-black text-slate-400 uppercase border border-slate-100 dark:border-slate-700">
+                        {a.pitchType}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-white/40">
-                        <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-black">{a.ownerName[0]}</div>
-                        <span className="text-[10px] font-bold line-clamp-1">{a.ownerName}</span>
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-50 dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-indigo-600/20">{a.ownerName[0]?.toUpperCase()}</div>
+                        <span className="text-[10px] font-black text-slate-500 truncate max-w-[100px]">{a.ownerName}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {a.status === 'pending' && (
                           <>
-                            <button onClick={() => handleApproval(a.id, 'approve')} className="w-8 h-8 flex items-center justify-center bg-emerald-500/10 text-emerald-600 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><CheckCircle size={14} /></button>
-                            <button onClick={() => handleApproval(a.id, 'reject')} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><XCircle size={14} /></button>
+                            <button onClick={() => handleApproval(a.id, 'approve')} className="w-10 h-10 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"><CheckCircle size={16} /></button>
+                            <button onClick={() => handleApproval(a.id, 'reject')} className="w-10 h-10 flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"><XCircle size={16} /></button>
                           </>
                         )}
-                        <button className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all"><ChevronRight size={14} /></button>
+                        <button className="w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 text-slate-400 hover:text-slate-900 rounded-xl transition-all"><ChevronRight size={16} /></button>
                       </div>
                     </div>
                   </div>
                 ))
               )}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-gradient-to-br from-primary to-indigo-800 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-primary/20">
-            <div className="relative z-10">
-              <h3 className="font-black text-xl mb-4 tracking-tight leading-tight">Cấu trúc hạ tầng</h3>
-              <div className="space-y-4">
-                <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-1">Server Latency</p>
-                  <p className="text-xl font-black italic tracking-tighter">14ms</p>
+          <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-slate-900/20 group">
+            <div className="relative z-10 space-y-8">
+              <div>
+                <h3 className="font-black text-2xl tracking-tight leading-none flex items-center gap-3">
+                  <Globe className="text-blue-500 animate-spin-slow" /> Network Node
+                </h3>
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] mt-3 italic">Live Infrastructure Status</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 backdrop-blur-md group-hover:bg-white/10 transition-colors">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2 flex items-center gap-2">
+                    <Zap size={10} className="text-blue-400" /> Latency
+                  </p>
+                  <p className="text-2xl font-black italic tracking-tighter leading-none">14ms</p>
                 </div>
-                <div className="bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-1">Active Clusters</p>
-                  <p className="text-xl font-black italic tracking-tighter">04 Nodes</p>
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 backdrop-blur-md group-hover:bg-white/10 transition-colors">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2 flex items-center gap-2">
+                    <Server size={10} className="text-indigo-400" /> Clusters
+                  </p>
+                  <p className="text-2xl font-black italic tracking-tighter leading-none">04 Node</p>
                 </div>
               </div>
             </div>
-            <Activity className="absolute -bottom-8 -right-8 w-40 h-40 text-white/5" />
-          </motion.div>
+            <Activity className="absolute -bottom-10 -right-10 w-48 h-48 text-white/5 group-hover:scale-110 transition-transform duration-1000" />
+          </div>
         </div>
       </div>
     </div>

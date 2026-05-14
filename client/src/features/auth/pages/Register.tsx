@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ChevronRight, User, Phone, MapPin, Loader2 } from 'lucide-react';
+import { Mail, Lock, ChevronRight, User, Phone, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -73,7 +73,7 @@ const Register: React.FC = () => {
       });
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.Detail || 'Đăng ký thất bại. Vui lòng kiểm tra lại.');
+      setError(err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +88,7 @@ const Register: React.FC = () => {
         auth.login(response);
         navigate('/');
       } catch (err: any) {
-        setError(err.response?.data?.Detail || 'Đăng ký Google thất bại.');
+        setError(err.message || 'Đăng ký Google thất bại.');
       } finally {
         setIsLoading(false);
       }
@@ -112,7 +112,7 @@ const Register: React.FC = () => {
           alt="Sports Complex" 
           className="absolute inset-0 w-full h-full object-cover opacity-80"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-slate-900 via-transparent to-transparent" />
         <div className="absolute bottom-16 left-16 right-16 text-white z-10">
           <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl">Gia nhập <br/><span className="text-primary">SmartSport</span></h2>
           <p className="text-xl text-slate-100 leading-relaxed font-bold drop-shadow-lg">Trở thành một phần của mạng lưới kết nối thể thao lớn nhất Việt Nam. Hoàn toàn miễn phí.</p>
@@ -272,7 +272,7 @@ const Register: React.FC = () => {
 
             <button 
               type="submit" disabled={isLoading}
-              className="w-full bg-slate-900 hover:bg-primary text-white font-black rounded-[1.5rem] py-5 mt-4 flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest text-sm"
+              className="w-full bg-slate-900 hover:bg-primary text-white font-black rounded-3xl py-5 mt-4 flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest text-sm"
             >
               {isLoading ? <Loader2 className="animate-spin" size={24} /> : <>Tạo tài khoản ngay <ChevronRight size={20} /></>}
             </button>

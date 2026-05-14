@@ -45,6 +45,7 @@ public record OwnerPitchSummaryDto(
     Guid Id,
     string Name,
     string PitchType,
+    string TypeDisplay,
     string Status,
     int TodayBookings,
     decimal TodayRevenue,

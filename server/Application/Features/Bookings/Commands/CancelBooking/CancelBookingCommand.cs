@@ -6,6 +6,6 @@ namespace Application.Features.Bookings.Commands.CancelBooking;
 
 public record CancelBookingCommand(
     Guid BookingId,
-    Guid UserId,
+    Guid RequesterId,
     string Reason
 ) : IRequest<Result>, ITransactionalRequest;

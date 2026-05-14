@@ -4,6 +4,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AIChatBox from './components/AIChatBox';
 import LandingPage from './features/landing/pages/LandingPage';
 import ExploreFields from './features/customer/pages/ExploreFields';
 import FieldDetails from './features/customer/pages/FieldDetails';
@@ -23,6 +24,7 @@ import Revenue from './features/owner/pages/Revenue';
 import Reviews from './features/owner/pages/Reviews';
 import StaffManagement from './features/owner/pages/StaffManagement';
 import Services from './features/owner/pages/Services';
+import PitchEditor from './features/owner/pages/PitchEditor';
 
 // Admin Sub-pages
 import Users from './features/admin/pages/Users';
@@ -59,6 +61,8 @@ function App() {
               <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/services" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Services /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/pitches/create" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><PitchEditor /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/pitches/edit/:id" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><PitchEditor /></DashboardLayout></ProtectedRoute>} />
 
               {/* Admin Dashboard */}
               <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
@@ -76,6 +80,7 @@ function App() {
                 </ProtectedRoute>
               } />
             </Routes>
+            <AIChatBox />
           </div>
         </AuthProvider>
       </ThemeProvider>

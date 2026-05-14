@@ -31,6 +31,7 @@ public class User : BaseEntity, IAggregateRoot
     public string? MapLink { get; private set; }
     public string PasswordHash { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
+    public Guid? OwnerId { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
 
@@ -83,6 +84,22 @@ public class User : BaseEntity, IAggregateRoot
     public bool IsPitchOwner() => Role == UserRole.PitchOwner;
     public bool IsAdmin() => Role == UserRole.Admin;
     public bool IsCustomer() => Role == UserRole.Customer;
+    public bool IsPitchStaff() => Role == UserRole.PitchStaff;
+
+    public void AssignOwner(Guid ownerId)
+    {
+        if (ownerId == Guid.Empty)
+            throw new DomainException("Owner ID is required");
+
+        OwnerId = ownerId;
+        MarkAsUpdated();
+    }
+
+    public void ClearOwner()
+    {
+        OwnerId = null;
+        MarkAsUpdated();
+    }
 
     private static void ValidateCreationParameters(string email, string fullName, string phoneNumber, string passwordHash)
     {

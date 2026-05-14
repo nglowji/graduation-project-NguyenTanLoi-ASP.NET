@@ -1,10 +1,12 @@
 using Application.Common.DTOs;
 using Application.Features.Bookings.Commands.CancelBooking;
+using Application.Features.Bookings.Commands.ConfirmBooking;
 using Application.Features.Bookings.Commands.CreateBooking;
 using Application.Features.Bookings.Commands.LockTimeSlot;
 using Application.Features.Bookings.Commands.ReleaseLock;
 using Application.Features.Bookings.DTOs;
 using Application.Features.Bookings.Queries.GetBookingById;
+using Application.Features.Bookings.Queries.GetMyBookings;
 using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using Api.Contracts;
@@ -97,7 +99,7 @@ public class BookingsController : ApiControllerBase
         if (userId == Guid.Empty)
             return Unauthorized();
 
-        var command = new CreateBookingCommand(userId, request.TimeSlotId, request.BookingDate);
+        var command = new CreateBookingCommand(userId, request.TimeSlotId, request.BookingDate, request.SelectedServices);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
@@ -107,6 +109,7 @@ public class BookingsController : ApiControllerBase
     }
 
     [HttpPost("{id:guid}/cancel")]
+    [HttpPatch("{id:guid}/cancel")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Cancel(
@@ -125,6 +128,49 @@ public class BookingsController : ApiControllerBase
             return BadRequestResponse(result.ErrorMessage ?? "Failed to cancel booking");
 
         return OkResponse<object?>(null, "Booking cancelled successfully");
+    }
+
+    [HttpPatch("{id:guid}/confirm")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Confirm(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new ConfirmBookingCommand(id, userId);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to confirm booking");
+
+        return OkResponse<object?>(null, "Booking confirmed successfully");
+    }
+
+    [HttpGet("my-bookings")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<BookingDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyBookings(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var query = new GetMyBookingsQuery(userId, pageNumber, pageSize, status);
+        var result = await _mediator.Send(query, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get bookings");
+
+        return OkResponse(result.Value);
     }
 
     [HttpGet("owner")]

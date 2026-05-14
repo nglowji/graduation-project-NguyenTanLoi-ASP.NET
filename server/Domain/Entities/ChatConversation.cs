@@ -29,12 +29,16 @@ public class ChatConversation : BaseEntity
 
     public void AddMessage(string role, string content)
     {
-        Messages.Add(new ChatMessage
+        var newMessages = new List<ChatMessage>(Messages)
         {
-            Role = role,
-            Content = content,
-            Timestamp = DateTime.UtcNow
-        });
+            new ChatMessage
+            {
+                Role = role,
+                Content = content,
+                Timestamp = DateTime.UtcNow
+            }
+        };
+        Messages = newMessages;
         LastMessageAt = DateTime.UtcNow;
         MarkAsUpdated();
     }

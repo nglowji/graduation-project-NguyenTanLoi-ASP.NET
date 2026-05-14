@@ -7,7 +7,8 @@ const PaymentResult: React.FC = () => {
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get('bookingId');
   const message = searchParams.get('message');
-  const isSuccess = !searchParams.has('message'); // Simple logic for demo
+  const successParam = searchParams.get('success');
+  const isSuccess = successParam ? successParam === 'true' : !searchParams.has('message');
 
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +72,7 @@ const PaymentResult: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase">Sân bóng</p>
-                      <p className="text-lg font-black text-slate-900">{booking.pitchName}</p>
+                      <p className="text-lg font-black text-slate-900">{booking.pitchName || booking.timeSlot?.pitch?.name}</p>
                     </div>
                   </div>
 
@@ -91,7 +92,7 @@ const PaymentResult: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase">Giờ</p>
-                        <p className="font-black text-slate-900">{booking.startTime} - {booking.endTime}</p>
+                        <p className="font-black text-slate-900">{booking.startTime || booking.timeSlot?.startTime} - {booking.endTime || booking.timeSlot?.endTime}</p>
                       </div>
                     </div>
                   </div>
@@ -101,7 +102,7 @@ const PaymentResult: React.FC = () => {
 
             <div className="flex flex-col gap-4">
               <Link 
-                to="/my-bookings" 
+                to="/profile" 
                 className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/30"
               >
                 Xem lịch sử đặt sân <ArrowRight size={20} />

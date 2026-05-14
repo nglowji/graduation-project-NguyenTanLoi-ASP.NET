@@ -39,7 +39,7 @@ public class GeminiAIService : IGeminiAIService
         
         _apiKey = configuration["GeminiAI:ApiKey"] 
             ?? throw new InvalidOperationException("GeminiAI:ApiKey is not configured");
-        _model = configuration["GeminiAI:Model"] ?? "gemini-pro";
+        _model = configuration["GeminiAI:Model"] ?? "gemini-1.5-flash";
         
         _httpClient.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
     }
@@ -86,7 +86,14 @@ public class GeminiAIService : IGeminiAIService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling Gemini AI API");
+            if (ex is HttpRequestException httpEx && httpEx.StatusCode != null)
+            {
+                _logger.LogError(ex, "Error calling Gemini AI API. Status: {Status}", httpEx.StatusCode);
+            }
+            else
+            {
+                _logger.LogError(ex, "Error calling Gemini AI API");
+            }
             return "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.";
         }
     }

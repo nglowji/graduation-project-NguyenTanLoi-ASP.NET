@@ -47,7 +47,7 @@ const Login: React.FC = () => {
       const response = await authService.login({ email, password });
       handleAuthSuccess(response);
     } catch (err: any) {
-      setError(err.response?.data?.Detail || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +62,7 @@ const Login: React.FC = () => {
         const response = await authService.googleLogin(tokenResponse.access_token);
         handleAuthSuccess(response);
       } catch (err: any) {
-        setError(err.response?.data?.Detail || 'Đăng nhập Google thất bại.');
+        setError(err.message || 'Đăng nhập Google thất bại.');
       } finally {
         setIsLoading(false);
       }
@@ -89,9 +89,9 @@ const Login: React.FC = () => {
     if (!(window as any).FB) {
       (window as any).fbAsyncInit = initFB;
       (function(d, s, id) {
-        var js, fjs = d.getElementsByTagName(s)[0];
+        const fjs = d.getElementsByTagName(s)[0];
         if (d.getElementById(id)) return;
-        js = d.createElement(s) as any; js.id = id;
+        const js = d.createElement(s) as any; js.id = id;
         js.src = "https://connect.facebook.net/vi_VN/sdk.js";
         fjs.parentNode?.insertBefore(js, fjs);
       }(document, 'script', 'facebook-jssdk'));
@@ -119,7 +119,7 @@ const Login: React.FC = () => {
           handleAuthSuccess(res);
         } catch (err: any) {
           console.error('Backend Facebook login error:', err);
-          setError(err.response?.data?.Detail || 'Đăng nhập Facebook thất bại.');
+          setError(err.message || 'Đăng nhập Facebook thất bại.');
         } finally {
           setIsLoading(false);
         }
@@ -144,7 +144,7 @@ const Login: React.FC = () => {
           alt="Stadium Night" 
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent" />
         <div className="absolute bottom-16 left-16 right-16 text-white">
           <h2 className="text-6xl font-black mb-6 leading-tight drop-shadow-2xl">Chào mừng trở lại <br/><span className="text-primary">SmartSport</span></h2>
           <p className="text-2xl text-slate-100 leading-relaxed font-medium drop-shadow-lg">Kết nối đam mê, đặt sân nhanh chóng. <br/> Tất cả chỉ trong vài thao tác đơn giản.</p>

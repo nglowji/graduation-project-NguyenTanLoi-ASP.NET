@@ -2,34 +2,35 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Calendar, MapPin, TrendingUp, LogOut, Bell,
   Users, ShieldCheck, FileText, ChevronLeft, Menu, Star, DollarSign, Home,
-  Sun, Moon, Briefcase
+  Sun, Moon, Briefcase, Search, Settings, ChevronRight
 } from 'lucide-react';
 
 interface NavItem {
-  icon: React.ReactNode;
+  icon: React.ElementType;
   label: string;
   path: string;
 }
 
 const ownerNavItems: NavItem[] = [
-  { icon: <LayoutDashboard size={20} />, label: 'Tổng quan', path: '/dashboard/owner' },
-  { icon: <MapPin size={20} />, label: 'Sân của tôi', path: '/dashboard/owner/pitches' },
-  { icon: <Calendar size={20} />, label: 'Lịch đặt sân', path: '/dashboard/owner/bookings' },
-  { icon: <Briefcase size={20} />, label: 'Dịch vụ', path: '/dashboard/owner/services' },
-  { icon: <TrendingUp size={20} />, label: 'Doanh thu', path: '/dashboard/owner/revenue' },
-  { icon: <Star size={20} />, label: 'Đánh giá', path: '/dashboard/owner/reviews' },
-  { icon: <Users size={20} />, label: 'Quản lý nhân viên', path: '/dashboard/owner/staff' },
+  { icon: LayoutDashboard, label: 'Tổng quan', path: '/dashboard/owner' },
+  { icon: MapPin, label: 'Sân của tôi', path: '/dashboard/owner/pitches' },
+  { icon: Calendar, label: 'Lịch đặt sân', path: '/dashboard/owner/bookings' },
+  { icon: Briefcase, label: 'Dịch vụ', path: '/dashboard/owner/services' },
+  { icon: TrendingUp, label: 'Doanh thu', path: '/dashboard/owner/revenue' },
+  { icon: Star, label: 'Đánh giá', path: '/dashboard/owner/reviews' },
+  { icon: Users, label: 'Quản lý nhân viên', path: '/dashboard/owner/staff' },
 ];
 
 const adminNavItems: NavItem[] = [
-  { icon: <LayoutDashboard size={20} />, label: 'Tổng quan', path: '/dashboard/admin' },
-  { icon: <ShieldCheck size={20} />, label: 'Duyệt yêu cầu', path: '/dashboard/admin/approvals' },
-  { icon: <Users size={20} />, label: 'Quản lý người dùng', path: '/dashboard/admin/users' },
-  { icon: <DollarSign size={20} />, label: 'Quản lý doanh thu', path: '/dashboard/admin/revenue' },
-  { icon: <FileText size={20} />, label: 'Báo cáo thống kê', path: '/dashboard/admin/reports' },
+  { icon: LayoutDashboard, label: 'Tổng quan', path: '/dashboard/admin' },
+  { icon: ShieldCheck, label: 'Duyệt yêu cầu', path: '/dashboard/admin/approvals' },
+  { icon: Users, label: 'Quản lý người dùng', path: '/dashboard/admin/users' },
+  { icon: DollarSign, label: 'Quản lý doanh thu', path: '/dashboard/admin/revenue' },
+  { icon: FileText, label: 'Báo cáo thống kê', path: '/dashboard/admin/reports' },
 ];
 
 interface DashboardLayoutProps {
@@ -43,10 +44,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const auth = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
-  const [notifCount] = useState(0);
+  const [notifCount] = useState(3);
 
   const navItems = role === 'admin' ? adminNavItems : ownerNavItems;
   const isAdmin = role === 'admin';
+  const accentColor = isAdmin ? 'text-indigo-600' : 'text-blue-600';
+  const accentBg = isAdmin ? 'bg-indigo-50' : 'bg-blue-50';
+  const accentBorder = isAdmin ? 'border-indigo-100' : 'border-blue-100';
 
   const handleLogout = () => {
     auth.logout();
@@ -54,129 +58,197 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   };
 
   return (
-    <div className="flex h-screen bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
+    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden transition-colors duration-300">
       {/* Sidebar */}
-      <aside className={`
-        ${collapsed ? 'w-20' : 'w-64'} 
-        transition-all duration-300 ease-in-out
-        border-r border-slate-200 dark:border-white/5 flex flex-col flex-shrink-0
-        bg-white dark:bg-[#13151f]
-      `}>
-        {/* Logo */}
-        <div className={`h-16 flex items-center border-b border-slate-200 dark:border-white/5 ${collapsed ? 'justify-center px-2' : 'px-5 gap-3'}`}>
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center font-black text-white text-lg shadow-lg flex-shrink-0">
-            S
-          </div>
-          {!collapsed && (
-            <div>
-              <span className="font-black text-lg tracking-tight text-slate-900 dark:text-white">SmartSport</span>
-              <div className={`text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'text-primary' : 'text-blue-500'}`}>
-                {isAdmin ? 'Quản trị hệ thống' : 'Đối tác chủ sân'}
-              </div>
+      <aside 
+        className={`
+          ${collapsed ? 'w-[88px]' : 'w-[280px]'} 
+          relative z-50 flex flex-col h-full border-r border-slate-200 dark:border-slate-800
+          bg-white dark:bg-[#1E293B] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+        `}
+      >
+        {/* Sidebar Header */}
+        <div className="h-20 flex items-center px-6 shrink-0 overflow-hidden border-b border-slate-50 dark:border-slate-800/50">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-10 h-10 shrink-0 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center shadow-sm`}>
+              <span className="font-black text-white dark:text-slate-900 text-xl tracking-tighter">S</span>
             </div>
-          )}
+            {!collapsed && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }} 
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col truncate"
+              >
+                <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white leading-tight">SmartSport</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
+                  {isAdmin ? 'System Master' : 'Partner Central'}
+                </span>
+              </motion.div>
+            )}
+          </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-6 overflow-y-auto">
-          {!collapsed && (
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-white/20 px-3 mb-4">
-              {isAdmin ? 'Menu Quản Trị' : 'Quản Lý Sân Bãi'}
-            </p>
-          )}
-          <div className="flex flex-col gap-1.5">
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-6 px-4 space-y-8 custom-scrollbar">
+          <div className="space-y-1">
+            {!collapsed && (
+              <p className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3">
+                Main Menu
+              </p>
+            )}
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  title={collapsed ? item.label : ''}
                   className={`
-                    flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all duration-200 group relative
-                    ${isActive
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                      : 'text-slate-500 dark:text-white/40 hover:text-primary dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                    group flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 relative
+                    ${isActive 
+                      ? `${accentBg} ${accentColor} shadow-sm border border-transparent` 
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white border border-transparent'
                     }
                   `}
                 >
-                  <span className={`flex-shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`}>
-                    {item.icon}
-                  </span>
-                  {!collapsed && <span>{item.label}</span>}
+                  <div className={`
+                    shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300
+                    ${isActive ? 'bg-white dark:bg-slate-900 shadow-sm' : 'bg-transparent group-hover:bg-white dark:group-hover:bg-slate-900 group-hover:shadow-sm'}
+                  `}>
+                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                  </div>
+                  {!collapsed && (
+                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 truncate">
+                      {item.label}
+                    </motion.span>
+                  )}
+                  {isActive && !collapsed && (
+                    <motion.div layoutId="active-indicator" className="w-1.5 h-1.5 rounded-full bg-current" />
+                  )}
                 </Link>
               );
             })}
           </div>
-        </nav>
 
-        {/* Bottom actions */}
-        <div className="px-3 pb-6 border-t border-slate-200 dark:border-white/5 pt-6 flex flex-col gap-1.5">
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-white/40 hover:text-primary dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all w-full"
-          >
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            {!collapsed && <span>{theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}</span>}
-          </button>
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-white/40 hover:text-primary dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
-            <Home size={20} />
-            {!collapsed && <span>Trang chủ</span>}
-          </Link>
+          <div className="space-y-1">
+            {!collapsed && (
+              <p className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-3">
+                Preferences
+              </p>
+            )}
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white transition-all border border-transparent"
+            >
+              <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-transparent group-hover:bg-white dark:group-hover:bg-slate-900">
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              </div>
+              {!collapsed && <span>{theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}</span>}
+            </button>
+            <Link
+              to="/"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white transition-all border border-transparent"
+            >
+              <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-transparent group-hover:bg-white dark:group-hover:bg-slate-900">
+                <Home size={18} />
+              </div>
+              {!collapsed && <span>Về trang chủ</span>}
+            </Link>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800/50 mt-auto">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-white/40 hover:text-red-500 hover:bg-red-500/10 transition-all w-full"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all border border-transparent"
           >
-            <LogOut size={20} />
+            <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center">
+              <LogOut size={18} />
+            </div>
             {!collapsed && <span>Đăng xuất</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Top Header */}
-        <header className="h-16 border-b border-slate-200 dark:border-white/5 flex items-center justify-between px-6 bg-white/80 dark:bg-surface-dark/80 backdrop-blur-sm flex-shrink-0">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors"
-          >
-            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
-          </button>
-
-          <div className="flex items-center gap-3 ml-auto">
-            <button className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 relative text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors">
-              <Bell size={20} />
-              {notifCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-primary rounded-full text-[9px] font-bold flex items-center justify-center text-white">
-                  {notifCount}
-                </span>
-              )}
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 relative h-full">
+        {/* Header */}
+        <header className="h-20 flex items-center justify-between px-8 bg-white dark:bg-[#1E293B] border-b border-slate-200 dark:border-slate-800/50 relative z-40 shrink-0">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all"
+            >
+              {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
             </button>
-            <div className="flex items-center gap-3 pl-3 border-l border-slate-200 dark:border-white/10">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {auth.user?.fullName || (isAdmin ? 'System Admin' : 'Chủ Sân')}
-                </p>
-                <p className={`text-xs font-medium ${isAdmin ? 'text-primary' : 'text-blue-500'}`}>
-                  {isAdmin ? 'Quản trị viên' : 'Đối tác'}
-                </p>
+
+            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 min-w-[240px] group focus-within:border-slate-300 dark:focus-within:border-slate-600 transition-all">
+              <Search size={18} className="text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-slate-300 transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm..." 
+                className="bg-transparent border-none focus:ring-0 text-sm font-medium placeholder:text-slate-400 text-slate-900 dark:text-white w-full"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <button className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 relative transition-all">
+                <Bell size={20} />
+                {notifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-black flex items-center justify-center text-white border-2 border-white dark:border-[#1E293B]">
+                    {notifCount}
+                  </span>
+                )}
+              </button>
+              <button className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all">
+                <Settings size={20} />
+              </button>
+            </div>
+
+            <div className="h-10 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
+
+            <div className="flex items-center gap-4 pl-2">
+              <div className="flex flex-col items-end hidden sm:flex">
+                <span className="text-sm font-extrabold text-slate-900 dark:text-white leading-none">
+                  {auth.user?.fullName || (isAdmin ? 'Administrator' : 'Pitch Owner')}
+                </span>
+                <span className={`text-[10px] font-black uppercase tracking-wider mt-1.5 ${isAdmin ? 'text-indigo-600' : 'text-blue-600'}`}>
+                  {isAdmin ? 'Super Admin' : 'Premium Partner'}
+                </span>
               </div>
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${isAdmin ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-blue-600/10 text-blue-500 border border-blue-500/20'}`}>
-                {auth.user?.fullName?.[0] || (isAdmin ? 'A' : 'O')}
+              <div className={`w-11 h-11 rounded-2xl ${accentBg} border ${accentBorder} flex items-center justify-center shadow-sm overflow-hidden`}>
+                {auth.user?.avatar ? (
+                  <img src={auth.user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className={`font-black text-lg ${accentColor}`}>
+                    {(auth.user?.fullName?.[0] || (isAdmin ? 'A' : 'O')).toUpperCase()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
+        {/* Page Content Container */}
+        <main className="flex-1 overflow-y-auto bg-[#F8FAFC] dark:bg-[#0F172A] relative custom-scrollbar">
+          <div className="p-8 max-w-[1600px] mx-auto min-h-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

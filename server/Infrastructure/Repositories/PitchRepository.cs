@@ -17,6 +17,8 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
     {
         return await _dbSet
             .Include(p => p.SportCenter)
+            .Include(p => p.TimeSlots)
+            .Include(p => p.Images)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 

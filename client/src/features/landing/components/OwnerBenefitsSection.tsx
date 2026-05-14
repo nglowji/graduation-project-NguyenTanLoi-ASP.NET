@@ -18,7 +18,7 @@ const OwnerBenefitsSection: React.FC = () => {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="md:col-span-2 bg-slate-50 rounded-[2rem] p-10 flex flex-col justify-between overflow-hidden relative group"
+            className="md:col-span-2 bg-slate-50 rounded-4xl p-10 flex flex-col justify-between overflow-hidden relative group"
           >
             <div className="relative z-10 w-2/3">
               <h3 className="text-3xl font-black mb-4">Lấp đầy <br/> Công suất sân</h3>
@@ -37,13 +37,13 @@ const OwnerBenefitsSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="md:col-span-1 bg-slate-900 text-white rounded-[2rem] p-10 flex flex-col justify-end overflow-hidden relative group"
+            className="md:col-span-1 bg-slate-900 text-white rounded-4xl p-10 flex flex-col justify-end overflow-hidden relative group"
           >
             <div className="relative z-10">
               <h3 className="text-3xl font-black mb-4 text-primary">Tự động hóa 100%</h3>
               <p className="text-slate-400">Không còn phải gọi điện kiểm tra, xếp lịch thủ công hay lo sợ trùng giờ.</p>
             </div>
-            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute top-0 right-0 w-full h-full bg-linear-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </motion.div>
 
           {/* Benefit 3 */}
@@ -52,7 +52,7 @@ const OwnerBenefitsSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="md:col-span-3 bg-slate-100 rounded-[2rem] p-12 flex flex-col md:flex-row items-center gap-12 overflow-hidden"
+            className="md:col-span-3 bg-slate-100 rounded-4xl p-12 flex flex-col md:flex-row items-center gap-12 overflow-hidden"
           >
             <div className="md:w-1/2">
               <h3 className="text-4xl font-black mb-6">Chống rủi ro <br/> "Bùng lịch"</h3>

@@ -1,43 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Star, MessageSquare, Calendar, 
-  Search, X, Send, CheckCircle 
+import React, { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Calendar,
+  CheckCircle,
+  MessageSquare,
+  Search,
+  Send,
+  Star,
+  X,
+  User,
+  Filter,
+  CheckCheck,
+  ChevronRight
 } from 'lucide-react';
 import api from '../../../services/api';
 
+type OwnerReview = {
+  id: string;
+  userName: string;
+  pitchName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  reply?: string | null;
+};
+
+const isOwnerReview = (value: unknown): value is OwnerReview => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const review = value as Record<string, unknown>;
+  return (
+    typeof review.id === 'string' &&
+    typeof review.userName === 'string' &&
+    typeof review.pitchName === 'string' &&
+    typeof review.rating === 'number' &&
+    typeof review.comment === 'string' &&
+    typeof review.createdAt === 'string'
+  );
+};
+
 const Reviews: React.FC = () => {
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<OwnerReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [selectedReview, setSelectedReview] = useState<OwnerReview | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchReviews();
-  }, []);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/owner/reviews');
-      setReviews(res.data || []);
+      const res = await api.get('/owner/reviews') as unknown;
+      setReviews(Array.isArray(res) ? res.filter(isOwnerReview) : []);
     } catch {
       setReviews([]);
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  const openReplyModal = (review: OwnerReview) => {
+    setSelectedReview(review);
+    setReplyText(review.reply || '');
+    setIsModalOpen(true);
+  };
+
+  const closeReplyModal = () => {
+    setIsModalOpen(false);
+    setSelectedReview(null);
+    setReplyText('');
   };
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !selectedReview) return;
+
     setIsSubmitting(true);
     try {
       await api.post(`/owner/reviews/${selectedReview.id}/reply`, { content: replyText });
-      setIsModalOpen(false);
-      setReplyText('');
+      closeReplyModal();
       fetchReviews();
     } catch {
       alert('Không thể gửi phản hồi.');
@@ -46,171 +94,238 @@ const Reviews: React.FC = () => {
     }
   };
 
+  const filteredReviews = reviews.filter(r => 
+    r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.comment.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.pitchName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const stats = {
-    average: reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '0.0',
-    total: reviews.length
+    average: reviews.length > 0
+      ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1)
+      : '0.0',
+    total: reviews.length,
+    replied: reviews.filter(r => r.reply).length
   };
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Đánh giá khách hàng</h1>
-          <p className="text-white/40 text-sm mt-1">Lắng nghe ý kiến từ người chơi để cải thiện chất lượng dịch vụ</p>
+    <div className="space-y-10 animate-in fade-in duration-700 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Public Feedback</span>
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Đánh giá khách hàng</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Lắng nghe và tương tác với cộng đồng người chơi.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-600/10 border border-blue-500/20 px-6 py-3 rounded-2xl flex items-center gap-4">
-            <Star className="text-blue-500 fill-current" size={20} />
+
+        <div className="flex items-center gap-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-6 py-4 rounded-3xl flex items-center gap-6 shadow-sm group hover:border-blue-600/20 transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
+              <Star className="fill-current" size={24} />
+            </div>
             <div>
-              <p className="text-xl font-black text-white leading-none">{stats.average}</p>
-              <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest mt-1">Trung bình ({stats.total} lượt)</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{stats.average}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-slate-300" /> {stats.total} lượt đánh giá
+              </p>
             </div>
           </div>
+          <div className="hidden lg:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-6 py-4 rounded-3xl items-center gap-6 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+              <CheckCheck size={24} />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{stats.replied}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">Đã phản hồi</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-3 shadow-sm flex flex-col md:flex-row items-center gap-4 group">
+        <div className="relative flex-1 group/search">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-blue-600 transition-colors" size={20} />
+          <input 
+            type="text" 
+            placeholder="Tìm kiếm theo tên khách, nội dung hoặc sân..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-transparent border-none py-5 pl-16 pr-6 text-sm text-slate-900 dark:text-white placeholder:text-slate-300 font-bold focus:ring-0"
+          />
+        </div>
+        <div className="px-6 flex items-center gap-2 text-slate-400 border-l border-slate-100 dark:border-slate-700">
+          <Filter size={18} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Sắp xếp: Mới nhất</span>
         </div>
       </div>
 
-      <div className="bg-[#1a1c26] border border-white/5 rounded-[2.5rem] p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm đánh giá..." 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-5 text-xs text-white focus:outline-none focus:border-blue-500/50 transition-all"
-            />
+      <div className="space-y-6">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-40 gap-8 animate-in fade-in duration-700">
+            <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Retrieving feedback data...</p>
           </div>
-        </div>
-
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="py-20 flex flex-col items-center gap-4">
-              <div className="w-10 h-10 border-4 border-blue-500/10 border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">Đang tải đánh giá...</p>
-            </div>
-          ) : reviews.length === 0 ? (
-            <div className="py-32 text-center bg-white/[0.01] rounded-[2rem] border border-dashed border-white/5">
-              <MessageSquare size={48} className="mx-auto mb-4 text-white/5" />
-              <p className="text-white/20 font-black uppercase tracking-widest text-sm">Chưa có đánh giá nào từ khách hàng</p>
-            </div>
-          ) : (
-            reviews.map((r, index) => (
-              <motion.div 
-                key={r.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="p-8 bg-[#1e202b] border border-white/5 rounded-[2rem] hover:border-blue-500/20 transition-all group"
-              >
-                <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/10 flex items-center justify-center text-blue-500 font-black text-lg shadow-lg shrink-0">
-                    {r.userName?.[0] || 'U'}
+        ) : filteredReviews.length === 0 ? (
+          <div className="text-center py-40 bg-slate-50 dark:bg-slate-900/30 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
+            <MessageSquare size={64} className="mx-auto mb-6 text-slate-200 dark:text-slate-800" />
+            <h3 className="text-xl font-black text-slate-400 dark:text-slate-600">Chưa có đánh giá</h3>
+            <p className="text-slate-400 text-sm mt-2">Phản hồi từ khách hàng sẽ xuất hiện tại đây.</p>
+          </div>
+        ) : (
+          filteredReviews.map((review, index) => (
+            <motion.div
+              key={review.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all group"
+            >
+              <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex items-start gap-6 lg:w-1/3">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-600/20 shrink-0">
+                    {review.userName[0]?.toUpperCase() || <User size={24} />}
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                      <div>
-                        <h4 className="font-black text-white">{r.userName}</h4>
-                        <p className="text-[10px] font-black text-blue-500/60 uppercase tracking-widest mt-0.5">Sân: {r.pitchName}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} size={14} className={i < r.rating ? 'text-amber-500 fill-current' : 'text-white/10'} />
-                          ))}
-                        </div>
-                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-2">
-                          <Calendar size={12} /> {new Date(r.createdAt).toLocaleDateString('vi-VN')}
-                        </span>
-                      </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xl font-black text-slate-900 dark:text-white leading-none">{review.userName}</h4>
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 dark:bg-slate-900/50 rounded-full border border-slate-100 dark:border-slate-700 w-fit">
+                      <div className="w-1 h-1 rounded-full bg-blue-600" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{review.pitchName}</span>
                     </div>
-                    
-                    <p className="text-white/60 text-sm leading-relaxed mb-6 italic">"{r.comment}"</p>
-                    
-                    {r.reply && (
-                      <div className="mb-6 p-5 bg-white/5 rounded-2xl border-l-4 border-blue-600">
-                        <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <CheckCircle size={12} /> Đã phản hồi
-                        </p>
-                        <p className="text-xs text-white/40 leading-relaxed">{r.reply}</p>
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star 
+                            key={i} size={14} 
+                            className={i < review.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-700'} 
+                          />
+                        ))}
                       </div>
-                    )}
-                    
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => { setSelectedReview(r); setIsModalOpen(true); }}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                      >
-                        <MessageSquare size={14} /> {r.reply ? 'Sửa phản hồi' : 'Phản hồi'}
-                      </button>
+                      <span className="text-xs font-black text-slate-300">/</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar size={12} /> {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                      </span>
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </div>
+
+                <div className="flex-1 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="relative">
+                      <span className="absolute -left-4 -top-2 text-4xl text-blue-600/10 font-serif">“</span>
+                      <p className="text-slate-600 dark:text-slate-300 text-base font-medium leading-relaxed italic pl-2">
+                        {review.comment}
+                      </p>
+                    </div>
+
+                    {review.reply && (
+                      <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="p-6 bg-emerald-50/50 dark:bg-emerald-500/5 rounded-3xl border-l-4 border-emerald-500 relative"
+                      >
+                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                          <CheckCircle size={14} /> Phản hồi từ chủ sân
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">{review.reply}</p>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  <div className="pt-8 flex justify-end">
+                    <button
+                      onClick={() => openReplyModal(review)}
+                      className="flex items-center gap-3 px-8 py-3.5 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all group/btn"
+                    >
+                      <MessageSquare size={16} /> 
+                      {review.reply ? 'Cập nhật phản hồi' : 'Gửi phản hồi ngay'}
+                      <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))
+        )}
       </div>
 
-      {/* Reply Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={closeReplyModal}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-[#1a1c26] border border-white/10 rounded-[2.5rem] shadow-2xl p-8"
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-slate-800"
             >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black text-white tracking-tight">Phản hồi đánh giá</h3>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl text-white/30 hover:text-white transition-all">
-                  <X size={20} />
+              <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-2xl shadow-blue-600/30">
+                    <MessageSquare size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Phản hồi khách</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mt-3">Engagement & CRM</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={closeReplyModal} 
+                  className="w-14 h-14 flex items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all border border-slate-100 dark:border-slate-700"
+                >
+                  <X size={24} />
                 </button>
               </div>
 
-              <div className="mb-8 p-4 bg-white/5 rounded-2xl border border-white/5">
-                <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-2">Đánh giá của {selectedReview?.userName}</p>
-                <p className="text-xs text-white/60 italic leading-relaxed">"{selectedReview?.comment}"</p>
+              <div className="p-10 space-y-10">
+                <div className="p-8 bg-slate-50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-200 dark:border-slate-800 relative">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Nội dung đánh giá của {selectedReview?.userName}</span>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 italic font-medium leading-relaxed">"{selectedReview?.comment}"</p>
+                </div>
+
+                <form onSubmit={handleReply} className="space-y-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nội dung phản hồi của bạn</label>
+                    <textarea
+                      required
+                      rows={5}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-3xl py-6 px-8 text-sm text-slate-900 dark:text-white font-bold focus:outline-none focus:border-blue-600 transition-all resize-none shadow-inner"
+                      placeholder="VD: Cảm ơn bạn đã đóng góp ý kiến, chúng tôi sẽ cải thiện chất lượng sân ngay..."
+                    />
+                  </div>
+
+                  <div className="flex gap-5">
+                    <button
+                      type="button"
+                      onClick={closeReplyModal}
+                      className="flex-1 py-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:text-slate-900 dark:hover:text-white transition-all shadow-sm"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-90 shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-4 active:scale-[0.98] transition-all group/save"
+                    >
+                      {isSubmitting ? (
+                        <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Send size={20} className="group-hover/save:translate-x-1 group-hover/save:-translate-y-1 transition-transform" />
+                      )}
+                      <span>Gửi phản hồi công khai</span>
+                    </button>
+                  </div>
+                </form>
               </div>
-
-              <form onSubmit={handleReply} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest ml-1">Nội dung phản hồi</label>
-                  <textarea 
-                    required
-                    rows={4}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-                    placeholder="Cảm ơn bạn đã đóng góp ý kiến..."
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-4 bg-white/5 text-white/40 rounded-2xl text-xs font-black uppercase tracking-widest hover:text-white transition-all"
-                  >
-                    Hủy
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isSubmitting ? <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
-                    Gửi phản hồi
-                  </button>
-                </div>
-              </form>
             </motion.div>
           </div>
         )}

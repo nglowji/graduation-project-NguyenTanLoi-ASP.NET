@@ -50,19 +50,19 @@ const Profile: React.FC = () => {
 
   const fetchProfile = async () => {
     try {
-      const res = await api.get('/users/profile');
-      if (res.data) {
+      const res = await api.get('/users/profile') as any;
+      if (res) {
         setFormData({
-          fullName: res.data.fullName || '',
-          email: res.data.email || '',
-          phoneNumber: res.data.phoneNumber || '',
-          address: res.data.address || '',
-          mapLink: res.data.mapLink || ''
+          fullName: res.fullName || '',
+          email: res.email || '',
+          phoneNumber: res.phoneNumber || '',
+          address: res.address || '',
+          mapLink: res.mapLink || ''
         });
-        updateUser(res.data);
+        updateUser(res);
       }
     } catch (err: any) {
-      if (err.response?.status === 404 && err.response?.data?.title === 'User not found') {
+      if (err.status === 404 && err.message?.includes('not found')) {
          setNotification({ type: 'error', message: 'Dữ liệu người dùng đã thay đổi. Vui lòng đăng xuất và đăng nhập lại để tiếp tục.' });
       }
     }
@@ -79,8 +79,8 @@ const Profile: React.FC = () => {
   const fetchBookings = async () => {
     setIsLoadingBookings(true);
     try {
-      const res = await api.get('/bookings/my-bookings');
-      setBookings(res.data?.items || []);
+      const res = await api.get('/bookings/my-bookings') as any;
+      setBookings(res?.items || []);
     } catch (err) {
       console.error('Error fetching bookings:', err);
     } finally {
@@ -118,15 +118,14 @@ const Profile: React.FC = () => {
       setIsEditing(false);
       setNotification({ type: 'success', message: 'Cập nhật thành công!' });
     } catch (err: any) {
-      const data = err.response?.data;
-      let msg = data?.detail || data?.message || (typeof data === 'string' ? data : null) || 'Không thể cập nhật thông tin.';
+      let msg = err.message || 'Không thể cập nhật thông tin.';
       
       if (msg === 'User not found') {
         msg = 'Phiên đăng nhập đã hết hạn hoặc dữ liệu không khớp. Vui lòng ĐĂNG XUẤT và ĐĂNG NHẬP lại.';
       }
 
-      if (data?.errors) {
-        const validationErrors = Object.values(data.errors).flat().join(', ');
+      if (err?.errors) {
+        const validationErrors = Object.values(err.errors).flat().join(', ');
         setNotification({ type: 'error', message: `Lỗi: ${validationErrors}` });
       } else {
         setNotification({ type: 'error', message: msg });
@@ -146,9 +145,9 @@ const Profile: React.FC = () => {
             <aside className="w-full lg:w-80 shrink-0">
               <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden sticky top-32">
                 {/* User Brief */}
-                <div className="p-8 text-center border-b border-slate-50 bg-gradient-to-b from-slate-50/50 to-transparent">
+                <div className="p-8 text-center border-b border-slate-50 bg-linear-to-b from-slate-50/50 to-transparent">
                   <div className="relative inline-block mb-4 group">
-                    <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-blue-500/20">
+                    <div className="w-24 h-24 rounded-4xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-blue-500/20">
                       {user?.fullName?.charAt(0) || 'U'}
                     </div>
                     <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-primary transition-all group-hover:scale-110 active:scale-90">
@@ -410,7 +409,7 @@ const Profile: React.FC = () => {
                       </form>
                     </div>
 
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-600/20">
+                    <div className="bg-linear-to-r from-blue-600 to-indigo-700 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-600/20">
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                           <ShieldCheck size={20} />
@@ -514,7 +513,7 @@ const Profile: React.FC = () => {
 
                     <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
                       <div className="relative mb-8">
-                        <div className="w-24 h-24 rounded-[2rem] bg-slate-50 flex items-center justify-center text-slate-200">
+                        <div className="w-24 h-24 rounded-4xl bg-slate-50 flex items-center justify-center text-slate-200">
                           <Bell size={48} />
                         </div>
                         <div className="absolute -top-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
@@ -552,7 +551,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="p-8 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <div className="p-8 rounded-4xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-6">
                           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${user?.emailConfirmed ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'}`}>
                             {user?.emailConfirmed ? <MailCheck size={32} /> : <AlertCircle size={32} />}
@@ -604,9 +603,9 @@ const Profile: React.FC = () => {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] min-w-[320px]"
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-200 min-w-[320px]"
           >
-            <div className={`p-1 rounded-[2rem] shadow-2xl backdrop-blur-xl ${
+            <div className={`p-1 rounded-4xl shadow-2xl backdrop-blur-xl ${
               notification.type === 'success' 
                 ? 'bg-emerald-500/10 border border-emerald-500/20 shadow-emerald-500/10' 
                 : 'bg-red-500/10 border border-red-500/20 shadow-red-500/10'

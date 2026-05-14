@@ -43,6 +43,11 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
             .ProjectTo<PitchDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
 
+        foreach (var item in items)
+        {
+            item.TypeDisplay = GetPitchTypeDisplay(item.Type);
+        }
+
         var result = new PagedResult<PitchDto>(
             items,
             totalCount,
@@ -77,6 +82,7 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
             if (request.SportType.Equals("Football", StringComparison.OrdinalIgnoreCase))
             {
                 filtered = filtered.Where(p => 
+                    (int)p.Type == 0 ||
                     p.Type == Domain.Enums.PitchType.Football5 || 
                     p.Type == Domain.Enums.PitchType.Football7 || 
                     p.Type == Domain.Enums.PitchType.Football11);
@@ -89,12 +95,18 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
 
         if (!string.IsNullOrWhiteSpace(request.Province))
         {
-            filtered = filtered.Where(p => p.SportCenter != null && p.SportCenter.Address.City == request.Province);
+            filtered = filtered.Where(p => p.SportCenter != null && 
+                (p.SportCenter.Address.City == request.Province || 
+                 p.SportCenter.Address.City.Contains(request.Province) || 
+                 request.Province.Contains(p.SportCenter.Address.City)));
         }
 
         if (!string.IsNullOrWhiteSpace(request.District))
         {
-            filtered = filtered.Where(p => p.SportCenter != null && p.SportCenter.Address.District == request.District);
+            filtered = filtered.Where(p => p.SportCenter != null && 
+                (p.SportCenter.Address.District == request.District || 
+                 p.SportCenter.Address.District.Contains(request.District) || 
+                 request.District.Contains(p.SportCenter.Address.District)));
         }
 
         if (request.MinRating.HasValue)
@@ -130,5 +142,22 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         }
 
         return filtered;
+    }
+
+    private static string GetPitchTypeDisplay(Domain.Enums.PitchType type)
+    {
+        return type switch
+        {
+            Domain.Enums.PitchType.Football5 => "Football 5",
+            Domain.Enums.PitchType.Football7 => "Football 7",
+            Domain.Enums.PitchType.Football11 => "Football 11",
+            Domain.Enums.PitchType.Tennis => "Tennis",
+            Domain.Enums.PitchType.Badminton => "Badminton",
+            Domain.Enums.PitchType.Pickleball => "Pickleball",
+            Domain.Enums.PitchType.Basketball => "Basketball",
+            Domain.Enums.PitchType.Volleyball => "Volleyball",
+            Domain.Enums.PitchType.TableTennis => "Table tennis",
+            _ => "Football 5"
+        };
     }
 }
