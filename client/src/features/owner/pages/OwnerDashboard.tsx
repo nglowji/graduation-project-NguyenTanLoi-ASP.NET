@@ -1,397 +1,291 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  DollarSign, CalendarCheck, Users, TrendingUp, TrendingDown,
-  Star, CheckCircle, XCircle, Plus, ArrowUpRight,
-  Clock, Activity, ChevronRight, Filter
+  Activity,
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  MapPin,
+  Star,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const fadeIn: Variants = { 
-  hidden: { opacity: 0, y: 20 }, 
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } 
-};
-
-const stagger: Variants = {
-  show: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-interface DashboardStats {
+type OwnerStats = {
   totalRevenue: number;
   totalBookings: number;
   newCustomers: number;
   averageRating: number;
   revenueChange: number;
   bookingsChange: number;
-}
+};
 
-interface BookingItem {
+type BookingRow = {
   id: string;
-  customerName: string;
-  customerPhone: string;
-  pitchName: string;
-  bookingDate: string;
-  startTime: string;
-  endTime: string;
-  totalAmount: number;
-  status: string;
-}
+  customerName?: string;
+  customerPhone?: string;
+  pitchName?: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalAmount?: number;
+  totalPrice?: number;
+  status?: string;
+};
 
-interface PitchItem {
+type PitchRow = {
   id: string;
-  name: string;
-  pitchType: string;
-  status: string;
-  todayBookings: number;
-  todayRevenue: number;
-  averageRating: number;
-}
+  name?: string;
+  pitchType?: string;
+  todayBookings?: number;
+  todayRevenue?: number;
+  averageRating?: number;
+};
 
 const OwnerDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [bookingTab, setBookingTab] = useState<'upcoming' | 'pending' | 'completed'>('upcoming');
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [bookings, setBookings] = useState<BookingItem[]>([]);
-  const [pitches, setPitches] = useState<PitchItem[]>([]);
+  const isStaff = user?.role === 4;
+  const [stats, setStats] = useState<OwnerStats | null>(null);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [pitches, setPitches] = useState<PitchRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboard();
   }, []);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [bookingTab]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboard = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, pitchesRes] = await Promise.all([
-        api.get('/dashboard/owner/stats'),
-        api.get('/pitches/my'),
-      ]);
-      setStats(statsRes as any);
-      setPitches(pitchesRes as any);
-    } catch {
-      setError('Không thể tải dữ liệu. Vui lòng thử lại.');
+      const requests: Array<Promise<unknown>> = [
+        api.get('/bookings/owner', { params: { pageSize: 8 } }),
+      ];
+
+      if (!isStaff) {
+        requests.push(api.get('/dashboard/owner/stats'));
+        requests.push(api.get('/pitches/my'));
+      }
+
+      const [bookingRes, statsRes, pitchesRes] = await Promise.allSettled(requests);
+
+      if (bookingRes.status === 'fulfilled') {
+        const value = bookingRes.value as any;
+        setBookings(Array.isArray(value?.items) ? value.items : Array.isArray(value) ? value : []);
+      }
+
+      if (statsRes?.status === 'fulfilled') setStats(statsRes.value as OwnerStats);
+      if (pitchesRes?.status === 'fulfilled') setPitches(Array.isArray(pitchesRes.value) ? pitchesRes.value as PitchRow[] : []);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchBookings = async () => {
-    try {
-      const statusMap = { upcoming: 'confirmed', pending: 'pending', completed: 'completed' };
-      const res = await api.get('/bookings/owner', { params: { status: statusMap[bookingTab] } });
-      setBookings(res.data?.items || res.data || []);
-    } catch {
-      setBookings([]);
-    }
+  const formatMoney = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+
+  const formatDate = (value?: string) => {
+    if (!value) return '--/--/----';
+    const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
   };
 
-  const handleBookingAction = async (bookingId: string, action: 'confirm' | 'cancel') => {
-    try {
-      await api.patch(`/bookings/${bookingId}/${action}`);
-      fetchBookings();
-    } catch {
-      alert('Không thể thực hiện thao tác này.');
-    }
+  const statusLabel = (status?: string) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized.includes('pending')) return 'Chờ cọc';
+    if (normalized.includes('confirm')) return 'Đã xác nhận';
+    if (normalized.includes('complete')) return 'Hoàn thành';
+    if (normalized.includes('cancel')) return 'Đã hủy';
+    return 'Đang xử lý';
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-
-  const statusColor = (s: string) => {
-    if (s === 'Confirmed') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-    if (s === 'Pending') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-    if (s === 'Completed') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-    return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
+  const statusClass = (status?: string) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized.includes('confirm')) return 'bg-emerald-50 text-emerald-700 ring-emerald-100';
+    if (normalized.includes('pending')) return 'bg-amber-50 text-amber-700 ring-amber-100';
+    if (normalized.includes('cancel')) return 'bg-red-50 text-red-700 ring-red-100';
+    return 'bg-blue-50 text-blue-700 ring-blue-100';
   };
-  
-  const statusLabel = (s: string) => ({ 
-    Confirmed: 'Đã xác nhận', 
-    Pending: 'Chờ duyệt', 
-    Completed: 'Hoàn thành', 
-    Cancelled: 'Đã hủy' 
-  }[s] || s);
 
-  const pitchTypeLabel = (t: string) => ({
-    Football5: 'Sân 5 người', Football7: 'Sân 7 người', Football11: 'Sân 11 người',
-    Tennis: 'Tennis', Badminton: 'Cầu lông',
-  }[t] || t);
+  const bookingSummary = useMemo(() => {
+    const pending = bookings.filter((item) => String(item.status || '').toLowerCase().includes('pending')).length;
+    const confirmed = bookings.filter((item) => String(item.status || '').toLowerCase().includes('confirm')).length;
+    const completed = bookings.filter((item) => String(item.status || '').toLowerCase().includes('complete')).length;
+    return { pending, confirmed, completed };
+  }, [bookings]);
+
+  const actionBookings = bookings.filter((item) => {
+    const status = String(item.status || '').toLowerCase();
+    return status.includes('pending') || status.includes('confirm');
+  });
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
-          <Activity className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary" size={24} />
-        </div>
-        <p className="text-slate-400 dark:text-white/40 font-bold animate-pulse uppercase tracking-widest text-[10px]">Syncing Data Stream...</p>
+      <div className="flex min-h-[420px] flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-blue-600" size={42} />
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải tổng quan</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header Section */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex flex-col md:flex-row md:items-end justify-between gap-6"
-      >
-        <div>
-          <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.2em] text-[10px] mb-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            Bảng điều khiển đối tác
-          </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            Chào {user?.fullName?.split(' ')?.pop() || 'bạn'}, <span className="text-primary">lại là một ngày tuyệt vời!</span>
-          </h1>
-          <p className="text-slate-500 dark:text-white/40 text-sm mt-2 font-medium">
-            Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}.
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-6 py-3.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-white border border-slate-200 dark:border-white/10 rounded-2xl text-sm font-bold transition-all">
-            <Filter size={18} /> Lọc
-          </button>
-          <button 
-            onClick={() => navigate('/dashboard/owner/pitches')}
-            className="flex items-center gap-2 px-6 py-3.5 bg-primary text-white rounded-2xl text-sm font-black hover:opacity-90 transition-all shadow-xl shadow-primary/20 active:scale-95"
-          >
-            <Plus size={18} strokeWidth={3} /> Thêm sân
-          </button>
-        </div>
-      </motion.div>
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">
+              {isStaff ? 'Staff workspace' : 'Owner overview'}
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Tổng quan vận hành</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold text-slate-500">
+              {isStaff
+                ? 'Theo dõi lịch đặt sân và xử lý các đơn trong phạm vi được phân quyền.'
+                : 'Theo dõi doanh thu, đơn đặt, sân và những việc cần xử lý ngay hôm nay.'}
+            </p>
 
-      {error && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-3">
-          <XCircle size={18} /> {error}
-        </motion.div>
-      )}
-
-      {/* Stats Grid */}
-      <motion.div 
-        variants={stagger}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        {[
-          { title: 'Doanh thu tháng', value: formatCurrency(stats?.totalRevenue || 0), change: `${stats?.revenueChange || 0}%`, up: (stats?.revenueChange || 0) >= 0, icon: <DollarSign size={24} />, color: 'from-blue-600 to-indigo-700' },
-          { title: 'Lượt đặt sân', value: (stats?.totalBookings || 0).toString(), change: `${stats?.bookingsChange || 0}%`, up: (stats?.bookingsChange || 0) >= 0, icon: <CalendarCheck size={24} />, color: 'from-primary to-blue-600' },
-          { title: 'Khách hàng mới', value: (stats?.newCustomers || 0).toString(), change: '+12%', up: true, icon: <Users size={24} />, color: 'from-amber-500 to-orange-600' },
-          { title: 'Xếp hạng', value: `${(stats?.averageRating || 0).toFixed(1)} ★`, change: 'Top 5%', up: true, icon: <Star size={24} />, color: 'from-rose-500 to-pink-600' },
-        ].map((s) => (
-          <motion.div 
-            key={s.title} 
-            variants={fadeIn}
-            whileHover={{ y: -5 }}
-            className="relative group bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-3xl p-6 overflow-hidden shadow-sm hover:shadow-xl transition-all"
-          >
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${s.color} opacity-[0.03] dark:opacity-[0.05] rounded-bl-[5rem]`} />
-            
-            <div className="flex items-center justify-between mb-6">
-              <div className={`w-12 h-12 rounded-2xl bg-linear-to-br ${s.color} flex items-center justify-center text-white shadow-lg`}>
-                {s.icon}
-              </div>
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black ${s.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
-                {s.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {s.change}
-              </div>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-slate-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-widest">{s.title}</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{s.value}</h3>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Main Section */}
-        <div className="xl:col-span-2 space-y-8">
-          {/* Activity Preview */}
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Phân tích hiệu suất</h3>
-                <p className="text-slate-400 dark:text-white/40 text-xs mt-1">Sự biến động doanh thu theo thời gian</p>
-              </div>
-            </div>
-            <div className="h-64 w-full flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl bg-slate-50 dark:bg-white/1">
-              <div className="text-center">
-                <Activity size={32} className="mx-auto mb-3 text-slate-300 dark:text-white/5" />
-                <p className="text-slate-400 dark:text-white/20 text-[10px] font-black uppercase tracking-widest italic">Calculating metrics...</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Bookings */}
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] overflow-hidden shadow-sm">
-            <div className="p-8 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
-                  <CalendarCheck size={20} />
-                </div>
-                <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">Lịch đặt sân gần đây</h3>
-              </div>
-              
-              <div className="flex p-1 bg-slate-100 dark:bg-white/5 rounded-2xl">
-                {(['upcoming', 'pending', 'completed'] as const).map(tab => (
-                  <button 
-                    key={tab} 
-                    onClick={() => setBookingTab(tab)}
-                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      bookingTab === tab 
-                      ? 'bg-primary text-white shadow-lg' 
-                      : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {tab === 'upcoming' ? 'Sắp tới' : tab === 'pending' ? 'Chờ duyệt' : 'Đã xong'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <AnimatePresence mode="wait">
-                {bookings.length === 0 ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-center py-20 bg-slate-50 dark:bg-white/2 rounded-4xl border border-dashed border-slate-200 dark:border-white/5"
-                  >
-                    <Clock size={24} className="mx-auto mb-4 text-slate-300 dark:text-white/10" />
-                    <p className="text-slate-400 dark:text-white/20 font-bold text-xs uppercase tracking-widest">Không có dữ liệu</p>
-                  </motion.div>
-                ) : (
-                  <div className="space-y-3">
-                    {bookings.map((b, index) => (
-                      <motion.div 
-                        key={b.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 dark:bg-[#1e202b] rounded-3xl border border-slate-100 dark:border-white/5 hover:border-primary/30 transition-all shadow-sm hover:shadow-md"
-                      >
-                        <div className="flex gap-4 items-center mb-4 sm:mb-0">
-                          <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-lg">
-                            {b.customerName?.[0]}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 dark:text-white">{b.customerName}</span>
-                              <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black border uppercase tracking-wider ${statusColor(b.status)}`}>
-                                {statusLabel(b.status)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
-                                <Activity size={10} /> {b.pitchName}
-                              </span>
-                              <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 flex items-center gap-1.5 uppercase tracking-widest">
-                                <Clock size={10} /> {b.startTime} - {b.endTime}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between sm:justify-end gap-6">
-                          <div className="text-right">
-                            <p className="text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-0.5">Thanh toán</p>
-                            <p className="font-black text-primary text-lg leading-none">{formatCurrency(b.totalAmount)}</p>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {b.status === 'Pending' && (
-                              <>
-                                <button onClick={() => handleBookingAction(b.id, 'confirm')} className="w-10 h-10 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center"><CheckCircle size={18} /></button>
-                                <button onClick={() => handleBookingAction(b.id, 'cancel')} className="w-10 h-10 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><XCircle size={18} /></button>
-                              </>
-                            )}
-                            <button className="w-10 h-10 bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all flex items-center justify-center">
-                              <ChevronRight size={18} />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Sidebar Section */}
-        <div className="space-y-8">
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-white dark:bg-[#1a1c26] border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">Sân bóng</h3>
-              <button onClick={() => navigate('/dashboard/owner/pitches')} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1.5">
-                Xem tất cả <ArrowUpRight size={12} />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard/owner/bookings')}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+              >
+                Xem lịch đặt sân
+                <ArrowRight size={17} />
               </button>
-            </div>
-
-            <div className="space-y-4">
-              {pitches.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 dark:bg-white/2 rounded-3xl border border-dashed border-slate-200 dark:border-white/5">
-                  <p className="text-[10px] text-slate-400 dark:text-white/20 font-black uppercase tracking-widest">Chưa có sân</p>
-                </div>
-              ) : (
-                pitches.slice(0, 3).map((p) => (
-                  <div key={p.id} className="p-5 bg-slate-50 dark:bg-[#1e202b] rounded-3xl border border-slate-100 dark:border-white/5 group hover:border-primary/20 transition-all">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h4 className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">{p.name}</h4>
-                        <p className="text-[9px] text-slate-400 dark:text-white/30 font-black uppercase tracking-widest mt-1">{pitchTypeLabel(p.pitchType)}</p>
-                      </div>
-                      <div className={`w-2 h-2 rounded-full ${p.status === 'Active' ? 'bg-primary' : 'bg-slate-300 dark:bg-white/10'}`} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-100 dark:border-none">
-                        <p className="text-[8px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-1">Bookings</p>
-                        <p className="text-sm font-black text-slate-900 dark:text-white">{p.todayBookings}</p>
-                      </div>
-                      <div className="p-3 bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-slate-100 dark:border-none">
-                        <p className="text-[8px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest mb-1">Rating</p>
-                        <div className="flex items-center gap-1">
-                          <p className="text-sm font-black text-amber-500">{p.averageRating.toFixed(1)}</p>
-                          <Star size={10} className="text-amber-500 fill-current" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
+              {!isStaff && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard/owner/revenue')}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  Xem doanh thu
+                </button>
               )}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div variants={fadeIn} initial="hidden" animate="show" className="bg-primary rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-primary/20 group">
-            <div className="relative z-10">
-              <h3 className="font-black text-2xl mb-2 tracking-tight">Kinh doanh hiệu quả?</h3>
-              <p className="text-white/70 text-xs font-bold leading-relaxed mb-8 uppercase tracking-widest">Nâng cấp cơ sở vật chất để tăng tỷ lệ giữ chân khách hàng.</p>
-              <button 
-                onClick={() => navigate('/dashboard/owner/pitches')}
-                className="w-full py-4 bg-white text-primary rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"
-              >
-                Cập nhật thông tin sân
-              </button>
+          <div className="rounded-2xl bg-slate-950 p-5 text-white">
+            <p className="text-xs font-black uppercase tracking-widest text-blue-200">Cần xử lý</p>
+            <p className="mt-3 text-4xl font-black">{actionBookings.length}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-300">Đơn chờ cọc hoặc đã xác nhận cần theo dõi.</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Chờ cọc</p>
+                <p className="mt-1 text-xl font-black">{bookingSummary.pending}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Xác nhận</p>
+                <p className="mt-1 text-xl font-black">{bookingSummary.confirmed}</p>
+              </div>
             </div>
-            <Activity className="absolute -bottom-8 -right-8 w-40 h-40 text-white/10 group-hover:scale-110 transition-transform duration-500" />
-          </motion.div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {!isStaff && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <Wallet className="mb-5 text-blue-600" size={24} />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Doanh thu</p>
+            <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{formatMoney(stats?.totalRevenue)}</p>
+            <p className="mt-1 text-xs font-bold text-slate-400">{stats?.revenueChange || 0}% so với kỳ trước</p>
+          </div>
+        )}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <CalendarCheck className="mb-5 text-emerald-600" size={24} />
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đơn gần đây</p>
+          <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{stats?.totalBookings ?? bookings.length}</p>
+          <p className="mt-1 text-xs font-bold text-slate-400">{bookingSummary.completed} đơn hoàn thành</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <Clock className="mb-5 text-amber-600" size={24} />
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang xử lý</p>
+          <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{actionBookings.length}</p>
+          <p className="mt-1 text-xs font-bold text-slate-400">Đơn cần theo dõi ngay</p>
+        </div>
+        {!isStaff && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <Star className="mb-5 text-indigo-600" size={24} />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đánh giá</p>
+            <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{Number(stats?.averageRating || 0).toFixed(1)}</p>
+            <p className="mt-1 text-xs font-bold text-slate-400">{stats?.newCustomers || 0} khách hàng mới</p>
+          </div>
+        )}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Lịch đặt sân gần đây</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">Thông tin quan trọng để xử lý nhanh.</p>
+            </div>
+            <Activity className="text-blue-600" size={22} />
+          </div>
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {bookings.length === 0 ? (
+              <div className="p-10 text-center text-sm font-bold text-slate-400">Chưa có đơn đặt sân.</div>
+            ) : bookings.map((booking) => (
+              <div key={booking.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_170px_120px] md:items-center">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950 dark:text-white">{booking.customerName || 'Khách hàng'}</p>
+                  <p className="mt-1 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
+                    <span>{booking.pitchName || 'Sân thể thao'}</span>
+                    <span>{formatDate(booking.bookingDate)}</span>
+                    <span>{booking.startTime?.substring(0, 5)} - {booking.endTime?.substring(0, 5)}</span>
+                  </p>
+                </div>
+                <p className="text-sm font-black text-slate-950 dark:text-white">{formatMoney(booking.totalAmount ?? booking.totalPrice)}</p>
+                <span className={`inline-flex h-9 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ring-1 ${statusClass(booking.status)}`}>
+                  {statusLabel(booking.status)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">{isStaff ? 'Quyền nhân viên' : 'Sân nổi bật'}</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">{isStaff ? 'Các phạm vi được phép thao tác.' : 'Tình hình sân của bạn.'}</p>
+            </div>
+            <TrendingUp className="text-emerald-600" size={22} />
+          </div>
+
+          {isStaff ? (
+            <div className="space-y-3">
+              {['Xem tổng quan vận hành', 'Xác nhận và hủy lịch đặt sân', 'Phản hồi đánh giá khách hàng'].map((item) => (
+                <div key={item} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <CheckCircle2 size={17} className="text-emerald-600" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          ) : pitches.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm font-bold text-slate-400">Chưa có sân.</div>
+          ) : (
+            <div className="space-y-3">
+              {pitches.slice(0, 5).map((pitch) => (
+                <div key={pitch.id} className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-950 dark:text-white">{pitch.name}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-400">
+                      <MapPin size={12} />
+                      {pitch.todayBookings || 0} đơn hôm nay
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black text-blue-600">{formatMoney(pitch.todayRevenue)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 };

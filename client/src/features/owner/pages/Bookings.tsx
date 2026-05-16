@@ -1,14 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Search, Clock, Phone, Activity, Trash2, Loader2
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Activity,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Eye,
+  Flag,
+  Loader2,
+  MapPin,
+  Phone,
+  Search,
+  Trash2,
+  XCircle,
 } from 'lucide-react';
 import api from '../../../services/api';
 
+type BookingRow = {
+  id: string;
+  customerName?: string;
+  customerPhone?: string;
+  user?: {
+    fullName?: string;
+    phoneNumber?: string;
+    email?: string;
+  };
+  pitchName?: string;
+  timeSlot?: {
+    startTime?: string;
+    endTime?: string;
+    pitch?: {
+      name?: string;
+      type?: string;
+      address?: string;
+    };
+  };
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalAmount?: number;
+  totalPrice?: number;
+  depositAmount?: number;
+  status?: string;
+  checkInCode?: string;
+};
+
+const tabs = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'pendingdeposit', label: 'Chờ cọc' },
+  { id: 'confirmed', label: 'Đã xác nhận' },
+  { id: 'completed', label: 'Hoàn thành' },
+  { id: 'cancelled', label: 'Đã hủy' },
+];
+
 const Bookings: React.FC = () => {
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [tab, setTab] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -19,7 +69,7 @@ const Bookings: React.FC = () => {
     try {
       const params = tab === 'all' ? {} : { status: tab };
       const res = await api.get('/bookings/owner', { params }) as any;
-      setBookings(res?.items || res || []);
+      setBookings(Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : []);
     } catch {
       setBookings([]);
     } finally {
@@ -28,7 +78,7 @@ const Bookings: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa đơn đặt sân này?')) return;
+    if (!window.confirm('Xóa đơn đặt sân này?')) return;
     try {
       await api.delete(`/bookings/${id}`);
       fetchBookings();
@@ -39,11 +89,13 @@ const Bookings: React.FC = () => {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     try {
-      const action = newStatus === 'Confirmed' ? 'confirm' : newStatus === 'Cancelled' ? 'cancel' : null;
-      if (action) {
-        await api.patch(`/bookings/${id}/${action}`);
-      } else {
-        await api.patch(`/bookings/${id}`, { status: newStatus });
+      const normalized = newStatus.toLowerCase();
+      if (normalized === 'confirmed') {
+        await api.patch(`/bookings/${id}/confirm`);
+      } else if (normalized === 'completed') {
+        await api.patch(`/bookings/${id}/complete`);
+      } else if (normalized === 'cancelled') {
+        await api.patch(`/bookings/${id}/cancel`, { reason: 'Owner cancelled booking' });
       }
       fetchBookings();
     } catch {
@@ -51,156 +103,287 @@ const Bookings: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Pending': return 'text-amber-600 bg-amber-50 border-amber-100';
-      case 'Confirmed': return 'text-emerald-600 bg-emerald-50 border-emerald-100';
-      case 'Completed': return 'text-blue-600 bg-blue-50 border-blue-100';
-      case 'Cancelled': return 'text-red-600 bg-red-50 border-red-100';
-      default: return 'text-slate-600 bg-slate-50 border-slate-100';
-    }
+  const getCustomerName = (booking: BookingRow) =>
+    booking.customerName || booking.user?.fullName || 'Khách hàng';
+
+  const getCustomerPhone = (booking: BookingRow) =>
+    booking.customerPhone || booking.user?.phoneNumber || booking.user?.email || 'Chưa có liên hệ';
+
+  const getPitchName = (booking: BookingRow) =>
+    booking.pitchName || booking.timeSlot?.pitch?.name || 'Sân thể thao';
+
+  const getPitchAddress = (booking: BookingRow) =>
+    booking.timeSlot?.pitch?.address || 'Chưa cập nhật địa chỉ';
+
+  const getStartTime = (booking: BookingRow) =>
+    (booking.startTime || booking.timeSlot?.startTime || '--:--').substring(0, 5);
+
+  const getEndTime = (booking: BookingRow) =>
+    (booking.endTime || booking.timeSlot?.endTime || '--:--').substring(0, 5);
+
+  const formatDate = (value?: string) => {
+    if (!value) return '--/--/----';
+    const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  const formatMoney = (value?: number) =>
+    `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
-  const filteredBookings = bookings.filter(b => 
-    b.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.customerPhone?.includes(searchTerm)
-  );
+  const getTotal = (booking: BookingRow) =>
+    Number(booking.totalAmount ?? booking.totalPrice ?? 0);
+
+  const getDeposit = (booking: BookingRow) =>
+    Number(booking.depositAmount ?? 0);
+
+  const getStatusLabel = (status?: string) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized.includes('pending')) return 'Chờ cọc';
+    if (normalized.includes('confirm')) return 'Đã xác nhận';
+    if (normalized.includes('complete')) return 'Hoàn thành';
+    if (normalized.includes('cancel')) return 'Đã hủy';
+    if (normalized.includes('noshow')) return 'Không đến';
+    return 'Khác';
+  };
+
+  const getStatusClass = (status?: string) => {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized.includes('confirm')) return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100';
+    if (normalized.includes('complete')) return 'bg-blue-50 text-blue-700 ring-1 ring-blue-100';
+    if (normalized.includes('pending')) return 'bg-amber-50 text-amber-700 ring-1 ring-amber-100';
+    if (normalized.includes('cancel') || normalized.includes('noshow')) return 'bg-red-50 text-red-700 ring-1 ring-red-100';
+    return 'bg-slate-100 text-slate-600 ring-1 ring-slate-200';
+  };
+
+  const filteredBookings = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return bookings;
+
+    return bookings.filter((booking) =>
+      [
+        getCustomerName(booking),
+        getCustomerPhone(booking),
+        getPitchName(booking),
+        booking.checkInCode,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword))
+    );
+  }, [bookings, searchTerm]);
+
+  const counts = useMemo(() => {
+    const total = bookings.length;
+    const pending = bookings.filter((b) => String(b.status || '').toLowerCase().includes('pending')).length;
+    const confirmed = bookings.filter((b) => String(b.status || '').toLowerCase().includes('confirm')).length;
+    return { total, pending, confirmed };
+  }, [bookings]);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Lịch đặt sân</h1>
-        <p className="text-slate-500 font-medium mt-2">Quản lý và cập nhật trạng thái các yêu cầu đặt sân từ khách hàng.</p>
-      </div>
-
-      {/* DISTINCT FILTER BAR */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-3xl w-fit border border-slate-200 dark:border-slate-700 shadow-sm">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'pending', label: 'Chờ duyệt' },
-            { id: 'confirmed', label: 'Đã xác nhận' },
-            { id: 'completed', label: 'Hoàn thành' },
-          ].map((t) => (
-            <button 
-              key={t.id} 
-              onClick={() => setTab(t.id)}
-              className={`px-8 py-3 rounded-[1.25rem] text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-                tab === t.id 
-                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xl shadow-blue-500/10' 
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Owner schedule</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Lịch đặt sân</h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Theo dõi đơn, cọc, khung giờ và trạng thái xử lý trong một màn hình.</p>
         </div>
 
-        <div className="relative group w-full xl:w-[400px]">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
-          <input 
-            type="text" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo tên hoặc số điện thoại..." 
-            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl py-4 pl-14 pr-6 text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all shadow-sm"
-          />
+        <div className="grid grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="px-4 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p>
+            <p className="text-xl font-black text-slate-950 dark:text-white">{counts.total}</p>
+          </div>
+          <div className="px-4 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p>
+            <p className="text-xl font-black text-amber-600">{counts.pending}</p>
+          </div>
+          <div className="px-4 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p>
+            <p className="text-xl font-black text-emerald-600">{counts.confirmed}</p>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* TABLE CARD */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[1000px]">
-          <thead>
-            <tr className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Khách hàng</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Thông tin đặt sân</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Tổng tiền</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Trạng thái xử lý</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Hành động</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-            {isLoading ? (
-              <tr>
-                <td colSpan={5} className="py-32 text-center">
-                  <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="animate-spin text-blue-600" size={40} />
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Đang đồng bộ dữ liệu</p>
-                  </div>
-                </td>
-              </tr>
-            ) : filteredBookings.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-40 text-center">
-                  <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                    <Calendar size={32} className="text-slate-200" />
-                  </div>
-                  <p className="text-sm font-bold text-slate-300 uppercase tracking-widest">Không có dữ liệu hiển thị</p>
-                </td>
-              </tr>
-            ) : (
-              filteredBookings.map((b) => (
-                <tr key={b.id} className="group hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all duration-300">
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-[1.25rem] bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 font-black text-xl group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-500 shadow-sm">
-                        {b.customerName?.charAt(0)}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
+                  tab === item.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full xl:w-[360px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Tìm khách, sân, mã đơn..."
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {isLoading ? (
+          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
+            <Loader2 className="animate-spin text-blue-600" size={38} />
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang đồng bộ lịch đặt</p>
+          </div>
+        ) : filteredBookings.length === 0 ? (
+          <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
+            <CalendarDays size={52} className="mb-4 text-slate-200" />
+            <h3 className="text-lg font-black text-slate-800 dark:text-white">Không có đơn phù hợp</h3>
+            <p className="mt-2 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredBookings.map((booking) => {
+              const isExpanded = expandedBookingId === booking.id;
+
+              return (
+                <div key={booking.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                  <div className="grid gap-4 p-4 xl:grid-cols-[minmax(210px,1fr)_minmax(230px,1.1fr)_150px_145px_54px] xl:items-center">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-black text-slate-500 dark:bg-slate-800">
+                          {getCustomerName(booking).charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-slate-950 dark:text-white">{getCustomerName(booking)}</p>
+                          <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                            <Phone size={12} />
+                            {getCustomerPhone(booking)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-base font-black text-slate-900 dark:text-white leading-tight">{b.customerName}</p>
-                        <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-1.5">
-                          <Phone size={12} className="text-blue-500/50" /> {b.customerPhone}
-                        </p>
-                      </div>
                     </div>
-                  </td>
-                  <td className="px-10 py-8">
-                    <div className="space-y-2">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2.5">
-                        <Activity size={16} className="text-blue-500" /> {b.pitchName}
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-900 dark:text-white">
+                        <Activity size={15} className="mr-2 inline text-blue-600" />
+                        {getPitchName(booking)}
                       </p>
-                      <p className="text-xs font-medium text-slate-400 flex items-center gap-2.5">
-                        <Clock size={16} className="text-slate-300" /> {b.startTime} - {b.endTime} | {b.bookingDate}
+                      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays size={13} className="text-blue-600" />
+                          {formatDate(booking.bookingDate)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock size={13} className="text-blue-600" />
+                          {getStartTime(booking)} - {getEndTime(booking)}
+                        </span>
                       </p>
                     </div>
-                  </td>
-                  <td className="px-10 py-8 text-right font-black text-slate-900 dark:text-white text-lg">
-                    {formatCurrency(b.totalAmount)}
-                  </td>
-                  <td className="px-10 py-8">
-                    <div className="flex justify-center">
-                      <select 
-                        value={b.status}
-                        onChange={(e) => handleStatusUpdate(b.id, e.target.value)}
-                        className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2 outline-none cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm ${getStatusColor(b.status)}`}
-                      >
-                        <option value="Pending">Chờ duyệt</option>
-                        <option value="Confirmed">Đã xác nhận</option>
-                        <option value="Completed">Hoàn thành</option>
-                        <option value="Cancelled">Đã hủy</option>
-                      </select>
+
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng tiền</p>
+                      <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{formatMoney(getTotal(booking))}</p>
                     </div>
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <button 
-                      onClick={() => handleDelete(b.id)}
-                      className="p-4 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-red-500/10"
-                      title="Xóa đơn"
+
+                    <span className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${getStatusClass(booking.status)}`}>
+                      {getStatusLabel(booking.status)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white"
+                      title="Xem chi tiết"
                     >
-                      <Trash2 size={22} />
+                      <Eye size={18} />
                     </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="grid gap-4 border-t border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40 md:grid-cols-[1fr_1fr_280px]">
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <MapPin size={14} className="text-blue-600" />
+                          Sân & khách
+                        </p>
+                        <dl className="space-y-2 text-xs font-bold">
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Mã đơn</dt>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{booking.checkInCode || booking.id.substring(0, 8).toUpperCase()}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Địa chỉ</dt>
+                            <dd className="max-w-[180px] truncate text-right text-slate-800 dark:text-slate-200">{getPitchAddress(booking)}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Liên hệ</dt>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{getCustomerPhone(booking)}</dd>
+                          </div>
+                        </dl>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <CreditCard size={14} className="text-emerald-600" />
+                          Thanh toán
+                        </p>
+                        <dl className="space-y-2 text-xs font-bold">
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Tổng tiền</dt>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(getTotal(booking))}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Tiền cọc</dt>
+                            <dd className="text-right text-emerald-700">{formatMoney(getDeposit(booking))}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Còn lại</dt>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(Math.max(getTotal(booking) - getDeposit(booking), 0))}</dd>
+                          </div>
+                        </dl>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Thao tác</p>
+                        <select
+                          value={booking.status || 'PendingDeposit'}
+                          onChange={(event) => handleStatusUpdate(booking.id, event.target.value)}
+                          className={`mb-3 h-10 w-full rounded-xl border-0 px-3 text-xs font-black uppercase tracking-widest outline-none ${getStatusClass(booking.status)}`}
+                        >
+                          <option value="PendingDeposit">Chờ cọc</option>
+                          <option value="Confirmed">Đã xác nhận</option>
+                          <option value="Completed">Hoàn thành</option>
+                          <option value="Cancelled">Đã hủy</option>
+                        </select>
+                        <div className="grid grid-cols-4 gap-2">
+                          <button type="button" title="Xác nhận" onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="flex h-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition hover:bg-emerald-600 hover:text-white">
+                            <CheckCircle2 size={17} />
+                          </button>
+                          <button type="button" title="Hoàn thành" onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="flex h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white">
+                            <Flag size={17} />
+                          </button>
+                          <button type="button" title="Hủy đơn" onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="flex h-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white">
+                            <XCircle size={17} />
+                          </button>
+                          <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

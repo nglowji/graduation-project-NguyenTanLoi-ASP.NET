@@ -7,7 +7,7 @@ namespace Domain.Entities;
 
 public class TimeSlot : BaseEntity
 {
-    private const decimal DefaultDepositPercentage = 30m;
+    private const decimal DefaultDepositPercentage = 10m;
     private const decimal MinDepositPercentage = 0m;
     private const decimal MaxDepositPercentage = 100m;
 

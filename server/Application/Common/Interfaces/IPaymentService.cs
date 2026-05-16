@@ -1,4 +1,5 @@
 using Application.Common.DTOs;
+using Application.Features.Payments.DTOs;
 
 namespace Application.Common.Interfaces;
 
@@ -7,7 +8,7 @@ public interface IPaymentService
     /// <summary>
     /// Create payment URL for VNPAY
     /// </summary>
-    Task<Result<string>> CreatePaymentUrlAsync(
+    Task<Result<PaymentInitResult>> CreatePaymentUrlAsync(
         Guid bookingId,
         decimal amount,
         string returnUrl,

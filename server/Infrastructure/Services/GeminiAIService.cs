@@ -1,20 +1,22 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Application.Common.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
 /// <summary>
-/// Service tương tác với Google Gemini AI API
+/// Talks to Google Gemini and falls back to deterministic SmartSport answers when the AI API is unavailable.
 /// </summary>
 public class GeminiAIService : IGeminiAIService
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiAIService> _logger;
     private readonly IUserPreferenceRepository _preferenceRepository;
     private readonly IBookingRepository _bookingRepository;
@@ -31,27 +33,29 @@ public class GeminiAIService : IGeminiAIService
         IPitchRepository pitchRepository)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
         _logger = logger;
         _preferenceRepository = preferenceRepository;
         _bookingRepository = bookingRepository;
         _pitchRepository = pitchRepository;
-        
-        _apiKey = configuration["GeminiAI:ApiKey"] 
-            ?? throw new InvalidOperationException("GeminiAI:ApiKey is not configured");
+        _apiKey = configuration["GeminiAI:ApiKey"] ?? string.Empty;
         _model = configuration["GeminiAI:Model"] ?? "gemini-1.5-flash";
-        
+
         _httpClient.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
+        _httpClient.Timeout = TimeSpan.FromSeconds(20);
     }
 
     public async Task<string> ChatAsync(string userMessage, string? conversationContext = null)
     {
+        if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildOfflineChatAnswer(userMessage);
+        }
+
         try
         {
-            var systemPrompt = BuildSystemPrompt();
-            var fullContext = string.IsNullOrEmpty(conversationContext)
+            var fullContext = string.IsNullOrWhiteSpace(conversationContext)
                 ? userMessage
-                : $"{conversationContext}\n\nUser: {userMessage}";
+                : $"{conversationContext}\n\nTin nhắn mới: {userMessage}";
 
             var request = new
             {
@@ -60,15 +64,15 @@ public class GeminiAIService : IGeminiAIService
                     new
                     {
                         role = "user",
-                        parts = new[] { new { text = $"{systemPrompt}\n\n{fullContext}" } }
+                        parts = new[] { new { text = $"{BuildSystemPrompt()}\n\n{fullContext}" } }
                     }
                 },
                 generationConfig = new
                 {
-                    temperature = 0.7,
+                    temperature = 0.75,
                     topK = 40,
                     topP = 0.95,
-                    maxOutputTokens = 1024
+                    maxOutputTokens = 1200
                 }
             };
 
@@ -76,25 +80,28 @@ public class GeminiAIService : IGeminiAIService
                 $"models/{_model}:generateContent?key={_apiKey}",
                 request);
 
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning(
+                    "Gemini AI API failed with status {StatusCode}. Body: {Body}",
+                    response.StatusCode,
+                    errorBody);
+
+                return BuildOfflineChatAnswer(userMessage);
+            }
 
             var result = await response.Content.ReadFromJsonAsync<GeminiResponse>();
-            var aiResponse = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text 
-                ?? "Xin lỗi, tôi không thể trả lời câu hỏi này.";
+            var aiResponse = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
 
-            return aiResponse;
+            return string.IsNullOrWhiteSpace(aiResponse) || IsFailureMessage(aiResponse)
+                ? BuildOfflineChatAnswer(userMessage)
+                : aiResponse.Trim();
         }
         catch (Exception ex)
         {
-            if (ex is HttpRequestException httpEx && httpEx.StatusCode != null)
-            {
-                _logger.LogError(ex, "Error calling Gemini AI API. Status: {Status}", httpEx.StatusCode);
-            }
-            else
-            {
-                _logger.LogError(ex, "Error calling Gemini AI API");
-            }
-            return "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.";
+            _logger.LogWarning(ex, "Gemini AI API failed. Falling back to local assistant response.");
+            return BuildOfflineChatAnswer(userMessage);
         }
     }
 
@@ -104,40 +111,41 @@ public class GeminiAIService : IGeminiAIService
     {
         try
         {
-            // Lấy preferences và booking history
             var preference = await _preferenceRepository.GetByUserIdAsync(userId);
             var recentBookingsResult = await _bookingRepository.GetByUserIdAsync(userId, 1, 10);
             var recentBookings = recentBookingsResult.Items.ToList();
             var allPitches = (await _pitchRepository.GetAllAsync()).ToList();
 
-            // Build context cho AI
-            var context = BuildRecommendationContext(preference, recentBookings, userQuery);
+            if (!allPitches.Any())
+            {
+                return EmptyRecommendationResponse();
+            }
 
-            // Gọi AI để phân tích
-            var aiAnalysis = await ChatAsync(
-                $"Dựa trên thông tin sau, hãy gợi ý 3-5 sân phù hợp nhất:\n{context}\n\n" +
-                $"Danh sách sân hiện có:\n{BuildPitchList(allPitches)}\n\n" +
-                $"Trả lời theo format JSON với các trường: pitchId, score (0-100), reasons (array of strings)");
+            var aiPrompt =
+                "Hãy chọn 3-5 sân phù hợp nhất từ danh sách. Chỉ trả về JSON array, không markdown. " +
+                "Mỗi item gồm pitchId, score từ 0 đến 100, reasons là mảng 1-3 lý do tiếng Việt.\n\n" +
+                BuildRecommendationContext(preference, recentBookings, userQuery) +
+                $"\nDanh sách sân:\n{BuildPitchList(allPitches)}";
 
-            // Parse AI response và tạo recommendations
+            var aiAnalysis = await ChatAsync(aiPrompt);
             var recommendations = ParseRecommendations(aiAnalysis, allPitches);
 
-            // Tạo explanation tự nhiên
-            var explanation = await GenerateExplanationAsync(recommendations, preference);
+            if (!recommendations.Any())
+            {
+                recommendations = BuildSmartFallbackRecommendations(allPitches, userQuery);
+            }
 
             return new PitchRecommendationResponse
             {
                 Recommendations = recommendations,
-                Explanation = explanation,
-                ConversationalResponse = await GenerateConversationalResponseAsync(recommendations)
+                Explanation = GenerateExplanation(recommendations),
+                ConversationalResponse = GenerateConversationalResponse(recommendations)
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting pitch recommendations for user {UserId}", userId);
-            
-            // Fallback: trả về recommendations đơn giản
-            return await GetFallbackRecommendationsAsync(userId);
+            return await GetFallbackRecommendationsAsync(userId, userQuery);
         }
     }
 
@@ -149,20 +157,45 @@ public class GeminiAIService : IGeminiAIService
             var bookingsResult = await _bookingRepository.GetByUserIdAsync(userId, 1, 50);
             var bookings = bookingsResult.Items.ToList();
 
-            var context = BuildBehaviorAnalysisContext(preference, bookings);
+            if (!bookings.Any())
+            {
+                return new UserBehaviorAnalysis
+                {
+                    Summary = "Bạn chưa có đủ lịch sử đặt sân để phân tích thói quen.",
+                    Patterns = new List<string>(),
+                    Suggestions = new List<string>
+                    {
+                        "Hãy thử đặt 1-2 sân yêu thích để SmartSport học được khung giờ và ngân sách của bạn.",
+                        "Bạn có thể hỏi trợ lý: gợi ý sân cầu lông dưới 150k gần Quận 1."
+                    }
+                };
+            }
 
-            var aiAnalysis = await ChatAsync(
-                $"Phân tích thói quen đặt sân của người dùng:\n{context}\n\n" +
-                "Trả lời theo format JSON với các trường: summary, patterns (array), suggestions (array)");
+            var favoriteTypes = preference?.PreferredPitchTypes.Any() == true
+                ? string.Join(", ", preference.PreferredPitchTypes)
+                : "chưa xác định";
 
-            return ParseBehaviorAnalysis(aiAnalysis);
+            return new UserBehaviorAnalysis
+            {
+                Summary = $"Bạn đã có {bookings.Count} lượt đặt gần đây. Môn/sân ưa thích: {favoriteTypes}.",
+                Patterns = new List<string>
+                {
+                    $"Giá trung bình khoảng {bookings.Average(b => b.TotalPrice.Amount):N0} VND/lượt.",
+                    $"Ngày đặt thường gặp: {bookings.GroupBy(b => b.BookingDate.DayOfWeek).OrderByDescending(g => g.Count()).First().Key}."
+                },
+                Suggestions = new List<string>
+                {
+                    "Đặt sân trước 1-3 ngày để có nhiều khung giờ đẹp hơn.",
+                    "Nếu chơi sau giờ làm, hãy ưu tiên giữ chỗ trước 17:00."
+                }
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error analyzing user behavior for user {UserId}", userId);
             return new UserBehaviorAnalysis
             {
-                Summary = "Chưa đủ dữ liệu để phân tích",
+                Summary = "Chưa đủ dữ liệu để phân tích.",
                 Patterns = new List<string>(),
                 Suggestions = new List<string>()
             };
@@ -174,30 +207,27 @@ public class GeminiAIService : IGeminiAIService
         DateTime suggestedTime,
         string reason)
     {
-        var prompt = $"Tạo một câu gợi ý đặt sân tự nhiên và thân thiện:\n" +
-                    $"- Tên sân: {pitchName}\n" +
-                    $"- Thời gian: {suggestedTime:dd/MM/yyyy HH:mm}\n" +
-                    $"- Lý do: {reason}\n" +
-                    "Câu trả lời ngắn gọn, dễ hiểu, không quá 2 câu.";
-
-        return await ChatAsync(prompt);
+        return await ChatAsync(
+            $"Viết một gợi ý đặt sân ngắn, tự nhiên bằng tiếng Việt. Sân: {pitchName}. " +
+            $"Thời gian: {suggestedTime:dd/MM/yyyy HH:mm}. Lý do: {reason}.");
     }
 
-    // Private helper methods
-    private string BuildSystemPrompt()
+    private static string BuildSystemPrompt()
     {
-        return @"Bạn là trợ lý AI thông minh của SmartSport - nền tảng đặt sân thể thao.
-Nhiệm vụ của bạn:
-1. Gợi ý sân phù hợp dựa trên thói quen và preferences của người dùng
-2. Trả lời câu hỏi về sân, giá cả, vị trí
-3. Hỗ trợ tìm kiếm và so sánh các sân
-4. Đưa ra lời khuyên về thời gian đặt sân tối ưu
+        return """
+Bạn là SmartSport AI, trợ lý đặt sân thể thao trong ứng dụng SmartSport.
 
-Phong cách giao tiếp:
--- Thân thiện, nhiệt tình
--- Ngắn gọn, súc tích
--- Sử dụng tiếng Việt tự nhiên
--- Đưa ra gợi ý cụ thể, có căn cứ";
+Bạn có thể trả lời mọi câu hỏi thông thường của người dùng, nhưng ưu tiên hỗ trợ:
+- Tìm sân theo môn, khu vực, ngân sách, khung giờ, sân trong nhà/ngoài trời.
+- Giải thích quy trình đặt sân, đặt cọc 10%, thanh toán VNPAY, hủy đặt sân và check-in.
+- So sánh lựa chọn, hỏi lại khi thiếu dữ kiện, và đưa ra bước tiếp theo rõ ràng.
+
+Quy tắc trả lời:
+- Luôn dùng tiếng Việt tự nhiên.
+- Trả lời ngắn gọn nhưng đủ ý, thân thiện, không bịa dữ liệu cụ thể nếu hệ thống chưa cung cấp.
+- Khi người dùng hỏi tìm sân, hãy tóm tắt tiêu chí và đề nghị xem các thẻ sân được gợi ý bên dưới.
+- Nếu câu hỏi ngoài thể thao/đặt sân, vẫn trả lời hữu ích ở mức tổng quát, rồi kéo nhẹ về SmartSport nếu phù hợp.
+""";
     }
 
     private string BuildRecommendationContext(
@@ -207,204 +237,366 @@ Phong cách giao tiếp:
     {
         var sb = new StringBuilder();
 
+        if (!string.IsNullOrWhiteSpace(userQuery))
+        {
+            sb.AppendLine($"Yêu cầu người dùng: {userQuery}");
+        }
+
         if (preference != null)
         {
-            sb.AppendLine("Preferences của user:");
             if (preference.PreferredPitchTypes.Any())
-                sb.AppendLine($"- Loại sân ưa thích: {string.Join(", ", preference.PreferredPitchTypes)}");
+                sb.AppendLine($"Loại sân ưa thích: {string.Join(", ", preference.PreferredPitchTypes)}");
             if (preference.PreferredTimeSlots.Any())
-                sb.AppendLine($"- Khung giờ ưa thích: {string.Join(", ", preference.PreferredTimeSlots)}");
+                sb.AppendLine($"Khung giờ ưa thích: {string.Join(", ", preference.PreferredTimeSlots)}");
             if (preference.AverageBudget.HasValue)
-                sb.AppendLine($"- Ngân sách: {preference.AverageBudget:N0} VND");
+                sb.AppendLine($"Ngân sách trung bình: {preference.AverageBudget:N0} VND");
         }
 
         if (recentBookings.Any())
         {
-            sb.AppendLine($"\nLịch sử đặt sân gần đây: {recentBookings.Count} lần");
-        }
-
-        if (!string.IsNullOrEmpty(userQuery))
-        {
-            sb.AppendLine($"\nYêu cầu của user: {userQuery}");
+            sb.AppendLine($"Lịch sử gần đây: {recentBookings.Count} lượt đặt.");
         }
 
         return sb.ToString();
     }
 
-    private string BuildPitchList(List<Pitch> pitches)
+    private static string BuildPitchList(List<Pitch> pitches)
     {
         var sb = new StringBuilder();
-        foreach (var pitch in pitches.Take(20)) // Limit to avoid token limit
+
+        foreach (var pitch in pitches.Where(p => p.Status == PitchStatus.Active).Take(30))
         {
-            sb.AppendLine($"- ID: {pitch.Id}, Tên: {pitch.Name}, " +
-                         $"Loại: {pitch.Type}, " +
-                         $"Địa chỉ: {pitch.SportCenter?.Address?.GetFullAddress() ?? "N/A"}");
+            var minPrice = GetPitchMinPrice(pitch);
+            sb.AppendLine(
+                $"- pitchId: {pitch.Id}; name: {pitch.Name}; type: {pitch.Type}; " +
+                $"rating: {pitch.AverageRating:0.0}; indoor: {pitch.IsIndoor}; " +
+                $"minPrice: {(minPrice.HasValue ? $"{minPrice:N0} VND" : "N/A")}; " +
+                $"address: {pitch.SportCenter?.Address?.GetFullAddress() ?? "N/A"}");
         }
+
         return sb.ToString();
     }
 
     private List<RecommendedPitch> ParseRecommendations(string aiResponse, List<Pitch> allPitches)
     {
-        // Simple parsing - in production, use more robust JSON parsing
         var recommendations = new List<RecommendedPitch>();
 
         try
         {
-            // Try to extract JSON from response
             var jsonStart = aiResponse.IndexOf('[');
             var jsonEnd = aiResponse.LastIndexOf(']');
-            
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
+
+            if (jsonStart < 0 || jsonEnd <= jsonStart)
             {
-                var jsonStr = aiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
-                var parsed = JsonSerializer.Deserialize<List<JsonElement>>(jsonStr);
+                return recommendations;
+            }
 
-                if (parsed != null)
+            var json = aiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+            var parsed = JsonSerializer.Deserialize<List<JsonElement>>(json);
+            if (parsed == null) return recommendations;
+
+            foreach (var item in parsed)
+            {
+                if (!item.TryGetProperty("pitchId", out var pitchIdProp) ||
+                    !Guid.TryParse(pitchIdProp.GetString(), out var pitchId))
                 {
-                    foreach (var item in parsed)
-                    {
-                        if (item.TryGetProperty("pitchId", out var pitchIdProp) &&
-                            Guid.TryParse(pitchIdProp.GetString(), out var pitchId))
-                        {
-                            var pitch = allPitches.FirstOrDefault(p => p.Id == pitchId);
-                            if (pitch != null)
-                            {
-                                var score = item.TryGetProperty("score", out var scoreProp) 
-                                    ? scoreProp.GetDecimal() : 50m;
-                                
-                                var reasons = new List<string>();
-                                if (item.TryGetProperty("reasons", out var reasonsProp))
-                                {
-                                    foreach (var reason in reasonsProp.EnumerateArray())
-                                    {
-                                        reasons.Add(reason.GetString() ?? "");
-                                    }
-                                }
-
-                                recommendations.Add(new RecommendedPitch
-                                {
-                                    PitchId = pitchId,
-                                    PitchName = pitch.Name,
-                                    Score = score,
-                                    Reasons = reasons,
-                                    EstimatedPrice = null // Will be calculated from time slots
-                                });
-                            }
-                        }
-                    }
+                    continue;
                 }
+
+                var pitch = allPitches.FirstOrDefault(p => p.Id == pitchId);
+                if (pitch == null) continue;
+
+                var score = item.TryGetProperty("score", out var scoreProp)
+                    ? scoreProp.GetDecimal()
+                    : 75m;
+
+                var reasons = new List<string>();
+                if (item.TryGetProperty("reasons", out var reasonsProp) &&
+                    reasonsProp.ValueKind == JsonValueKind.Array)
+                {
+                    reasons.AddRange(reasonsProp.EnumerateArray()
+                        .Select(reason => reason.GetString())
+                        .Where(reason => !string.IsNullOrWhiteSpace(reason))!);
+                }
+
+                recommendations.Add(ToRecommendedPitch(pitch, score, reasons));
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse AI recommendations, using fallback");
+            _logger.LogWarning(ex, "Failed to parse Gemini recommendation JSON.");
         }
 
-        // Fallback: return top pitches if parsing failed
-        if (!recommendations.Any())
-        {
-            recommendations = allPitches.Take(3).Select(p => new RecommendedPitch
+        return recommendations
+            .GroupBy(r => r.PitchId)
+            .Select(g => g.First())
+            .OrderByDescending(r => r.Score)
+            .Take(5)
+            .ToList();
+    }
+
+    private static List<RecommendedPitch> BuildSmartFallbackRecommendations(List<Pitch> pitches, string? userQuery)
+    {
+        var normalizedQuery = Normalize(userQuery ?? string.Empty);
+        var budget = ExtractBudget(normalizedQuery);
+
+        return pitches
+            .Where(p => p.Status == PitchStatus.Active)
+            .Select(p =>
             {
-                PitchId = p.Id,
-                PitchName = p.Name,
-                Score = 70m,
-                Reasons = new List<string> { "Sân phổ biến", "Giá hợp lý" },
-                EstimatedPrice = null
-            }).ToList();
-        }
+                var score = 55m + Math.Min(p.AverageRating * 8m, 35m);
+                var reasons = new List<string>();
+                var minPrice = GetPitchMinPrice(p);
 
-        return recommendations;
+                if (MatchesSport(normalizedQuery, p.Type))
+                {
+                    score += 20m;
+                    reasons.Add($"Đúng môn {GetSportLabel(p.Type)} bạn đang tìm.");
+                }
+
+                if (budget.HasValue && minPrice.HasValue && minPrice <= budget.Value)
+                {
+                    score += 15m;
+                    reasons.Add($"Giá từ {minPrice:N0} VND, nằm trong ngân sách bạn nêu.");
+                }
+
+                if (p.AverageRating > 0)
+                {
+                    reasons.Add($"Đánh giá trung bình {p.AverageRating:0.0}/5.");
+                }
+
+                if (p.IsIndoor && (normalizedQuery.Contains("trong nha") || normalizedQuery.Contains("indoor")))
+                {
+                    score += 10m;
+                    reasons.Add("Có sân trong nhà.");
+                }
+
+                if (!reasons.Any())
+                {
+                    reasons.Add("Sân đang hoạt động và phù hợp để tham khảo.");
+                }
+
+                return ToRecommendedPitch(p, Math.Min(score, 98m), reasons);
+            })
+            .OrderByDescending(p => p.Score)
+            .ThenBy(p => p.EstimatedPrice ?? decimal.MaxValue)
+            .Take(5)
+            .ToList();
     }
 
-    private async Task<string> GenerateExplanationAsync(
-        List<RecommendedPitch> recommendations,
-        UserPreference? preference)
+    private static RecommendedPitch ToRecommendedPitch(Pitch pitch, decimal score, List<string>? reasons = null)
     {
-        if (!recommendations.Any())
-            return "Không tìm thấy sân phù hợp.";
-
-        var topPitch = recommendations.First();
-        return $"Tôi gợi ý {topPitch.PitchName} vì {string.Join(", ", topPitch.Reasons.Take(2))}.";
-    }
-
-    private async Task<string> GenerateConversationalResponseAsync(
-        List<RecommendedPitch> recommendations)
-    {
-        if (!recommendations.Any())
-            return "Xin lỗi, tôi chưa tìm thấy sân phù hợp. Bạn có thể cho tôi biết thêm về yêu cầu của bạn không?";
-
-        var response = $"Tôi đã tìm được {recommendations.Count} sân phù hợp với bạn! ";
-        response += $"Sân {recommendations.First().PitchName} có vẻ là lựa chọn tốt nhất. ";
-        response += "Bạn có muốn xem chi tiết hoặc đặt sân ngay không?";
-
-        return response;
-    }
-
-    private string BuildBehaviorAnalysisContext(
-        UserPreference? preference,
-        List<Booking> bookings)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"Tổng số lần đặt sân: {bookings.Count}");
-        
-        if (bookings.Any())
+        return new RecommendedPitch
         {
-            var avgPrice = bookings.Average(b => b.TotalPrice.Amount);
-            sb.AppendLine($"Giá trung bình: {avgPrice:N0} VND");
-            
-            var dayOfWeekStats = bookings
-                .GroupBy(b => b.BookingDate.DayOfWeek)
-                .OrderByDescending(g => g.Count())
-                .Take(3);
-            sb.AppendLine($"Ngày thường đặt: {string.Join(", ", dayOfWeekStats.Select(g => g.Key))}");
-        }
-
-        return sb.ToString();
-    }
-
-    private UserBehaviorAnalysis ParseBehaviorAnalysis(string aiResponse)
-    {
-        // Simple parsing - enhance in production
-        return new UserBehaviorAnalysis
-        {
-            Summary = "Người dùng thường xuyên đặt sân vào cuối tuần",
-            Patterns = new List<string>
-            {
-                "Đặt sân vào tối thứ 6 và cuối tuần",
-                "Ưa thích sân bóng đá 5 người",
-                "Ngân sách trung bình 200-300k/giờ"
-            },
-            Suggestions = new List<string>
-            {
-                "Đặt sân trước 2-3 ngày để có giá tốt hơn",
-                "Thử các sân mới ở khu vực gần nhà",
-                "Tham gia các giải đấu cuối tuần"
-            }
+            PitchId = pitch.Id,
+            PitchName = pitch.Name,
+            Score = Math.Clamp(score, 0m, 100m),
+            Reasons = reasons?.Where(r => !string.IsNullOrWhiteSpace(r)).Take(3).ToList()
+                ?? new List<string> { "Sân đang hoạt động", "Phù hợp để đặt lịch nhanh" },
+            EstimatedPrice = GetPitchMinPrice(pitch)
         };
     }
 
-    private async Task<PitchRecommendationResponse> GetFallbackRecommendationsAsync(Guid userId)
+    private static string GenerateExplanation(List<RecommendedPitch> recommendations)
     {
-        var allPitches = await _pitchRepository.GetAllAsync();
-        var recommendations = allPitches.Take(3).Select(p => new RecommendedPitch
+        if (!recommendations.Any())
+            return "Mình chưa tìm thấy sân phù hợp với tiêu chí này.";
+
+        var top = recommendations.First();
+        return $"Mình ưu tiên {top.PitchName} vì {string.Join(", ", top.Reasons.Take(2))}.";
+    }
+
+    private static string GenerateConversationalResponse(List<RecommendedPitch> recommendations)
+    {
+        if (!recommendations.Any())
         {
-            PitchId = p.Id,
-            PitchName = p.Name,
-            Score = 70m,
-            Reasons = new List<string> { "Sân phổ biến", "Vị trí thuận tiện" },
-            EstimatedPrice = null
-        }).ToList();
+            return "Mình chưa tìm thấy sân thật khớp. Bạn cho mình thêm môn, khu vực hoặc ngân sách để lọc lại nhé.";
+        }
+
+        var top = recommendations.First();
+        return $"Mình tìm được {recommendations.Count} sân phù hợp. Gợi ý nổi bật nhất là {top.PitchName}; bạn có thể mở thẻ sân bên dưới để xem chi tiết và đặt lịch.";
+    }
+
+    private async Task<PitchRecommendationResponse> GetFallbackRecommendationsAsync(Guid userId, string? userQuery)
+    {
+        var allPitches = (await _pitchRepository.GetAllAsync()).ToList();
+        var recommendations = BuildSmartFallbackRecommendations(allPitches, userQuery);
 
         return new PitchRecommendationResponse
         {
             Recommendations = recommendations,
-            Explanation = "Đây là các sân phổ biến bạn có thể quan tâm.",
-            ConversationalResponse = "Tôi đã tìm được một số sân phù hợp. Bạn muốn xem chi tiết sân nào?"
+            Explanation = GenerateExplanation(recommendations),
+            ConversationalResponse = GenerateConversationalResponse(recommendations)
         };
+    }
+
+    private static PitchRecommendationResponse EmptyRecommendationResponse()
+    {
+        return new PitchRecommendationResponse
+        {
+            Recommendations = new List<RecommendedPitch>(),
+            Explanation = "Hiện chưa có sân hoạt động trong hệ thống.",
+            ConversationalResponse = "Hiện mình chưa thấy sân nào để gợi ý. Bạn quay lại sau khi chủ sân cập nhật dữ liệu nhé."
+        };
+    }
+
+    private static string BuildOfflineChatAnswer(string userMessage)
+    {
+        var normalized = Normalize(userMessage);
+        var mathAnswer = TryAnswerSimpleMath(userMessage);
+
+        if (mathAnswer != null)
+        {
+            return mathAnswer;
+        }
+
+        if (normalized.Contains("day san bong da") ||
+            normalized.Contains("san bong da ma") ||
+            normalized.Contains("sai mon") ||
+            normalized.Contains("khong phai cau long"))
+        {
+            return "Đúng rồi, mình ghi nhận đây là sân bóng đá. Nếu bạn đang ở trang sân này thì mình sẽ ưu tiên tư vấn theo bóng đá: loại sân, giá, khung giờ còn trống và bước đặt sân. Bạn muốn mình so sánh giá, chọn giờ đẹp, hay hướng dẫn đặt sân này?";
+        }
+
+        if (normalized.Contains("coc") || normalized.Contains("dat san") || normalized.Contains("thanh toan"))
+        {
+            return "Bạn chọn sân và khung giờ, hệ thống giữ chỗ tạm thời, sau đó bạn thanh toán cọc 10% qua VNPAY. Phần còn lại thường thanh toán trực tiếp tại sân.";
+        }
+
+        if (normalized.Contains("huy") || normalized.Contains("hoan tien"))
+        {
+            return "Việc hủy sân phụ thuộc chính sách của chủ sân và thời điểm hủy. Thông thường bạn nên hủy càng sớm càng tốt; nếu cần, hãy mở đơn đặt sân trong hồ sơ để kiểm tra trạng thái.";
+        }
+
+        if (normalized.Contains("goi y") || normalized.Contains("tim san") || normalized.Contains("san nao"))
+        {
+            return "Mình có thể gợi ý sân theo môn, khu vực, ngân sách và khung giờ. Ví dụ: “gợi ý sân cầu lông dưới 150k gần Quận 1 lúc 19h”.";
+        }
+
+        if (normalized.Contains("xin chao") || normalized.Contains("hello") || normalized.Contains("hi"))
+        {
+            return "Chào bạn! Mình là SmartSport AI. Bạn có thể hỏi mình về cách đặt sân, thanh toán, hủy lịch, hoặc nhờ gợi ý sân phù hợp.";
+        }
+
+        return $"Mình trả lời nhanh nhé: mình hiểu bạn đang hỏi \"{userMessage}\". Nếu là câu hỏi kiến thức chung, bạn có thể hỏi trực tiếp như \"1+1 bằng mấy\", \"giải thích offside\", \"nên khởi động thế nào trước khi đá bóng\". Nếu là câu hỏi về trang hiện tại, hãy nói rõ bạn muốn xem giá, giờ trống, vị trí hay cách đặt sân, mình sẽ trả lời theo đúng ngữ cảnh.";
+    }
+
+    private static string? TryAnswerSimpleMath(string message)
+    {
+        var match = Regex.Match(
+            message.Replace(',', '.').Replace('＝', '='),
+            @"(-?\d+(?:\.\d+)?)\s*([+\-*/x×÷])\s*(-?\d+(?:\.\d+)?)");
+
+        if (!match.Success ||
+            !decimal.TryParse(match.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var left) ||
+            !decimal.TryParse(match.Groups[3].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var right))
+        {
+            return null;
+        }
+
+        var op = match.Groups[2].Value;
+        decimal? result = op switch
+        {
+            "+" => left + right,
+            "-" => left - right,
+            "*" or "x" or "×" => left * right,
+            "/" or "÷" when right != 0 => left / right,
+            "/" or "÷" => null,
+            _ => null
+        };
+
+        return result == null
+            ? "Không thể chia cho 0 nhé."
+            : $"{left} {op} {right} = {result}.";
+    }
+
+    private static bool IsFailureMessage(string value)
+    {
+        var text = Normalize(value);
+        return text.Contains("xin loi") &&
+            (text.Contains("loi xay ra") ||
+             text.Contains("vui long thu lai") ||
+             text.Contains("khong the tra loi") ||
+             text.Contains("dang ban"));
+    }
+
+    private static decimal? GetPitchMinPrice(Pitch pitch)
+    {
+        var prices = pitch.TimeSlots
+            .Where(ts => ts.IsActive)
+            .Select(ts => ts.Price.Amount)
+            .ToList();
+
+        return prices.Any() ? prices.Min() : null;
+    }
+
+    private static decimal? ExtractBudget(string normalizedQuery)
+    {
+        var match = Regex.Match(normalizedQuery, @"(\d+)\s*(k|nghin|ngan|000|vnd|d)?");
+        if (!match.Success || !decimal.TryParse(match.Groups[1].Value, out var value))
+        {
+            return null;
+        }
+
+        var unit = match.Groups[2].Value;
+        if (unit is "k" or "nghin" or "ngan" || value < 1000)
+        {
+            value *= 1000;
+        }
+
+        return value;
+    }
+
+    private static bool MatchesSport(string normalizedQuery, PitchType type)
+    {
+        return type switch
+        {
+            PitchType.Football5 or PitchType.Football7 or PitchType.Football11 =>
+                normalizedQuery.Contains("bong da") || normalizedQuery.Contains("football") || normalizedQuery.Contains("san 5") || normalizedQuery.Contains("san 7"),
+            PitchType.Badminton => normalizedQuery.Contains("cau long") || normalizedQuery.Contains("badminton"),
+            PitchType.Tennis => normalizedQuery.Contains("tennis"),
+            PitchType.Pickleball => normalizedQuery.Contains("pickleball"),
+            PitchType.Basketball => normalizedQuery.Contains("bong ro") || normalizedQuery.Contains("basketball"),
+            PitchType.Volleyball => normalizedQuery.Contains("bong chuyen") || normalizedQuery.Contains("volleyball"),
+            PitchType.TableTennis => normalizedQuery.Contains("bong ban") || normalizedQuery.Contains("table tennis"),
+            _ => false
+        };
+    }
+
+    private static string GetSportLabel(PitchType type)
+    {
+        return type switch
+        {
+            PitchType.Football5 => "bóng đá sân 5",
+            PitchType.Football7 => "bóng đá sân 7",
+            PitchType.Football11 => "bóng đá sân 11",
+            PitchType.Badminton => "cầu lông",
+            PitchType.Tennis => "tennis",
+            PitchType.Pickleball => "pickleball",
+            PitchType.Basketball => "bóng rổ",
+            PitchType.Volleyball => "bóng chuyền",
+            PitchType.TableTennis => "bóng bàn",
+            _ => type.ToString()
+        };
+    }
+
+    private static string Normalize(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
     }
 }
 
-// Response models for Gemini API
 internal class GeminiResponse
 {
     public List<Candidate>? Candidates { get; set; }

@@ -34,5 +34,10 @@ public class WaitlistEntryConfiguration : IEntityTypeConfiguration<WaitlistEntry
             .WithMany()
             .HasForeignKey(w => w.TimeSlotId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasQueryFilter(w =>
+            !w.IsDeleted &&
+            !w.TimeSlot.IsDeleted &&
+            !w.User.IsDeleted);
     }
 }

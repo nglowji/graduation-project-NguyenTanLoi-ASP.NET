@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users as UsersIcon, Search, Mail, 
-  Ban, Eye, UserCheck, UserPlus, X,
+  Ban, UserCheck, UserPlus, X,
   AlertCircle, CheckCircle, Phone, Lock, User as UserIcon, Trash2,
   ChevronRight
 } from 'lucide-react';

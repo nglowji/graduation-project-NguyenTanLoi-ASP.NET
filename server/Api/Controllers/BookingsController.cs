@@ -1,5 +1,6 @@
 using Application.Common.DTOs;
 using Application.Features.Bookings.Commands.CancelBooking;
+using Application.Features.Bookings.Commands.CompleteBooking;
 using Application.Features.Bookings.Commands.ConfirmBooking;
 using Application.Features.Bookings.Commands.CreateBooking;
 using Application.Features.Bookings.Commands.LockTimeSlot;
@@ -10,6 +11,7 @@ using Application.Features.Bookings.Queries.GetMyBookings;
 using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using Api.Contracts;
+using Application.Common.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,10 +23,12 @@ namespace Api.Controllers;
 public class BookingsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IUserRepository _userRepository;
 
-    public BookingsController(IMediator mediator)
+    public BookingsController(IMediator mediator, IUserRepository userRepository)
     {
         _mediator = mediator;
+        _userRepository = userRepository;
     }
 
     [HttpPost("lock")]
@@ -151,6 +155,27 @@ public class BookingsController : ApiControllerBase
         return OkResponse<object?>(null, "Booking confirmed successfully");
     }
 
+    [HttpPatch("{id:guid}/complete")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Complete(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var command = new CompleteBookingCommand(id, userId);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to complete booking");
+
+        return OkResponse<object?>(null, "Booking completed successfully");
+    }
+
     [HttpGet("my-bookings")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<BookingDto>>), StatusCodes.Status200OK)]
@@ -174,7 +199,7 @@ public class BookingsController : ApiControllerBase
     }
 
     [HttpGet("owner")]
-    [Authorize(Roles = "PitchOwner")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<OwnerBookingDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetOwnerBookings(
@@ -183,8 +208,18 @@ public class BookingsController : ApiControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = GetCurrentUserId();
-        if (ownerId == Guid.Empty) return Unauthorized();
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var ownerId = userId;
+        if (User.IsInRole("PitchStaff"))
+        {
+            var staff = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (staff?.OwnerId == null)
+                return BadRequestResponse("Staff account is not linked to an owner");
+
+            ownerId = staff.OwnerId.Value;
+        }
 
         var query = new GetOwnerBookingsQuery(ownerId, status, pageNumber, pageSize);
         var result = await _mediator.Send(query, cancellationToken);

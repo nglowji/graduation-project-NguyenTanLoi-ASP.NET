@@ -1,28 +1,29 @@
 using Application.Common.Interfaces;
 using Application.Common.DTOs;
+using Application.Features.Payments.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Features.Payments.Commands.CreatePayment;
 
-public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand, Result<string>>
+public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand, Result<PaymentInitResult>>
 {
-    private readonly IPaymentService _paymentService;
+    private readonly IPaymentGatewayResolver _paymentGatewayResolver;
     private readonly IApplicationDbContext _context;
     private readonly ILogger<CreatePaymentCommandHandler> _logger;
 
     public CreatePaymentCommandHandler(
-        IPaymentService paymentService,
+        IPaymentGatewayResolver paymentGatewayResolver,
         IApplicationDbContext context,
         ILogger<CreatePaymentCommandHandler> logger)
     {
-        _paymentService = paymentService;
+        _paymentGatewayResolver = paymentGatewayResolver;
         _context = context;
         _logger = logger;
     }
 
-    public async Task<Result<string>> Handle(
+    public async Task<Result<PaymentInitResult>> Handle(
         CreatePaymentCommand request,
         CancellationToken cancellationToken)
     {
@@ -32,20 +33,14 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
             .FirstOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
 
         if (booking == null)
-            return Result<string>.Failure("Booking not found");
+            return Result<PaymentInitResult>.Failure("Booking not found");
 
         // 2. Validate booking status
         if (booking.Status != Domain.Enums.BookingStatus.PendingDeposit)
-            return Result<string>.Failure("Booking is not in pending deposit status");
+            return Result<PaymentInitResult>.Failure("Booking is not in pending deposit status");
 
         // 3. Create payment URL
-        var result = await _paymentService.CreatePaymentUrlAsync(
-            request.BookingId,
-            booking.DepositAmount.Amount,
-            request.ReturnUrl,
-            request.IpAddress,
-            cancellationToken
-        );
+        var result = await CreateGatewayPaymentAsync(request, booking.DepositAmount.Amount, cancellationToken);
 
         if (!result.IsSuccess)
             return result;
@@ -56,5 +51,29 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
         );
 
         return result;
+    }
+
+    private Task<Result<PaymentInitResult>> CreateGatewayPaymentAsync(
+        CreatePaymentCommand request,
+        decimal amount,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var gateway = _paymentGatewayResolver.Resolve(request.Provider);
+
+            return gateway.CreatePaymentAsync(
+                new PaymentGatewayCreateRequest(
+                    request.BookingId,
+                    amount,
+                    request.ReturnUrl,
+                    request.CallbackUrl ?? string.Empty,
+                    request.IpAddress),
+                cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Task.FromResult(Result<PaymentInitResult>.Failure(ex.Message));
+        }
     }
 }

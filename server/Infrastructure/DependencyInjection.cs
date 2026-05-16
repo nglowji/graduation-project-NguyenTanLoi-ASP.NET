@@ -81,6 +81,9 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPaymentService, VnpayPaymentService>();
+        services.AddScoped<IPaymentGateway, VnpayPaymentService>();
+        services.AddHttpClient<IPaymentGateway, ZaloPayPaymentService>();
+        services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
         
         services.AddHttpClient<IGoogleAuthService, GoogleAuthService>();
         services.AddHttpClient<IFacebookAuthService, FacebookAuthService>();

@@ -1,8 +1,11 @@
+using System.Globalization;
 using Application.Common.Interfaces;
 using Application.Common.DTOs;
 using Application.Features.Bookings.Events;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Services;
+using Domain.ValueObjects;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +18,8 @@ namespace Application.Features.Bookings.Commands.CreateBooking;
 /// </summary>
 public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand, Result<Guid>>
 {
+    private const string DefaultDepositPercentage = "10";
+
     private readonly IBookingRepository _bookingRepository;
     private readonly ITimeSlotRepository _timeSlotRepository;
     private readonly IUserRepository _userRepository;
@@ -24,6 +29,9 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly PricingDomainService _pricingService;
     private readonly IMediator _mediator;
     private readonly ILogger<CreateBookingCommandHandler> _logger;
+
+    private sealed record BookingPreconditions(TimeSlot TimeSlot, BookingLock UserLock);
+    private sealed record SelectedAdditionalService(Guid Id, string Name, Money Price, int Quantity);
 
     public CreateBookingCommandHandler(
         IBookingRepository bookingRepository,
@@ -52,13 +60,11 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         try
         {
             // 1. Validate preconditions
-            var validationResult = await ValidatePreconditionsAsync(request, cancellationToken);
-            if (!validationResult.IsSuccess)
-                return validationResult;
+            var preconditionsResult = await ValidatePreconditionsAsync(request, cancellationToken);
+            if (!preconditionsResult.IsSuccess)
+                return Result<Guid>.Failure(preconditionsResult.ErrorMessage!);
 
-            var timeSlot = (await _timeSlotRepository.GetByIdAsync(request.TimeSlotId, cancellationToken))!;
-            var userLock = (await _lockRepository.GetUserLockAsync(
-                request.TimeSlotId, request.BookingDate, request.UserId, cancellationToken))!;
+            var (timeSlot, userLock) = preconditionsResult.Value!;
 
             // 2. Double-check availability (race condition protection)
             var isAvailable = await _bookingRepository.IsTimeSlotAvailableAsync(
@@ -90,6 +96,11 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 
             return Result<Guid>.Success(booking.Id);
         }
+        catch (DomainException ex)
+        {
+            _logger.LogWarning(ex, "Booking rule rejected for user {UserId}", request.UserId);
+            return Result<Guid>.Failure(ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating booking for user {UserId}", request.UserId);
@@ -97,74 +108,97 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         }
     }
 
-    private async Task<Result<Guid>> ValidatePreconditionsAsync(
+    private async Task<Result<BookingPreconditions>> ValidatePreconditionsAsync(
         CreateBookingCommand request, CancellationToken cancellationToken)
     {
         var userExists = await _userRepository.ExistsAsync(request.UserId, cancellationToken);
         if (!userExists)
-            return Result<Guid>.Failure("User not found");
+            return Result<BookingPreconditions>.Failure("User not found");
 
         var timeSlot = await _timeSlotRepository.GetByIdAsync(request.TimeSlotId, cancellationToken);
         if (timeSlot == null)
-            return Result<Guid>.Failure("Time slot not found");
+            return Result<BookingPreconditions>.Failure("Time slot not found");
 
         if (!timeSlot.IsActive)
-            return Result<Guid>.Failure("Time slot is not active");
+            return Result<BookingPreconditions>.Failure("Time slot is not active");
 
         var userLock = await _lockRepository.GetUserLockAsync(
             request.TimeSlotId, request.BookingDate, request.UserId, cancellationToken);
 
         if (userLock == null || !userLock.IsActive())
-            return Result<Guid>.Failure("No active lock found. Please lock the time slot first.");
+            return Result<BookingPreconditions>.Failure("No active lock found. Please lock the time slot first.");
 
-        return Result<Guid>.Success(Guid.Empty);
+        return Result<BookingPreconditions>.Success(new BookingPreconditions(timeSlot, userLock));
     }
 
     private async Task<Booking> CreateBookingAsync(
-        CreateBookingCommand request, Domain.Entities.TimeSlot timeSlot, CancellationToken cancellationToken)
+        CreateBookingCommand request, TimeSlot timeSlot, CancellationToken cancellationToken)
     {
-        var basePrice = _pricingService.CalculateEffectivePrice(timeSlot, request.BookingDate);
-        var totalPriceAmount = basePrice.Amount;
-
-        // Fetch selected services
-        var servicesToAttach = new List<(AdditionalService Svc, int Qty)>();
-        if (request.SelectedServices != null && request.SelectedServices.Any())
-        {
-            var serviceIds = request.SelectedServices.Select(s => s.ServiceId).ToList();
-            var additionalServices = await _context.AdditionalServices
-                .Where(s => serviceIds.Contains(s.Id))
-                .ToListAsync(cancellationToken);
-
-            foreach (var req in request.SelectedServices)
-            {
-                var svc = additionalServices.FirstOrDefault(s => s.Id == req.ServiceId);
-                if (svc != null && svc.IsActive)
-                {
-                    servicesToAttach.Add((svc, req.Quantity));
-                    totalPriceAmount += svc.Price.Amount * req.Quantity;
-                }
-            }
-        }
-
-        var totalPrice = Domain.ValueObjects.Money.Create(totalPriceAmount, basePrice.Currency);
-
-        var depositPercentStr = await _systemConfigRepository.GetValueAsync(
-            SystemConfiguration.Keys.DepositPercentage, "30", cancellationToken);
-
-        var depositPercent = decimal.Parse(depositPercentStr);
-        var depositAmount = totalPrice.CalculatePercentage(depositPercent);
+        var servicesToAttach = await GetSelectedServicesAsync(request, cancellationToken);
+        var depositPercent = await GetDepositPercentageAsync(cancellationToken);
+        var bookingPrice = _pricingService.CalculateBookingPrice(
+            timeSlot,
+            request.BookingDate,
+            servicesToAttach.Select(s => new BookingServicePricing(s.Price, s.Quantity)),
+            depositPercent);
 
         var booking = Booking.Create(
             request.UserId, request.TimeSlotId, request.BookingDate,
-            totalPrice, depositAmount);
+            bookingPrice.TotalPrice, bookingPrice.DepositAmount);
 
         // Add services to booking
-        foreach (var (svc, qty) in servicesToAttach)
+        foreach (var service in servicesToAttach)
         {
-            booking.AddService(svc.Id, svc.Name, svc.Price, qty);
+            booking.AddService(service.Id, service.Name, service.Price, service.Quantity);
         }
 
         await _bookingRepository.AddAsync(booking, cancellationToken);
         return booking;
+    }
+
+    private async Task<List<SelectedAdditionalService>> GetSelectedServicesAsync(
+        CreateBookingCommand request,
+        CancellationToken cancellationToken)
+    {
+        if (request.SelectedServices is null || request.SelectedServices.Count == 0)
+            return [];
+
+        var requestedQuantities = request.SelectedServices
+            .GroupBy(service => service.ServiceId)
+            .ToDictionary(group => group.Key, group => group.Sum(service => service.Quantity));
+
+        var serviceIds = requestedQuantities.Keys.ToList();
+        var additionalServices = await _context.AdditionalServices
+            .AsNoTracking()
+            .Where(service => serviceIds.Contains(service.Id) && service.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (additionalServices.Count != requestedQuantities.Count)
+            throw new DomainException("One or more selected services are unavailable");
+
+        return additionalServices
+            .Select(service => new SelectedAdditionalService(
+                service.Id,
+                service.Name,
+                service.Price,
+                requestedQuantities[service.Id]))
+            .ToList();
+    }
+
+    private async Task<decimal> GetDepositPercentageAsync(CancellationToken cancellationToken)
+    {
+        var depositPercentText = await _systemConfigRepository.GetValueAsync(
+            SystemConfiguration.Keys.DepositPercentage, DefaultDepositPercentage, cancellationToken);
+
+        if (!decimal.TryParse(
+                depositPercentText,
+                NumberStyles.Number,
+                CultureInfo.InvariantCulture,
+                out var depositPercent))
+        {
+            throw new DomainException("Invalid deposit percentage configuration");
+        }
+
+        return depositPercent;
     }
 }

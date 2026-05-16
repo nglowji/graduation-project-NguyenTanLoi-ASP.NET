@@ -6,6 +6,9 @@ namespace Application.Features.Dashboard.Queries;
 
 public record GetAdminDashboardStatsQuery() : IRequest<Result<AdminDashboardStatsDto>>;
 
+public record GetAdminRevenueReportQuery(DateOnly? FromDate, DateOnly? ToDate, int Days = 30)
+    : IRequest<Result<AdminRevenueReportDto>>;
+
 public record GetOwnerDashboardStatsQuery(Guid OwnerId) : IRequest<Result<OwnerDashboardStatsDto>>;
 
 public record GetOwnerBookingsQuery(Guid OwnerId, string? Status, int PageNumber = 1, int PageSize = 20) 

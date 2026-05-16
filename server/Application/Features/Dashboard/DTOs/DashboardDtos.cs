@@ -11,6 +11,62 @@ public record AdminDashboardStatsDto(
     double CommissionGrowth
 );
 
+public record AdminRevenueReportDto(
+    decimal GrossRevenue,
+    decimal PlatformCommission,
+    decimal OwnerRevenue,
+    decimal CommissionRate,
+    int TotalBookings,
+    int CompletedBookings,
+    int ConfirmedBookings,
+    int UniqueCustomers,
+    int ActiveOwners,
+    double CommissionGrowth,
+    IReadOnlyList<AdminRevenueTrendPointDto> Trend,
+    IReadOnlyList<AdminOwnerCommissionDto> Owners,
+    IReadOnlyList<AdminPitchTypeCommissionDto> PitchTypes,
+    IReadOnlyList<AdminCommissionTransactionDto> Transactions
+);
+
+public record AdminRevenueTrendPointDto(
+    string Date,
+    decimal GrossRevenue,
+    decimal Commission,
+    int Bookings
+);
+
+public record AdminOwnerCommissionDto(
+    Guid OwnerId,
+    string OwnerName,
+    string OwnerEmail,
+    decimal GrossRevenue,
+    decimal Commission,
+    int Bookings,
+    int UniqueCustomers
+);
+
+public record AdminPitchTypeCommissionDto(
+    string PitchType,
+    decimal GrossRevenue,
+    decimal Commission,
+    int Bookings
+);
+
+public record AdminCommissionTransactionDto(
+    Guid BookingId,
+    string BookingDate,
+    string CustomerName,
+    string CustomerEmail,
+    string PitchName,
+    string PitchType,
+    string SportCenterName,
+    string OwnerName,
+    string OwnerEmail,
+    decimal GrossAmount,
+    decimal Commission,
+    string Status
+);
+
 public record OwnerDashboardStatsDto(
     decimal TotalRevenue,
     int TotalBookings,

@@ -22,5 +22,12 @@ public class MappingProfile : Profile
         CreateMap<Pitch, PitchDto>()
             .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
             .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.SportCenter != null ? src.SportCenter.Address.GetFullAddress() : ""));
+
+        CreateMap<User, BookingUserDto>();
+
+        CreateMap<BookingService, BookingServiceDto>()
+            .ForMember(dest => dest.Price, opt => opt.MapFrom(src => src.Price.Amount))
+            .ForMember(dest => dest.Currency, opt => opt.MapFrom(src => src.Price.Currency))
+            .ForMember(dest => dest.LineTotal, opt => opt.MapFrom(src => src.Price.Amount * src.Quantity));
     }
 }

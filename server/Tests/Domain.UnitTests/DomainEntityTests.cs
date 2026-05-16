@@ -40,11 +40,11 @@ public class BookingTests
     public void Create_DepositTooLow_ThrowsDomainException()
     {
         // Arrange
-        var lowDeposit = Money.Create(10000, "VND"); // Less than 30%
+        var lowDeposit = Money.Create(10000, "VND"); // Less than 10%
 
         // Act & Assert
         var act = () => Booking.Create(ValidUserId, ValidTimeSlotId, FutureDate, ValidPrice, lowDeposit);
-        act.Should().Throw<DomainException>().WithMessage("*at least 30%*");
+        act.Should().Throw<DomainException>().WithMessage("*at least 10%*");
     }
 
     [Fact]

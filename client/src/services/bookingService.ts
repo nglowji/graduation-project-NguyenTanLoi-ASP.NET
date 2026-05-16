@@ -13,17 +13,36 @@ export interface BookingResponse {
   id: string;
   userId?: string;
   timeSlotId?: string;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+  };
   pitchName: string;
   startTime: string;
   endTime: string;
   bookingDate: string;
   totalPrice: number;
   depositAmount?: number;
+  currency?: string;
   status: string;
+  checkInCode?: string;
+  services?: Array<{
+    id: string;
+    serviceId: string;
+    serviceName: string;
+    price: number;
+    currency: string;
+    quantity: number;
+    lineTotal: number;
+  }>;
   timeSlot?: {
     id: string;
     startTime: string;
     endTime: string;
+    price?: number;
+    currency?: string;
     pitch?: {
       id: string;
       name: string;

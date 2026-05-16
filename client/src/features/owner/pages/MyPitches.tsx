@@ -1,46 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Search, Edit2, Trash2, Star, X,
-  LayoutGrid, List, Building2, MapPin, Activity, ChevronRight
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Building2,
+  Edit2,
+  MapPin,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 
 const SPORT_CATEGORIES = [
-  { id: 'football', label: 'Bóng đá', icon: '⚽', types: [
+  { id: 'football', label: 'Bóng đá', types: [
     { id: '1', label: 'Sân 5' },
     { id: '2', label: 'Sân 7' },
     { id: '3', label: 'Sân 11' },
-  ]},
-  { id: 'volleyball', label: 'Bóng chuyền', icon: '🏐', types: [
-    { id: '8', label: 'Sân chuẩn' },
-  ]},
-  { id: 'basketball', label: 'Bóng rổ', icon: '🏀', types: [
-    { id: '7', label: 'Sân chuẩn' },
-  ]},
-  { id: 'badminton', label: 'Cầu lông', icon: '🏸', types: [
-    { id: '5', label: 'Sân chuẩn' },
-  ]},
-  { id: 'tennis', label: 'Tennis', icon: '🎾', types: [
-    { id: '4', label: 'Sân chuẩn' },
-  ]},
-  { id: 'table_tennis', label: 'Bóng bàn', icon: '🏓', types: [
-    { id: '9', label: 'Bàn chuẩn' },
-  ]},
-  { id: 'pickleball', label: 'Pickleball', icon: '🥎', types: [
-    { id: '6', label: 'Sân chuẩn' },
-  ]},
+  ] },
+  { id: 'volleyball', label: 'Bóng chuyền', types: [{ id: '8', label: 'Sân chuẩn' }] },
+  { id: 'basketball', label: 'Bóng rổ', types: [{ id: '7', label: 'Sân chuẩn' }] },
+  { id: 'badminton', label: 'Cầu lông', types: [{ id: '5', label: 'Sân chuẩn' }] },
+  { id: 'tennis', label: 'Tennis', types: [{ id: '4', label: 'Sân chuẩn' }] },
+  { id: 'table_tennis', label: 'Bóng bàn', types: [{ id: '9', label: 'Bàn chuẩn' }] },
+  { id: 'pickleball', label: 'Pickleball', types: [{ id: '6', label: 'Sân chuẩn' }] },
 ];
+
+type PitchRow = {
+  id: string;
+  name?: string;
+  address?: string;
+  description?: string;
+  pitchType?: string | number;
+  type?: string | number;
+  isIndoor?: boolean;
+  minPrice?: number;
+  averageRating?: number;
+  totalReviews?: number;
+  timeSlots?: Array<{ id?: string; isActive?: boolean; price?: number }>;
+  images?: Array<{ imageUrl?: string } | string>;
+};
+
+const PITCH_TYPE_NAME_TO_ID: Record<string, string> = {
+  Football5: '1',
+  Football7: '2',
+  Football11: '3',
+  Tennis: '4',
+  Badminton: '5',
+  Pickleball: '6',
+  Basketball: '7',
+  Volleyball: '8',
+  TableTennis: '9',
+};
 
 const MyPitches: React.FC = () => {
   const navigate = useNavigate();
-  const [pitches, setPitches] = useState<any[]>([]);
+  const [pitches, setPitches] = useState<PitchRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterSport, setFilterSport] = useState<string>('all');
-  const [filterType, setFilterType] = useState<string>('all');
   const [filterIndoor, setFilterIndoor] = useState<'all' | 'indoor' | 'outdoor'>('all');
 
   useEffect(() => {
@@ -51,18 +69,12 @@ const MyPitches: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await api.get('/pitches/my') as any;
-      setPitches(res || []);
+      setPitches(Array.isArray(res) ? res : []);
     } catch {
       setPitches([]);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const PITCH_TYPE_NAME_TO_ID: Record<string, string> = {
-    'Football5': '1', 'Football7': '2', 'Football11': '3',
-    'Tennis': '4', 'Badminton': '5', 'Pickleball': '6',
-    'Basketball': '7', 'Volleyball': '8', 'TableTennis': '9'
   };
 
   const normalizePitchTypeId = (rawType: unknown) => {
@@ -75,239 +87,231 @@ const MyPitches: React.FC = () => {
     return '1';
   };
 
-  const getPitchTypeId = (pitch: any) => normalizePitchTypeId(pitch.pitchType ?? pitch.type);
+  const getPitchTypeId = (pitch: PitchRow) => normalizePitchTypeId(pitch.pitchType ?? pitch.type);
 
-  const getPitchTypeLabel = (pitch: any) => {
+  const getPitchCategory = (pitch: PitchRow) => {
     const pitchTypeId = getPitchTypeId(pitch);
-    return SPORT_CATEGORIES.flatMap(cat => cat.types).find(type => type.id === pitchTypeId)?.label;
+    return SPORT_CATEGORIES.find((category) => category.types.some((type) => type.id === pitchTypeId));
   };
 
-  const filteredPitches = pitches.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const pitchTypeIdStr = getPitchTypeId(p);
-    let category = '';
-    for (const cat of SPORT_CATEGORIES) {
-      if (cat.types.some(t => t.id === pitchTypeIdStr)) { category = cat.id; break; }
-    }
-    const matchesSport = filterSport === 'all' || category === filterSport;
-    const matchesType = filterType === 'all' || pitchTypeIdStr === filterType;
-    const matchesIndoor = filterIndoor === 'all' || (filterIndoor === 'indoor' ? p.isIndoor : !p.isIndoor);
-    return matchesSearch && matchesSport && matchesType && matchesIndoor;
-  });
+  const getPitchTypeLabel = (pitch: PitchRow) => {
+    const pitchTypeId = getPitchTypeId(pitch);
+    return SPORT_CATEGORIES.flatMap((category) => category.types).find((type) => type.id === pitchTypeId)?.label || 'Tiêu chuẩn';
+  };
+
+  const getPitchImage = (pitch: PitchRow) => {
+    const firstImage = pitch.images?.[0];
+    if (typeof firstImage === 'string') return firstImage;
+    return firstImage?.imageUrl || 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=320';
+  };
+
+  const getActiveSlotCount = (pitch: PitchRow) =>
+    (pitch.timeSlots || []).filter((slot) => slot.isActive !== false).length;
+
+  const getMinPrice = (pitch: PitchRow) => {
+    if (pitch.minPrice) return pitch.minPrice;
+    const prices = (pitch.timeSlots || [])
+      .map((slot) => Number(slot.price || 0))
+      .filter((price) => price > 0);
+    return prices.length > 0 ? Math.min(...prices) : 0;
+  };
+
+  const formatMoney = (value?: number) =>
+    `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+
+  const filteredPitches = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return pitches.filter((pitch) => {
+      const category = getPitchCategory(pitch);
+      const matchesSearch = !keyword ||
+        String(pitch.name || '').toLowerCase().includes(keyword) ||
+        String(pitch.address || '').toLowerCase().includes(keyword);
+      const matchesSport = filterSport === 'all' || category?.id === filterSport;
+      const matchesIndoor = filterIndoor === 'all' || (filterIndoor === 'indoor' ? pitch.isIndoor : !pitch.isIndoor);
+
+      return matchesSearch && matchesSport && matchesIndoor;
+    });
+  }, [pitches, search, filterSport, filterIndoor]);
+
+  const stats = useMemo(() => {
+    const total = pitches.length;
+    const activeSlots = pitches.reduce((sum, pitch) => sum + getActiveSlotCount(pitch), 0);
+    const indoor = pitches.filter((pitch) => pitch.isIndoor).length;
+    return { total, activeSlots, indoor };
+  }, [pitches]);
+
+  const deletePitch = async (pitchId: string) => {
+    if (!window.confirm('Xóa sân này?')) return;
+    await api.delete(`/pitches/${pitchId}`);
+    fetchPitches();
+  };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Assets Inventory</span>
-          </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Sân của tôi</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Quản lý hạ tầng và lịch thi đấu tại cơ sở của bạn.</p>
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Pitch inventory</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Sân của tôi</h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Quản lý sân, giá khởi điểm và khung giờ đang mở bán.</p>
         </div>
 
-        <button 
+        <button
+          type="button"
           onClick={() => navigate('/dashboard/owner/pitches/create')}
-          className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black hover:opacity-90 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
         >
-          <Plus size={20} strokeWidth={3} /> Thêm sân mới
+          <Plus size={18} strokeWidth={3} />
+          Thêm sân
         </button>
       </header>
 
-      <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-sm p-3">
-        <div className="flex flex-col xl:flex-row items-center gap-4">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm sân theo tên hoặc địa chỉ..." 
-              value={search} 
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-[1.75rem] py-5 pl-16 pr-8 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500/50 transition-all"
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng số sân</p>
+          <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ mở</p>
+          <p className="mt-2 text-2xl font-black text-blue-600">{stats.activeSlots}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sân trong nhà</p>
+          <p className="mt-2 text-2xl font-black text-indigo-600">{stats.indoor}</p>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-center">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm theo tên sân hoặc địa chỉ..."
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
             />
           </div>
-          <div className="flex items-center gap-3 p-1.5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-            <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-blue-600'}`}><LayoutGrid size={20} /></button>
-            <button onClick={() => setViewMode('list')} className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-blue-600'}`}><List size={20} /></button>
+
+          <select
+            value={filterSport}
+            onChange={(event) => setFilterSport(event.target.value)}
+            className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-black uppercase tracking-widest text-slate-600 outline-none transition focus:border-blue-300 focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+          >
+            <option value="all">Tất cả môn</option>
+            {SPORT_CATEGORIES.map((category) => (
+              <option key={category.id} value={category.id}>{category.label}</option>
+            ))}
+          </select>
+
+          <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            {(['all', 'indoor', 'outdoor'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setFilterIndoor(mode)}
+                className={`h-10 rounded-lg px-4 text-[10px] font-black uppercase tracking-widest transition ${
+                  filterIndoor === mode
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-700 dark:text-white'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {mode === 'all' ? 'Tất cả' : mode === 'indoor' ? 'Trong nhà' : 'Ngoài trời'}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-3 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-2xl">
-          <Activity size={16} className="text-blue-600" />
-          <select 
-            value={filterSport} 
-            onChange={(e) => { setFilterSport(e.target.value); setFilterType('all'); }}
-            className="bg-transparent border-none py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 focus:ring-0 cursor-pointer"
+        {(search || filterSport !== 'all' || filterIndoor !== 'all') && (
+          <button
+            type="button"
+            onClick={() => { setSearch(''); setFilterSport('all'); setFilterIndoor('all'); }}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-600 hover:text-white"
           >
-            <option value="all">Mọi môn thể thao</option>
-            {SPORT_CATEGORIES.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-3 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-2xl">
-          <LayoutGrid size={16} className="text-indigo-600" />
-          <select 
-            value={filterType} 
-            onChange={(e) => setFilterType(e.target.value)}
-            className="bg-transparent border-none py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 focus:ring-0 cursor-pointer"
-          >
-            <option value="all">Tất cả loại sân</option>
-            {filterSport !== 'all' && SPORT_CATEGORIES.find(c => c.id === filterSport)?.types.map(t => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex p-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 rounded-2xl">
-          {(['all', 'indoor', 'outdoor'] as const).map(mode => (
-            <button 
-              key={mode}
-              onClick={() => setFilterIndoor(mode)}
-              className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterIndoor === mode ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/10' : 'text-slate-400 hover:text-blue-600'}`}
-            >
-              {mode === 'all' ? 'Tất cả' : mode === 'indoor' ? 'Trong nhà' : 'Ngoài trời'}
-            </button>
-          ))}
-        </div>
-
-        {(filterSport !== 'all' || filterType !== 'all' || filterIndoor !== 'all' || search !== '') && (
-          <button 
-            onClick={() => { setFilterSport('all'); setFilterType('all'); setFilterIndoor('all'); setSearch(''); }}
-            className="px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
-          >
-            <X size={14} /> Xóa lọc
+            <X size={14} />
+            Xóa lọc
           </button>
         )}
-      </div>
+      </section>
 
-      {isLoading ? (
-        <div className="py-40 flex flex-col items-center gap-6">
-          <div className="w-12 h-12 border-4 border-slate-100 dark:border-slate-800 border-t-blue-500 rounded-full animate-spin" />
-        </div>
-      ) : filteredPitches.length === 0 ? (
-        <div className="text-center py-40 bg-white dark:bg-[#1E293B] rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800">
-          <Building2 size={64} className="mx-auto mb-6 text-slate-100 dark:text-slate-800" />
-          <h3 className="text-xl font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">
-            Không tìm thấy sân phù hợp
-          </h3>
-        </div>
-      ) : (
-        <AnimatePresence mode="popLayout">
-          {viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-              {filteredPitches.map((p, i) => (
-                <motion.div 
-                  key={p.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all group"
-                >
-                  <div className="h-56 relative overflow-hidden">
-                    <img src={p.images?.[0]?.imageUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=600"} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                    <div className="absolute top-5 left-5 flex gap-2">
-                      <div className="px-4 py-2 bg-white/90 backdrop-blur rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-900 shadow-xl shadow-black/5">
-                        {getPitchTypeLabel(p) || 'Standard'}
-                      </div>
-                    </div>
-                    <div className="absolute top-5 right-5">
-                      <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/5 ${p.isIndoor ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}>
-                        {p.isIndoor ? 'Indoor' : 'Outdoor'}
-                      </div>
-                    </div>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {isLoading ? (
+          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
+            <div className="h-11 w-11 animate-spin rounded-full border-4 border-slate-100 border-t-blue-600 dark:border-slate-800 dark:border-t-blue-500" />
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải danh sách sân</p>
+          </div>
+        ) : filteredPitches.length === 0 ? (
+          <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
+            <Building2 size={54} className="mb-4 text-slate-200" />
+            <h3 className="text-lg font-black text-slate-800 dark:text-white">Không có sân phù hợp</h3>
+            <p className="mt-2 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc thêm sân mới.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredPitches.map((pitch) => (
+              <div key={pitch.id} className="grid gap-4 p-5 transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40 xl:grid-cols-[minmax(280px,1fr)_180px_160px_140px_120px] xl:items-center">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+                    <img src={getPitchImage(pitch)} alt={pitch.name || 'Sân'} className="h-full w-full object-cover" />
                   </div>
-                  <div className="p-8">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="space-y-1.5">
-                        <h3 className="text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors line-clamp-1 leading-tight">{p.name}</h3>
-                        <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
-                          <MapPin size={12} className="text-red-500" /> 
-                          <span className="line-clamp-1">{p.address || 'Address not set'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-2xl border border-amber-100 dark:border-amber-500/20">
-                        <Star size={14} className="fill-current" />
-                        <span className="text-sm font-black leading-none">{p.averageRating?.toFixed(1) || '0.0'}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between pt-6 border-t border-slate-50 dark:border-slate-800/50">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest mb-1.5">Starting at</p>
-                        <p className="text-2xl font-black text-blue-600">{new Intl.NumberFormat('vi-VN').format(p.minPrice || 0)} <span className="text-sm">đ</span></p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => navigate(`/dashboard/owner/pitches/edit/${p.id}`)} className="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-2xl border border-slate-100 dark:border-slate-700 transition-all"><Edit2 size={18} /></button>
-                        <button onClick={() => { if(window.confirm("Xóa sân này?")) api.delete(`/pitches/${p.id}`).then(() => fetchPitches()) }} className="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-2xl border border-slate-100 dark:border-slate-700 transition-all"><Trash2 size={18} /></button>
-                      </div>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-black text-slate-950 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</p>
+                    <p className="mt-1 flex items-center gap-1.5 truncate text-xs font-bold text-slate-500">
+                      <MapPin size={13} className="shrink-0 text-red-500" />
+                      {pitch.address || 'Chưa cập nhật địa chỉ'}
+                    </p>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Pitch Information</th>
-                    <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Type</th>
-                    <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Base Price</th>
-                    <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Status</th>
-                    <th className="px-8 py-6 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {filteredPitches.map((p) => (
-                    <tr key={p.id} className="group hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-8 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shrink-0">
-                            <img src={p.images?.[0]?.imageUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=100"} alt={p.name} className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <p className="text-base font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors leading-none mb-2">{p.name}</p>
-                            <p className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
-                              <MapPin size={10} className="text-red-500" /> {p.address || 'Location N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-500/20">
-                          {getPitchTypeLabel(p) || 'Standard'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
-                        <p className="text-base font-black text-slate-900 dark:text-white">{new Intl.NumberFormat('vi-VN').format(p.minPrice || 0)}đ</p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col items-center">
-                          <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${p.isIndoor ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                            {p.isIndoor ? 'Indoor' : 'Outdoor'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                          <button onClick={() => navigate(`/dashboard/owner/pitches/edit/${p.id}`)} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 text-slate-400 hover:text-blue-600 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all"><Edit2 size={16} /></button>
-                          <button onClick={() => { if(window.confirm("Xóa sân này?")) api.delete(`/pitches/${p.id}`).then(() => fetchPitches()) }} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 text-slate-400 hover:text-red-500 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all"><Trash2 size={16} /></button>
-                          <button className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all"><ChevronRight size={16} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </AnimatePresence>
-      )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 ring-1 ring-blue-100">
+                    {getPitchCategory(pitch)?.label || 'Thể thao'}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {getPitchTypeLabel(pitch)}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá từ</p>
+                  <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{formatMoney(getMinPrice(pitch))}</p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${
+                    pitch.isIndoor ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                  }`}>
+                    {pitch.isIndoor ? 'Trong nhà' : 'Ngoài trời'}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-black text-amber-600">
+                    <Star size={14} className="fill-current" />
+                    {Number(pitch.averageRating || 0).toFixed(1)}
+                  </div>
+                </div>
+
+                <div className="flex justify-start gap-2 xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/dashboard/owner/pitches/edit/${pitch.id}`)}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition hover:bg-blue-50 hover:text-blue-600 dark:bg-slate-800"
+                    title="Sửa sân"
+                  >
+                    <Edit2 size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deletePitch(pitch.id)}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:bg-slate-800"
+                    title="Xóa sân"
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

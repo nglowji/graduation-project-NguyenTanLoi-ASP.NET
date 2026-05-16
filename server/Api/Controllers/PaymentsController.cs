@@ -1,6 +1,7 @@
 using Application.Common.DTOs;
 using Application.Features.Payments.Commands.CreatePayment;
 using Application.Features.Payments.Commands.ProcessCallback;
+using Application.Features.Payments.Commands.ProcessZaloPayCallback;
 using Application.Features.Payments.Queries.GetPaymentTransaction;
 using Application.Features.Payments.Queries.GetUserPaymentHistory;
 using Api.Contracts;
@@ -37,17 +38,61 @@ public class PaymentsController : ApiControllerBase
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
         var configuredReturnUrl = _configuration["VnPay:ReturnUrl"];
+        if (request.Provider.Equals("ZALOPAY", StringComparison.OrdinalIgnoreCase))
+            configuredReturnUrl = _configuration["ZaloPay:ReturnUrl"];
+
         var returnUrl = string.IsNullOrWhiteSpace(configuredReturnUrl)
             ? request.ReturnUrl
             : configuredReturnUrl;
 
-        var command = new CreatePaymentCommand(request.BookingId, returnUrl, ipAddress);
+        var callbackUrl = request.Provider.Equals("ZALOPAY", StringComparison.OrdinalIgnoreCase)
+            ? BuildZaloPayCallbackUrl()
+            : null;
+
+        var command = new CreatePaymentCommand(
+            request.BookingId,
+            returnUrl,
+            ipAddress,
+            request.Provider,
+            callbackUrl);
+
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
             return BadRequestResponse(result.ErrorMessage ?? "Failed to create payment");
 
-        return OkResponse(new CreatePaymentResponse(result.Value!));
+        return OkResponse(new CreatePaymentResponse(
+            result.Value!.PaymentUrl,
+            result.Value.Provider,
+            result.Value.TransactionId,
+            result.Value.QrCode
+        ));
+    }
+
+    [HttpPost("zalopay/callback")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ZaloPayCallback(
+        [FromBody] ZaloPayCallbackRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new ProcessZaloPayCallbackCommand(request.Data, request.Mac, request.Type);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess || result.Value is not { IsSuccess: true })
+        {
+            return Ok(new
+            {
+                return_code = 2,
+                return_message = result.ErrorMessage ?? "Failed"
+            });
+        }
+
+        return Ok(new
+        {
+            return_code = 1,
+            return_message = "Success"
+        });
     }
 
     [HttpGet("callback")]
@@ -124,5 +169,15 @@ public class PaymentsController : ApiControllerBase
             query.Add($"message={Uri.EscapeDataString(message)}");
 
         return $"{baseUrl}?{string.Join("&", query)}";
+    }
+
+    private string BuildZaloPayCallbackUrl()
+    {
+        var configuredCallbackUrl = _configuration["ZaloPay:CallbackUrl"];
+        if (!string.IsNullOrWhiteSpace(configuredCallbackUrl))
+            return configuredCallbackUrl;
+
+        var request = HttpContext.Request;
+        return $"{request.Scheme}://{request.Host}/api/v1/payments/zalopay/callback";
     }
 }

@@ -1,40 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown, 
+  Star, ArrowUpDown
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { pitchService } from '../../../services/pitchService';
 import type { PitchResponse } from '../../../services/pitchService';
 import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 import { PitchCard } from '../components/PitchCard';
 
-const CustomDropdown: React.FC<{
+const CompactDropdown: React.FC<{
   label: string;
   icon: React.ReactNode;
   value: string | number;
   options: { label: string, value: string | number }[];
   onChange: (value: any) => void;
   disabled?: boolean;
-}> = ({ label, icon, value, options, onChange, disabled }) => {
+  className?: string;
+}> = ({ label, icon, value, options, onChange, disabled, className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedLabel = options.find(opt => opt.value === value)?.label || label;
+  const hasValue = value !== '' && value !== undefined && value !== null;
 
   return (
-    <div className="relative flex-1 min-w-[200px]">
+    <div className={`relative ${className}`}>
       <button 
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all duration-300 border-2
+        className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
           ${disabled 
-            ? 'bg-slate-50 text-slate-300 border-transparent cursor-not-allowed' 
+            ? 'opacity-20 cursor-not-allowed' 
             : isOpen 
-              ? 'bg-white border-blue-500 text-blue-600 shadow-2xl shadow-blue-500/10' 
-              : 'bg-white dark:bg-[#11131a] border-slate-100 dark:border-white/5 text-slate-500 hover:border-blue-500/30 hover:text-blue-500'
+              ? 'bg-blue-50 border-blue-200 text-blue-600 ring-2 ring-blue-500/10' 
+              : hasValue
+                ? 'bg-white border-slate-300 text-slate-900 shadow-sm'
+                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 shadow-sm'
           }`}
       >
-        <div className="flex items-center gap-3">
-          <span className={isOpen ? 'text-blue-500' : 'text-slate-400'}>{icon}</span>
-          <span className="truncate">{selectedLabel}</span>
-        </div>
-        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate flex-1 text-left">{selectedLabel}</span>
+        <ChevronDown size={12} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -42,28 +47,19 @@ const CustomDropdown: React.FC<{
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
             <motion.div 
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-[#1a1c26] rounded-[2rem] shadow-2xl border border-slate-100 dark:border-white/5 z-50 overflow-hidden"
+              initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute top-full left-0 mt-2 min-w-[220px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] border border-slate-100 z-50 overflow-hidden p-2"
             >
-              <div className="max-h-[350px] overflow-y-auto p-3 custom-scrollbar">
+              <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                 {options.map((opt) => (
                   <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      onChange(opt.value);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl font-bold text-sm transition-all
-                      ${value === opt.value 
-                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' 
-                        : 'text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5'
-                      }`}
+                    key={opt.value} type="button"
+                    onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[11px] font-bold transition-all mb-1 last:mb-0
+                      ${value === opt.value ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
-                    {opt.label}
-                    {value === opt.value && <Check size={16} strokeWidth={3} />}
+                    <span className="truncate">{opt.label}</span>
+                    {value === opt.value && <Check size={12} strokeWidth={3} />}
                   </button>
                 ))}
               </div>
@@ -75,6 +71,17 @@ const CustomDropdown: React.FC<{
   );
 };
 
+const FilterField: React.FC<{
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ label, className, children }) => (
+  <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
+    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+    {children}
+  </div>
+);
+
 const ExploreFields: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [province, setProvince] = useState('');
@@ -83,8 +90,10 @@ const ExploreFields: React.FC = () => {
   const [districtCode, setDistrictCode] = useState<number | undefined>(undefined);
   const [sportType, setSportType] = useState('');
   const [pitchType, setPitchType] = useState('');
+  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
+  const [sortBy, setSortBy] = useState('rating_desc');
   const [isNearMe, setIsNearMe] = useState(false);
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
 
@@ -99,7 +108,7 @@ const ExploreFields: React.FC = () => {
 
   useEffect(() => {
     fetchPitches();
-  }, [province, district, sportType, pitchType, maxPrice, minRating, isNearMe, coords, searchQuery, page]);
+  }, [province, district, sportType, pitchType, minPrice, maxPrice, minRating, sortBy, isNearMe, coords, searchQuery, page]);
 
   const fetchPitches = async () => {
     setIsLoading(true);
@@ -110,8 +119,10 @@ const ExploreFields: React.FC = () => {
         district: district || undefined,
         sportType: sportType || undefined,
         type: pitchType || undefined,
+        minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
         minRating: minRating || undefined,
+        sortBy: sortBy || undefined,
         latitude: isNearMe ? coords?.lat : undefined,
         longitude: isNearMe ? coords?.lng : undefined,
         radiusKm: isNearMe ? 10 : undefined,
@@ -129,7 +140,7 @@ const ExploreFields: React.FC = () => {
     } catch (error) {
       console.error("Failed to fetch pitches:", error);
     } finally {
-      setTimeout(() => setIsLoading(false), 500);
+      setIsLoading(false);
     }
   };
 
@@ -147,237 +158,371 @@ const ExploreFields: React.FC = () => {
     }
   };
 
+  const sports = [
+    { id: '', label: 'Tất cả' },
+    { id: 'Football', label: 'Bóng đá' },
+    { id: 'Badminton', label: 'Cầu lông' },
+    { id: 'Tennis', label: 'Tennis' },
+    { id: 'Pickleball', label: 'Pickleball' },
+    { id: 'Basketball', label: 'Bóng rổ' },
+    { id: 'Volleyball', label: 'Bóng chuyền' },
+    { id: 'TableTennis', label: 'Bóng bàn' }
+  ];
+
+  const sportLabelById = sports.reduce<Record<string, string>>((acc, item) => {
+    acc[item.id] = item.label;
+    return acc;
+  }, {});
+
+  const pitchTypeLabelByValue: Record<string, string> = {
+    Football5: 'Bóng đá 5',
+    Football7: 'Bóng đá 7',
+    Football11: 'Bóng đá 11',
+    Badminton: 'Cầu lông',
+    Tennis: 'Tennis',
+    Pickleball: 'Pickleball',
+    Basketball: 'Bóng rổ',
+    Volleyball: 'Bóng chuyền',
+    TableTennis: 'Bóng bàn'
+  };
+
+  const pitchTypeOptionsBySport: Record<string, { label: string; value: string }[]> = {
+    '': [
+      { label: 'Mọi quy mô', value: '' },
+      { label: 'Bóng đá 5', value: 'Football5' },
+      { label: 'Bóng đá 7', value: 'Football7' },
+      { label: 'Bóng đá 11', value: 'Football11' },
+      { label: 'Cầu lông', value: 'Badminton' },
+      { label: 'Tennis', value: 'Tennis' },
+      { label: 'Pickleball', value: 'Pickleball' },
+      { label: 'Bóng rổ', value: 'Basketball' },
+      { label: 'Bóng chuyền', value: 'Volleyball' },
+      { label: 'Bóng bàn', value: 'TableTennis' }
+    ],
+    Football: [
+      { label: 'Bóng đá 5', value: 'Football5' },
+      { label: 'Bóng đá 7', value: 'Football7' },
+      { label: 'Bóng đá 11', value: 'Football11' }
+    ],
+    Badminton: [
+      { label: 'Cầu lông', value: 'Badminton' }
+    ],
+    Tennis: [
+      { label: 'Tennis', value: 'Tennis' }
+    ],
+    Pickleball: [
+      { label: 'Pickleball', value: 'Pickleball' }
+    ],
+    Basketball: [
+      { label: 'Bóng rổ', value: 'Basketball' }
+    ],
+    Volleyball: [
+      { label: 'Bóng chuyền', value: 'Volleyball' }
+    ],
+    TableTennis: [
+      { label: 'Bóng bàn', value: 'TableTennis' }
+    ]
+  };
+
+  const pitchTypeOptions = useMemo(
+    () => pitchTypeOptionsBySport[sportType] ?? pitchTypeOptionsBySport[''],
+    [sportType]
+  );
+
+  useEffect(() => {
+    if (pitchType && !pitchTypeOptions.some(opt => opt.value === pitchType)) {
+      setPitchType('');
+    }
+  }, [pitchType, pitchTypeOptions]);
+
+  const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
+
+  const minPriceOptions = [
+    { label: 'Không giới hạn', value: '' },
+    { label: 'Từ 200k', value: 200000 },
+    { label: 'Từ 400k', value: 400000 },
+    { label: 'Từ 600k', value: 600000 },
+    { label: 'Từ 800k', value: 800000 },
+    { label: 'Từ 1 triệu', value: 1000000 }
+  ];
+
+  const maxPriceOptions = [
+    { label: 'Không giới hạn', value: '' },
+    { label: 'Đến 200k', value: 200000 },
+    { label: 'Đến 400k', value: 400000 },
+    { label: 'Đến 600k', value: 600000 },
+    { label: 'Đến 800k', value: 800000 },
+    { label: 'Đến 1 triệu', value: 1000000 },
+    { label: 'Đến 2 triệu', value: 2000000 }
+  ];
+
+  const handleMinPriceChange = (val: number | '') => {
+    const nextValue = val === '' ? undefined : val;
+    setMinPrice(nextValue);
+    if (nextValue && maxPrice && nextValue > maxPrice) {
+      setMaxPrice(undefined);
+    }
+    setPage(1);
+  };
+
+  const handleMaxPriceChange = (val: number | '') => {
+    const nextValue = val === '' ? undefined : val;
+    setMaxPrice(nextValue);
+    if (nextValue && minPrice && nextValue < minPrice) {
+      setMinPrice(undefined);
+    }
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setSportType('');
+    setPitchType('');
+    setProvinceCode(undefined);
+    setProvince('');
+    setDistrictCode(undefined);
+    setDistrict('');
+    setMinPrice(undefined);
+    setMaxPrice(undefined);
+    setMinRating(undefined);
+    setSearchQuery('');
+    setIsNearMe(false);
+    setCoords(null);
+    setSortBy('rating_desc');
+    setPage(1);
+  };
+
+  const activeFilters = [
+    searchQuery ? { key: 'search', label: `Từ khóa: ${searchQuery}`, onClear: () => setSearchQuery('') } : null,
+    sportType ? { key: 'sport', label: `Môn: ${sportLabelById[sportType]}`, onClear: () => setSportType('') } : null,
+    pitchType ? { key: 'pitch', label: `Loại sân: ${pitchTypeLabelByValue[pitchType] || pitchType}`, onClear: () => setPitchType('') } : null,
+    province ? { key: 'province', label: `Tỉnh/Thành: ${province}`, onClear: () => { setProvince(''); setProvinceCode(undefined); setDistrict(''); setDistrictCode(undefined); } } : null,
+    district ? { key: 'district', label: `Quận/Huyện: ${district}`, onClear: () => { setDistrict(''); setDistrictCode(undefined); } } : null,
+    minPrice ? { key: 'minPrice', label: `Từ ${formatPrice(minPrice)}đ`, onClear: () => setMinPrice(undefined) } : null,
+    maxPrice ? { key: 'maxPrice', label: `Đến ${formatPrice(maxPrice)}đ`, onClear: () => setMaxPrice(undefined) } : null,
+    minRating ? { key: 'rating', label: `Từ ${minRating.toFixed(1)} sao`, onClear: () => setMinRating(undefined) } : null,
+    isNearMe ? { key: 'near', label: 'Gần tôi (10km)', onClear: () => { setIsNearMe(false); setCoords(null); } } : null
+  ].filter(Boolean) as Array<{ key: string; label: string; onClear: () => void }>;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0b10] animate-in fade-in duration-1000">
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,_rgba(37,99,235,0.08),transparent),_radial-gradient(circle_at_20%_80%,_rgba(16,185,129,0.05),transparent)]" />
-        <div className="max-w-[1600px] mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center space-y-12">
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-              <h1 className="text-6xl md:text-8xl font-black text-slate-900 dark:text-white tracking-tighter leading-none mb-6">
-                Discovery <span className="text-blue-600">Pitches</span>
-              </h1>
-              <p className="text-xl font-bold text-slate-400 uppercase tracking-[0.3em] mb-12">Hệ thống sân đấu tiêu chuẩn quốc tế</p>
-            </motion.div>
+    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 pt-32">
+      <div className="max-w-[1400px] mx-auto px-6">
+        {/* Header */}
+        <header className="mb-12 space-y-10">
+          <div className="space-y-3">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.8] text-slate-900">Explore. <br/><span className="text-blue-600">SmartSport</span></h1>
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.4em]">Hệ thống sân đấu tiêu chuẩn quốc tế</p>
+          </div>
 
-            <div className="relative group">
-              <form 
-                onSubmit={(e) => { e.preventDefault(); setPage(1); fetchPitches(); }} 
-                className="flex items-center bg-white dark:bg-[#11131a] p-3 rounded-[3rem] shadow-2xl shadow-blue-500/10 border-2 border-slate-100 dark:border-white/5 group-focus-within:border-blue-500/30 transition-all"
-              >
-                <div className="flex-1 flex items-center pl-8">
-                  <Search size={28} className="text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                  <input 
-                    type="text" 
-                    placeholder="Tìm tên sân, khu vực hoặc môn thể thao..." 
-                    value={searchQuery} 
-                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                    className="w-full bg-transparent border-none px-6 py-6 text-xl font-black text-slate-900 dark:text-white placeholder:text-slate-300 focus:outline-none"
-                  />
+          <div className="space-y-8">
+            <div className="relative group w-full">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={24} />
+              <input 
+                type="text" placeholder="Tìm tên sân, khu vực hoặc môn thể thao..." value={searchQuery} 
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-6 pl-16 pr-6 text-base font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Môn thể thao</p>
+              {activeFilters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
+                >
+                  Xóa tất cả
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-2 overflow-x-auto md:flex-wrap md:overflow-visible scrollbar-hide py-2 px-1 -mx-1">
+                {sports.map(sport => {
+                  const isActive = sportType === sport.id;
+                  return (
+                    <button 
+                      key={sport.id} onClick={() => { setSportType(sport.id); setPage(1); }}
+                      aria-pressed={isActive}
+                      className={`px-4 py-2 rounded-full font-bold text-xs transition-all border shrink-0
+                        ${isActive 
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg' 
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'}`}
+                    >
+                      {sport.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="text-right">
+                  <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none">{totalCount}</p>
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-1">Sân khả dụng</p>
                 </div>
-                <button 
-                  type="submit" 
-                  className="bg-blue-600 text-white px-12 py-6 rounded-[2.5rem] font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl shadow-blue-600/20"
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 md:p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <FilterField label="Tỉnh / Thành">
+                <CompactDropdown 
+                  label="Chọn tỉnh" icon={<Globe size={14} className="text-blue-500" />} value={provinceCode || ''}
+                  options={[{ label: 'Toàn quốc', value: '' }, ...provinces.map(p => ({ label: p.name, value: p.code }))]}
+                  onChange={(code) => {
+                    const p = provinces.find(x => x.code === code);
+                    setProvinceCode(code || undefined); setProvince(p?.name || '');
+                    setDistrictCode(undefined); setDistrict(''); setPage(1);
+                  }}
+                />
+              </FilterField>
+              <FilterField label="Quận / Huyện">
+                <CompactDropdown 
+                  label="Chọn quận" icon={<MapPin size={14} className="text-red-500" />} disabled={!provinceCode} value={districtCode || ''}
+                  options={[{ label: 'Mọi khu vực', value: '' }, ...districts.map(d => ({ label: d.name, value: d.code }))]}
+                  onChange={(code) => {
+                    const d = districts.find(x => x.code === code);
+                    setDistrictCode(code || undefined); setDistrict(d?.name || ''); setPage(1);
+                  }}
+                />
+              </FilterField>
+              <FilterField label="Loại sân">
+                <CompactDropdown 
+                  label="Mọi loại" icon={<Users size={14} className="text-emerald-500" />} value={pitchType}
+                  options={pitchTypeOptions}
+                  onChange={(val) => { setPitchType(val); setPage(1); }}
+                />
+              </FilterField>
+              <FilterField label="Giá tối thiểu">
+                <CompactDropdown 
+                  label="Không giới hạn" icon={<DollarSign size={14} className="text-amber-500" />} value={minPrice || ''}
+                  options={minPriceOptions}
+                  onChange={handleMinPriceChange}
+                />
+              </FilterField>
+              <FilterField label="Giá tối đa">
+                <CompactDropdown 
+                  label="Không giới hạn" icon={<DollarSign size={14} className="text-amber-500" />} value={maxPrice || ''}
+                  options={maxPriceOptions}
+                  onChange={handleMaxPriceChange}
+                />
+              </FilterField>
+              <FilterField label="Xếp hạng">
+                <CompactDropdown 
+                  label="Mọi đánh giá" icon={<Star size={14} className="text-yellow-500" />} value={minRating || ''}
+                  options={[
+                    { label: 'Mọi đánh giá', value: '' }, 
+                    { label: 'Từ 4.0 sao', value: 4 }, 
+                    { label: 'Từ 4.5 sao', value: 4.5 }, 
+                    { label: 'Xuất sắc (5.0)', value: 5 }
+                  ]}
+                  onChange={(val) => { setMinRating(val || undefined); setPage(1); }}
+                />
+              </FilterField>
+              <FilterField label="Sắp xếp">
+                <CompactDropdown 
+                  label="Hàng đầu" icon={<ArrowUpDown size={14} className="text-blue-600" />} value={sortBy}
+                  options={[
+                    { label: 'Hàng đầu', value: 'rating_desc' }, 
+                    { label: 'Giá: Thấp - Cao', value: 'price_asc' }, 
+                    { label: 'Giá: Cao - Thấp', value: 'price_desc' },
+                    { label: 'Mới nhất', value: 'newest' }
+                  ]}
+                  onChange={(val) => { setSortBy(val); setPage(1); }}
+                />
+              </FilterField>
+              <FilterField label="Vị trí">
+                <button
+                  type="button"
+                  onClick={() => { toggleNearMe(); setPage(1); }}
+                  aria-pressed={isNearMe}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all
+                    ${isNearMe
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'}`}
                 >
-                  Tìm ngay
+                  <Navigation size={14} />
+                  Gần tôi (10km)
                 </button>
-              </form>
+              </FilterField>
             </div>
 
-            <div className="flex justify-center gap-3 flex-wrap">
-              {[
-                { id: '', label: 'Tất cả', icon: '🌟' },
-                { id: 'Football', label: 'Bóng đá', icon: '⚽' },
-                { id: 'Badminton', label: 'Cầu lông', icon: '🏸' },
-                { id: 'Tennis', label: 'Tennis', icon: '🎾' },
-                { id: 'Pickleball', label: 'Pickleball', icon: '🥒' },
-                { id: 'Basketball', label: 'Bóng rổ', icon: '🏀' }
-              ].map(sport => (
-                <button 
-                  key={sport.id} 
-                  onClick={() => { setSportType(sport.id); setPage(1); }} 
-                  className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2
-                    ${sportType === sport.id 
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-500/20' 
-                      : 'bg-white dark:bg-[#11131a] text-slate-500 dark:text-white/40 border-slate-100 dark:border-white/5 hover:border-blue-500/30 hover:text-blue-500'}`}
-                >
-                  <span className="text-xl">{sport.icon}</span> {sport.label}
-                </button>
-              ))}
-            </div>
+            {activeFilters.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {activeFilters.map(filter => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => { filter.onClear(); setPage(1); }}
+                    aria-label={`Bỏ lọc: ${filter.label}`}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-all"
+                  >
+                    <span className="truncate max-w-[220px]">{filter.label}</span>
+                    <span className="text-slate-400">x</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* Discovery Section */}
-      <main className="max-w-[1600px] mx-auto px-6 py-12 space-y-16">
-        {/* Filters Ribbon */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-6 p-4 bg-white dark:bg-[#11131a] rounded-[3.5rem] border-2 border-slate-100 dark:border-white/5 shadow-2xl shadow-black/5">
-          <div className="flex-1 flex flex-wrap items-center gap-4">
-            <CustomDropdown 
-              label="Tỉnh / Thành phố"
-              icon={<Globe size={18} />}
-              value={provinceCode || ''}
-              options={[{ label: 'Toàn quốc', value: '' }, ...provinces.map(p => ({ label: p.name, value: p.code }))]}
-              onChange={(code) => {
-                const p = provinces.find(x => x.code === code);
-                setProvinceCode(code || undefined);
-                setProvince(p?.name || '');
-                setDistrictCode(undefined);
-                setDistrict('');
-                setPage(1);
-              }}
-            />
-
-            <CustomDropdown 
-              label="Quận / Huyện"
-              icon={<MapPin size={18} />}
-              disabled={!provinceCode}
-              value={districtCode || ''}
-              options={[{ label: 'Mọi khu vực', value: '' }, ...districts.map(d => ({ label: d.name, value: d.code }))]}
-              onChange={(code) => {
-                const d = districts.find(x => x.code === code);
-                setDistrictCode(code || undefined);
-                setDistrict(d?.name || '');
-                setPage(1);
-              }}
-            />
-
-            <CustomDropdown 
-              label="Quy mô sân"
-              icon={<Users size={18} />}
-              value={pitchType}
-              options={[
-                { label: 'Mọi quy mô', value: '' },
-                { label: 'Sân 5 người', value: 'Football5' },
-                { label: 'Sân 7 người', value: 'Football7' },
-                { label: 'Sân 11 người', value: 'Football11' },
-              ]}
-              onChange={(val) => { setPitchType(val); setPage(1); }}
-            />
-
-            <CustomDropdown 
-              label="Mức giá tối đa"
-              icon={<DollarSign size={18} />}
-              value={maxPrice || ''}
-              options={[
-                { label: 'Mọi mức giá', value: '' },
-                { label: 'Dưới 300k', value: 300000 },
-                { label: 'Dưới 500k', value: 500000 },
-                { label: 'Dưới 1 triệu', value: 1000000 },
-              ]}
-              onChange={(val) => { setMaxPrice(val || undefined); setPage(1); }}
-            />
-          </div>
-
-          <div className="flex items-center gap-8 px-10 lg:border-l-2 lg:border-slate-100 dark:lg:border-white/5">
-            <div className="text-right">
-              <p className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">{totalCount}</p>
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2">Đang mở cửa</p>
-            </div>
-            <button 
-              onClick={() => { toggleNearMe(); setPage(1); }} 
-              className={`w-16 h-16 rounded-[2rem] flex items-center justify-center transition-all duration-500
-                ${isNearMe 
-                  ? 'bg-blue-600 text-white shadow-2xl shadow-blue-500/40' 
-                  : 'bg-slate-50 dark:bg-white/5 text-slate-400 hover:text-blue-500 hover:shadow-xl'}`}
-            >
-              <Navigation size={26} fill={isNearMe ? "currentColor" : "none"} strokeWidth={3} />
-            </button>
-          </div>
-        </div>
-
-        {/* Grid Area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {/* Grid */}
+        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 pt-4">
           {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="space-y-6">
-                <div className="aspect-[4/5] bg-slate-100 dark:bg-white/5 rounded-[3rem] animate-pulse" />
-                <div className="h-6 bg-slate-100 dark:bg-white/5 rounded-full w-3/4 animate-pulse" />
-                <div className="h-4 bg-slate-100 dark:bg-white/5 rounded-full w-1/2 animate-pulse" />
+                <div className="aspect-[4/5] bg-slate-50 rounded-[2.5rem] animate-pulse" />
+                <div className="h-4 bg-slate-50 rounded-full w-3/4 animate-pulse" />
               </div>
             ))
           ) : pitches.length > 0 ? (
             <AnimatePresence mode="popLayout">
               {pitches.map((pitch, index) => (
                 <motion.div 
-                  key={pitch.id} 
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
+                  key={pitch.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} 
                   transition={{ delay: index * 0.05 }}
                 >
                   <PitchCard 
-                    id={pitch.id} 
-                    name={pitch.name} 
-                    typeDisplay={pitch.typeDisplay} 
+                    id={pitch.id} name={pitch.name} typeDisplay={pitch.typeDisplay} 
                     price={new Intl.NumberFormat('vi-VN').format(pitch.minPrice || 0)} 
-                    rating={pitch.averageRating} 
-                    reviews={pitch.totalReviews}
+                    rating={pitch.averageRating} reviews={pitch.totalReviews}
                     image={pitch.images?.find(img => img.isPrimary)?.imageUrl || pitch.images?.[0]?.imageUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"}
                   />
                 </motion.div>
               ))}
             </AnimatePresence>
           ) : (
-            <div className="col-span-full py-48 text-center bg-white dark:bg-[#11131a] rounded-[4rem] border-4 border-dashed border-slate-100 dark:border-white/5">
-              <div className="w-24 h-24 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8">
-                <Trophy size={48} className="text-slate-200" />
-              </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Chưa có kết quả trùng khớp</h3>
-              <p className="text-slate-400 font-bold mb-12 uppercase tracking-widest text-sm">Hãy thử nới lỏng các điều kiện lọc nhé!</p>
+            <div className="col-span-full py-40 text-center bg-slate-50 rounded-[4rem] border-2 border-dashed border-slate-200">
+              <Trophy size={64} className="mx-auto mb-6 text-slate-200" />
+              <h3 className="text-3xl font-black text-slate-900 mb-2">Không tìm thấy sân</h3>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm khác nhé!</p>
               <button 
-                onClick={() => { 
-                  setMaxPrice(undefined); setMinRating(undefined); setPitchType(''); 
-                  setProvinceCode(undefined); setProvince(''); setDistrictCode(undefined); setDistrict(''); setPage(1);
-                }} 
-                className="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-blue-600/30 hover:scale-105 transition-all"
+                onClick={resetFilters} 
+                className="mt-10 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-blue-600/20 hover:scale-105 transition-all"
               >
-                Đặt lại bộ lọc
+                Đặt lại toàn bộ lọc
               </button>
             </div>
           )}
-        </div>
+        </main>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-4 py-12">
-            <button 
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="w-14 h-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500 disabled:opacity-20 transition-all"
-            >
-              <ChevronDown className="rotate-90" size={24} />
-            </button>
-            <div className="flex gap-3">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setPage(i + 1)}
-                  className={`w-14 h-14 rounded-2xl font-black text-sm transition-all
-                    ${page === i + 1 
-                      ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' 
-                      : 'bg-white dark:bg-[#11131a] text-slate-400 border-2 border-slate-100 dark:border-white/5 hover:border-blue-500/30'}`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-            <button 
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="w-14 h-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500 disabled:opacity-20 transition-all"
-            >
-              <ChevronDown className="-rotate-90" size={24} />
-            </button>
+          <div className="flex justify-center items-center gap-3 py-24">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i + 1} onClick={() => setPage(i + 1)}
+                className={`w-12 h-12 rounded-2xl font-black text-xs transition-all border-2
+                  ${page === i + 1 
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xl' 
+                    : 'bg-white text-slate-400 border-slate-100 hover:border-blue-500/20 hover:text-blue-500'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
           </div>
         )}
-      </main>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb), 0.1); border-radius: 10px; }
-      `}</style>
+      </div>
     </div>
   );
 };

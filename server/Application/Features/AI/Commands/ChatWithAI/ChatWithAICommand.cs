@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Application.Common.Interfaces;
 using MediatR;
 
@@ -22,8 +24,6 @@ public class ChatWithAICommandHandler : IRequestHandler<ChatWithAICommand, ChatW
 {
     private readonly IGeminiAIService _geminiService;
     private readonly IChatConversationRepository _conversationRepository;
-    private readonly IUserPreferenceRepository _preferenceRepository;
-    private readonly IBookingRepository _bookingRepository;
 
     public ChatWithAICommandHandler(
         IGeminiAIService geminiService,
@@ -33,13 +33,10 @@ public class ChatWithAICommandHandler : IRequestHandler<ChatWithAICommand, ChatW
     {
         _geminiService = geminiService;
         _conversationRepository = conversationRepository;
-        _preferenceRepository = preferenceRepository;
-        _bookingRepository = bookingRepository;
     }
 
     public async Task<ChatWithAIResponse> Handle(ChatWithAICommand request, CancellationToken cancellationToken)
     {
-        // Get or create conversation
         var sessionId = request.SessionId ?? Guid.NewGuid().ToString();
         var conversation = await _conversationRepository.GetBySessionIdAsync(sessionId, cancellationToken);
 
@@ -49,28 +46,28 @@ public class ChatWithAICommandHandler : IRequestHandler<ChatWithAICommand, ChatW
             await _conversationRepository.CreateAsync(conversation, cancellationToken);
         }
 
-        // Add user message
         conversation.AddMessage("user", request.Message);
 
-        // Build context from conversation history
         var context = BuildConversationContext(conversation);
-
-        // Get AI response
         var aiResponse = await _geminiService.ChatAsync(request.Message, context);
 
-        // Add AI response to conversation
-        conversation.AddMessage("assistant", aiResponse);
-        await _conversationRepository.UpdateAsync(conversation, cancellationToken);
-
-        // Check if user is asking for recommendations
         List<RecommendedPitch>? recommendations = null;
         if (IsAskingForRecommendations(request.Message))
         {
             var recommendationResponse = await _geminiService.GetPitchRecommendationsAsync(
                 request.UserId,
                 request.Message);
+
             recommendations = recommendationResponse.Recommendations;
+
+            if (recommendations.Any())
+            {
+                aiResponse = $"{aiResponse}\n\n{recommendationResponse.ConversationalResponse}";
+            }
         }
+
+        conversation.AddMessage("assistant", aiResponse);
+        await _conversationRepository.UpdateAsync(conversation, cancellationToken);
 
         return new ChatWithAIResponse
         {
@@ -81,7 +78,7 @@ public class ChatWithAICommandHandler : IRequestHandler<ChatWithAICommand, ChatW
         };
     }
 
-    private string BuildConversationContext(Domain.Entities.ChatConversation conversation)
+    private static string BuildConversationContext(Domain.Entities.ChatConversation conversation)
     {
         var recentMessages = conversation.Messages
             .TakeLast(10)
@@ -91,9 +88,33 @@ public class ChatWithAICommandHandler : IRequestHandler<ChatWithAICommand, ChatW
         return string.Join("\n", recentMessages);
     }
 
-    private bool IsAskingForRecommendations(string message)
+    private static bool IsAskingForRecommendations(string message)
     {
-        var keywords = new[] { "gợi ý", "recommend", "tìm sân", "find pitch", "đặt sân", "book" };
-        return keywords.Any(k => message.ToLower().Contains(k));
+        var normalized = RemoveDiacritics(message).ToLowerInvariant();
+        var keywords = new[]
+        {
+            "goi y", "recommend", "de xuat", "tu van",
+            "tim san", "san nao", "san gan", "san phu hop",
+            "dat san", "book", "booking", "choi o dau",
+            "bong da", "cau long", "tennis", "pickleball", "bong ro", "bong chuyen"
+        };
+
+        return keywords.Any(normalized.Contains);
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

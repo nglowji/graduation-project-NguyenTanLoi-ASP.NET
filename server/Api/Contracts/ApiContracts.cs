@@ -51,10 +51,22 @@ public record CancelBookingRequest(string Reason);
 // ── Payments ──────────────────────────────────────────
 public record CreatePaymentRequest(
     Guid BookingId,
-    string ReturnUrl
+    string ReturnUrl,
+    string Provider = "VNPAY"
 );
 
-public record CreatePaymentResponse(string PaymentUrl);
+public record CreatePaymentResponse(
+    string PaymentUrl,
+    string Provider,
+    Guid TransactionId,
+    string? QrCode
+);
+
+public record ZaloPayCallbackRequest(
+    string Data,
+    string Mac,
+    int Type
+);
 
 // ── Reviews ───────────────────────────────────────────
 public record CreateReviewRequest(

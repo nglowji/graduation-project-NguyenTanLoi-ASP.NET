@@ -26,5 +26,10 @@ public class BookingServiceConfiguration : IEntityTypeConfiguration<BookingServi
             .WithMany()
             .HasForeignKey(bs => bs.ServiceId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        builder.HasQueryFilter(bs =>
+            !bs.IsDeleted &&
+            !bs.Booking.IsDeleted &&
+            !bs.Service.IsDeleted);
     }
 }

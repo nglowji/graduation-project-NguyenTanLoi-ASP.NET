@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MapPin, Star, CheckCircle2, ShieldCheck, 
-  Coffee, Car, Wifi, Loader2, Plus, Minus, Zap, Calendar, ArrowRight
+  MapPin, Star, CheckCircle2, ShieldCheck,
+  Loader2, Plus, Minus, Calendar, ArrowRight, ChevronLeft, ChevronRight, User, ArrowLeft, Map as MapIcon
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useParams, useNavigate } from 'react-router-dom';
 import { pitchService, type PitchResponse } from '../../../services/pitchService';
 import { bookingService } from '../../../services/bookingService';
-import { paymentService } from '../../../services/paymentService';
 import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
 
 const FieldDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id?: string; slug?: string }>();
+  const navigate = useNavigate();
+  const guidMatch = (slug || '').match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/);
+  const pitchId = id || guidMatch?.[0];
   const [pitch, setPitch] = useState<PitchResponse | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({});
@@ -30,15 +33,15 @@ const FieldDetails: React.FC = () => {
     || [pitch?.address?.street, pitch?.address?.ward, pitch?.address?.district, pitch?.address?.city].filter(Boolean).join(', ');
 
   useEffect(() => {
-    if (id) {
-      fetchPitchDetails();
-      fetchSlots();
-      fetchServices();
+    if (pitchId) {
+      fetchPitchDetails(pitchId);
+      fetchSlots(pitchId);
+      fetchServices(pitchId);
       
       const setupSignalR = async () => {
         try {
           await signalRService.startConnection();
-          await signalRService.joinPitchGroup(id!);
+          await signalRService.joinPitchGroup(pitchId);
           signalRService.onTimeSlotStatusChanged((timeSlotId, status, date) => {
             if (date === selectedDate) {
               setAvailableSlots(prev => prev.map(slot => 
@@ -52,16 +55,16 @@ const FieldDetails: React.FC = () => {
       };
       setupSignalR();
       return () => {
-        signalRService.leavePitchGroup(id!);
+        signalRService.leavePitchGroup(pitchId);
         signalRService.off('TimeSlotStatusChanged');
       };
     }
-  }, [id, selectedDate]);
+  }, [pitchId, selectedDate]);
 
-  const fetchPitchDetails = async () => {
+  const fetchPitchDetails = async (currentPitchId: string) => {
     setIsLoading(true);
     try {
-      const data = await pitchService.getById(id!);
+      const data = await pitchService.getById(currentPitchId);
       setPitch(data);
     } catch (error) {
       console.error("Error fetching pitch:", error);
@@ -70,18 +73,18 @@ const FieldDetails: React.FC = () => {
     }
   };
 
-  const fetchSlots = async () => {
+  const fetchSlots = async (currentPitchId: string) => {
     try {
-      const response = await api.get(`/pitches/${id}/available-slots`, { params: { date: selectedDate } });
+      const response = await api.get(`/pitches/${currentPitchId}/available-slots`, { params: { date: selectedDate } });
       setAvailableSlots(response.data || []);
     } catch (error) {
       console.error("Error fetching slots:", error);
     }
   };
 
-  const fetchServices = async () => {
+  const fetchServices = async (currentPitchId: string) => {
     try {
-      const response = await api.get(`/additional-services/pitch/${id}`);
+      const response = await api.get(`/additional-services/pitch/${currentPitchId}`);
       setAvailableServices(response.data || []);
     } catch (error) {
       console.error("Error fetching services:", error);
@@ -129,12 +132,8 @@ const FieldDetails: React.FC = () => {
         selectedServices: servicesPayload.length > 0 ? servicesPayload : undefined
       });
 
-      const paymentResponse = await paymentService.createPayment({
-        bookingId: booking.id,
-        returnUrl: `${window.location.origin}/payment-result`
-      });
-
-      window.location.href = paymentResponse.paymentUrl;
+      // Navigate to review page instead of direct payment
+      navigate(`/booking-review/${booking.id}`);
     } catch (error: any) {
       console.error("Booking failed:", error);
       if (lockId) await bookingService.releaseLock(lockId).catch(() => undefined);
@@ -147,194 +146,237 @@ const FieldDetails: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!pitch) return null;
+  if (!pitch) {
+    return (
+      <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
+        <div className="max-w-[1200px] mx-auto px-6">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-8 text-center">
+            <p className="text-sm font-bold text-slate-600">Không tìm thấy sân phù hợp.</p>
+            <button
+              onClick={() => navigate('/explore')}
+              className="mt-4 px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest"
+            >
+              Quay lại khám phá
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const pitchImages = pitch.images && pitch.images.length > 0 
+    ? pitch.images 
+    : [{ imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1600" }];
+
+  const mapQuery = pitch.address.latitude && pitch.address.longitude 
+    ? `${pitch.address.latitude},${pitch.address.longitude}`
+    : encodeURIComponent(fullAddress);
+  const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 pb-20 pt-20 font-sans">
-      <div className="max-w-[1400px] mx-auto px-6">
-        {/* Compact Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-100">
-                {pitch.typeDisplay || 'Standard'}
-              </span>
-              <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-100">
-                <Star size={10} className="fill-current" />
-                {pitch.averageRating}
+    <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
+      <div className="max-w-[1200px] mx-auto px-6">
+        {/* Header Section */}
+        <div className="mb-8 space-y-4">
+          <button 
+            onClick={() => navigate('/explore')}
+            className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group"
+          >
+            <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+              <ArrowLeft size={14} />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Quay lại danh sách</span>
+          </button>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100">{pitch.typeDisplay}</span>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                <Star size={10} className="fill-current" /> {Number(pitch.averageRating ?? 0).toFixed(1)}
+              </div>
+              <div className="px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-100">
+                Từ {formatMoney(pitch.minPrice)}đ/giờ
               </div>
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 leading-none">{pitch.name}</h1>
-            <div className="flex items-center gap-1.5 text-slate-400 font-bold text-sm">
-              <MapPin size={14} className="text-red-500" />
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">{pitch.name}</h1>
+            <div className="flex items-center gap-2 text-slate-500 font-semibold text-sm">
+              <MapPin size={14} className="text-red-500 shrink-0" />
               <span>{fullAddress}</span>
             </div>
           </div>
         </div>
 
-        {/* Streamlined Gallery */}
-        <div className="mb-12">
-          {pitch.images && pitch.images.length > 0 ? (
-            <div className={`grid gap-3 ${pitch.images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-12'} h-[300px] md:h-[450px]`}>
-              <div className={`${pitch.images.length === 1 ? 'col-span-1' : 'md:col-span-9'} rounded-3xl overflow-hidden shadow-sm group`}>
-                <img 
-                  src={pitch.images.find(img => img.isPrimary)?.imageUrl || pitch.images[0].imageUrl} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                  alt="Main View" 
-                />
+        <div className="flex flex-col lg:flex-row gap-12 items-start">
+          {/* LEFT COLUMN */}
+          <div className="flex-1 space-y-8">
+            {/* ULTRA COMPACT GALLERY */}
+            <div className="space-y-3 max-w-3xl">
+              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 group">
+                <AnimatePresence mode="wait">
+                  <motion.img 
+                    key={activeImageIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    src={pitchImages[activeImageIndex].imageUrl} 
+                    className="w-full h-full object-cover" 
+                    alt="Pitch" 
+                  />
+                </AnimatePresence>
+                
+                {pitchImages.length > 1 && (
+                  <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setActiveImageIndex(prev => (prev > 0 ? prev - 1 : pitchImages.length - 1))} className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={16} /></button>
+                    <button onClick={() => setActiveImageIndex(prev => (prev < pitchImages.length - 1 ? prev + 1 : 0))} className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all"><ChevronRight size={16} /></button>
+                  </div>
+                )}
               </div>
-              {pitch.images.length > 1 && (
-                <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-1 gap-3 h-full">
-                  {pitch.images.filter(img => !img.isPrimary).slice(0, 2).map((img, i) => (
-                    <div key={i} className="rounded-2xl overflow-hidden shadow-sm group relative h-full">
-                      <img 
-                        src={img.imageUrl} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                        alt={`Thumb ${i}`} 
-                      />
-                      {i === 1 && pitch.images.length > 3 && (
-                        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex items-center justify-center cursor-pointer">
-                          <span className="text-white font-black text-xl">+{pitch.images.length - 3}</span>
-                        </div>
-                      )}
-                    </div>
+
+              {pitchImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {pitchImages.map((img, idx) => (
+                    <button key={idx} onClick={() => setActiveImageIndex(idx)} className={`relative w-12 h-12 rounded-md overflow-hidden shrink-0 border-2 transition-all ${activeImageIndex === idx ? 'border-blue-600' : 'border-transparent opacity-50'}`}>
+                      <img src={img.imageUrl} className="w-full h-full object-cover" alt={`T${idx}`} />
+                    </button>
                   ))}
                 </div>
               )}
             </div>
-          ) : (
-            <div className="w-full h-[300px] bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 border-2 border-dashed border-slate-100">
-              <Zap size={40} />
-            </div>
-          )}
-        </div>
 
-        <div className="flex flex-col lg:flex-row gap-12 items-start">
-          {/* Information Area */}
-          <div className="flex-1 space-y-12">
-            <section className="max-w-2xl">
-              <p className="text-xl font-medium text-slate-500 leading-relaxed">
-                {pitch.description || "Hệ thống sân bãi hiện đại, chuyên nghiệp, điểm đến lý tưởng cho mọi đam mê thể thao."}
+            {/* Overview */}
+            <div className="space-y-4">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mô tả</div>
+              <p className="text-sm font-medium text-slate-600 leading-relaxed max-w-2xl">
+                {pitch.description || 'Nơi những đam mê được đánh thức và những trận cầu rực lửa bắt đầu.'}
               </p>
+              <div className="flex flex-wrap gap-2">
+                {['Bãi đỗ', 'Wifi', 'Giải khát', 'An ninh'].map((label) => (
+                  <span key={label} className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Google Map */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                <MapIcon size={12} className="text-blue-600" />
+                <span>Bản đồ</span>
+              </div>
+              <div className="w-full max-w-xl h-[160px] rounded-2xl overflow-hidden border border-slate-100">
+                <iframe width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0} src={mapUrl} className="transition-all duration-700" />
+              </div>
             </section>
 
-            {/* Compact Amenities */}
-            <div className="flex flex-wrap gap-3">
-              {[
-                { icon: <Car />, label: 'Bãi đỗ' },
-                { icon: <Wifi />, label: 'Wifi' },
-                { icon: <Coffee />, label: 'Giải khát' },
-                { icon: <ShieldCheck />, label: 'An ninh' }
-              ].map((item, i) => (
-                <div key={i} className="px-5 py-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100 hover:border-blue-200 transition-all">
-                  <div className="text-slate-900">
-                    {React.cloneElement(item.icon as React.ReactElement<any>, { size: 16 })}
-                  </div>
-                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Compact Services */}
+            {/* Services (Corrected Image Display - No Icon) */}
             {availableServices.length > 0 && (
-              <section className="space-y-6">
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Dịch vụ bổ trợ</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <section className="space-y-4 pt-6 border-t border-slate-50">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dịch vụ bổ trợ</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {availableServices.map(svc => (
-                    <div key={svc.id} className="p-5 bg-white rounded-3xl border border-slate-100 flex items-center justify-between group hover:border-blue-500/30 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-2xl filter grayscale group-hover:grayscale-0 transition-all">{svc.icon || '📦'}</div>
+                    <div key={svc.id} className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-500/20 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-200/50 shrink-0 text-xl">
+                          {svc.icon || '📦'}
+                        </div>
                         <div>
-                          <p className="font-black text-slate-800 text-sm">{svc.name}</p>
-                          <p className="text-[11px] font-bold text-blue-500">{formatMoney(svc.price)}đ</p>
+                          <p className="font-black text-slate-800 text-xs">{svc.name}</p>
+                          <p className="text-[10px] font-bold text-blue-500">{formatMoney(svc.price)}đ</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
-                        <button onClick={() => handleUpdateService(svc.id, -1)} className="w-8 h-8 flex items-center justify-center hover:bg-white text-slate-400 hover:text-red-500 rounded-lg transition-all"><Minus size={12} /></button>
-                        <span className="w-4 text-center font-black text-xs text-slate-900">{selectedServices[svc.id] || 0}</span>
-                        <button onClick={() => handleUpdateService(svc.id, 1)} className="w-8 h-8 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-lg transition-all"><Plus size={12} /></button>
+                      <div className="flex items-center gap-2 bg-slate-50 px-1.5 py-1 rounded-lg">
+                        <button onClick={() => handleUpdateService(svc.id, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-red-500 rounded-md transition-all"><Minus size={10} /></button>
+                        <span className="w-3 text-center font-black text-[10px] text-slate-900">{selectedServices[svc.id] || 0}</span>
+                        <button onClick={() => handleUpdateService(svc.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-md transition-all"><Plus size={10} /></button>
                       </div>
                     </div>
                   ))}
                 </div>
               </section>
             )}
+
+            {/* Reviews */}
+            <section className="space-y-4 pt-6 border-t border-slate-50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 tracking-tight">Đánh giá</h3>
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black border border-amber-100">
+                  <Star size={12} className="fill-current" /> {Number(pitch.averageRating ?? 0).toFixed(1)} / 5.0
+                </div>
+              </div>
+              <div className="space-y-3">
+                {pitch.reviews && pitch.reviews.length > 0 ? pitch.reviews.map((rev) => (
+                  <div key={rev.id} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-300 border border-slate-100"><User size={16} /></div>
+                        <div>
+                          <p className="text-xs font-black text-slate-900">{rev.userName}</p>
+                          <p className="text-[10px] font-bold text-slate-400">{new Date(rev.createdAt).toLocaleDateString('vi-VN')}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <Star key={idx} size={10} className={`${idx < rev.rating ? 'text-amber-400 fill-current' : 'text-slate-200'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm font-medium text-slate-600">{rev.comment || "Khách hàng hài lòng về dịch vụ."}</p>
+                  </div>
+                )) : (
+                  <div className="py-8 text-center bg-slate-50/30 rounded-2xl border border-dashed border-slate-100">
+                    <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">Chưa có đánh giá</p>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
 
-          {/* Compact Booking Sidebar */}
-          <aside className="w-full lg:w-[380px]">
-            <div className="sticky top-24 space-y-6">
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-[0_20px_50px_rgba(0,0,0,0.03)] space-y-8">
+          {/* RIGHT COLUMN (Sticky) */}
+          <aside className="w-full lg:w-[340px]">
+            <div className="sticky top-32 space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-6">
                 <div className="flex items-end justify-between">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-300">Giá đặt sân</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Giá thuê</p>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black text-slate-900">{formatMoney(pitch.minPrice)}đ</span>
+                      <span className="text-3xl font-black text-slate-900">{formatMoney(pitch.minPrice)}đ</span>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">/ Giờ</span>
                     </div>
                   </div>
-                  <CheckCircle2 size={24} className="text-emerald-500 mb-1" />
+                  <CheckCircle2 size={20} className="text-emerald-500" />
                 </div>
 
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between">
-                      Ngày thi đấu <Calendar size={12} className="text-blue-500" />
-                    </label>
-                    <input 
-                      type="date" min={new Date().toISOString().split('T')[0]} value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all cursor-pointer"
-                    />
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between">Ngày thi đấu <Calendar size={12} className="text-blue-500" /></label>
+                    <input type="date" min={new Date().toISOString().split('T')[0]} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
                   </div>
-
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Giờ trống</label>
                     <div className="grid grid-cols-2 gap-2">
                       {availableSlots.length > 0 ? availableSlots.map((slot, idx) => (
-                        <button 
-                          key={idx} disabled={!slot.isAvailable} onClick={() => setSelectedTime(slot.id)}
-                          className={`py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
-                            ${!slot.isAvailable 
-                              ? 'bg-slate-50 text-slate-200 border-transparent cursor-not-allowed' 
-                              : selectedTime === slot.id 
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-600/20' 
-                                : 'bg-white border-slate-100 text-slate-600 hover:border-blue-500/30'}`}
-                        >
-                          {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
-                        </button>
-                      )) : (
-                        <div className="col-span-2 py-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-300 font-black text-[9px] uppercase">Hết giờ trống</div>
-                      )}
+                        <button key={idx} disabled={!slot.isAvailable} onClick={() => setSelectedTime(slot.id)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${!slot.isAvailable ? 'bg-slate-50 text-slate-200 border-transparent cursor-not-allowed' : selectedTime === slot.id ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white border-slate-100 text-slate-600 hover:border-blue-500/30'}`}>{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</button>
+                      )) : <div className="col-span-2 py-5 text-center bg-slate-50 rounded-xl text-[9px] font-black text-slate-300 uppercase">Hết giờ</div>}
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-8 border-t border-slate-50 flex items-center justify-between">
+                <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Tổng tiền</p>
-                    <p className="text-3xl font-black text-blue-600 tracking-tighter">{formatMoney(calculateTotal())}đ</p>
+                    <p className="text-2xl font-black text-blue-600 tracking-tight">{formatMoney(calculateTotal())}đ</p>
                   </div>
-                  <button 
-                    onClick={handleBooking} disabled={!selectedTime || isBooking}
-                    className="h-14 px-8 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-[1.03] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                  >
-                    {isBooking ? <Loader2 className="animate-spin" size={18} /> : <>Đặt ngay <ArrowRight size={16} /></>}
-                  </button>
+                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="h-12 px-6 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Đặt ngay <ArrowRight size={16} /></>}</button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 px-6 py-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                <ShieldCheck className="text-blue-500" size={20} />
-                <p className="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest leading-relaxed">
-                  Bảo mật • An toàn • Nhanh chóng
-                </p>
-              </div>
+              <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50"><ShieldCheck className="text-blue-500" size={18} /><p className="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest">Bảo mật & Hoàn tiền nhanh</p></div>
             </div>
           </aside>
         </div>

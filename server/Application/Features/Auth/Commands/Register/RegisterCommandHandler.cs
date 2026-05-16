@@ -34,7 +34,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Au
     {
         var emailExists = await _userRepository.EmailExistsAsync(request.Email, cancellationToken);
         if (emailExists)
-            return Result<AuthResponse>.Failure("Email already exists");
+            return Result<AuthResponse>.Failure("Email đã được sử dụng.");
 
         var passwordHash = _passwordHasher.HashPassword(request.Password);
 

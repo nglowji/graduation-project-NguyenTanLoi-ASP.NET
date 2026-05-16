@@ -54,7 +54,7 @@ public class GlobalExceptionHandlerMiddleware
             ),
             ValidationException validationEx => (
                 StatusCodes.Status400BadRequest,
-                "Validation failed",
+                "Dữ liệu không hợp lệ.",
                 validationEx.Errors.SelectMany(x => x.Value).ToList()
             ),
             _ => (

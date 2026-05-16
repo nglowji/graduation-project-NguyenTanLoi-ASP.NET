@@ -26,7 +26,7 @@ public class ConfirmBookingCommandHandler : IRequestHandler<ConfirmBookingComman
 
     public async Task<Result> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
     {
-        var booking = await _bookingRepository.GetWithDetailsAsync(request.BookingId, cancellationToken);
+        var booking = await _bookingRepository.GetTrackedWithDetailsAsync(request.BookingId, cancellationToken);
 
         if (booking == null)
             return Result.Failure("Booking not found");

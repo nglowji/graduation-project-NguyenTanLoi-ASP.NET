@@ -27,6 +27,8 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         return await _dbSet
             .AsNoTracking()
             .Include(p => p.SportCenter)
+            .Include(p => p.TimeSlots)
+            .Include(p => p.Images)
             .ToListAsync(cancellationToken);
     }
 

@@ -3,7 +3,8 @@ import api from './api';
 export const UserRole = {
   Customer: 1,
   PitchOwner: 2,
-  Admin: 3
+  Admin: 3,
+  PitchStaff: 4
 } as const;
 
 export type UserRoleType = typeof UserRole[keyof typeof UserRole];
@@ -18,6 +19,7 @@ export interface AuthResponse {
   expiresAt: string;
   address?: string;
   mapLink?: string;
+  avatar?: string;
   emailConfirmed?: boolean;
 }
 

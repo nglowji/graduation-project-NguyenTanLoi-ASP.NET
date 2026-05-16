@@ -40,15 +40,41 @@ public class AdditionalServicesController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetByPitchId(Guid pitchId, CancellationToken ct)
     {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
         var pitch = await _context.Pitches.FirstOrDefaultAsync(p => p.Id == pitchId, ct);
         if (pitch == null) return NotFoundResponse("Pitch not found");
         
         var services = await _context.AdditionalServices
             .Where(s => s.SportCenterId == pitch.SportCenterId && s.IsActive)
-            .Select(s => new { s.Id, s.Name, Price = s.Price.Amount, s.Icon })
+            .Select(s => new { s.Id, s.Name, Price = s.Price.Amount, s.Icon, s.ImageUrl })
             .ToListAsync(ct);
+
+        var normalized = services
+            .Select(s => new
+            {
+                s.Id,
+                s.Name,
+                s.Price,
+                s.Icon,
+                ImageUrl = BuildAbsoluteUrl(s.ImageUrl, baseUrl)
+            })
+            .ToList();
             
-        return OkResponse(services);
+        return OkResponse(normalized);
+    }
+
+    private static string? BuildAbsoluteUrl(string? imageUrl, string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out _))
+            return imageUrl;
+
+        if (imageUrl.StartsWith("/", StringComparison.Ordinal))
+            return $"{baseUrl}{imageUrl}";
+
+        return $"{baseUrl}/{imageUrl}";
     }
 
     [HttpPost]

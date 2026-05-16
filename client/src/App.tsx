@@ -15,6 +15,7 @@ import OwnerDashboard from './features/owner/pages/OwnerDashboard';
 import AdminDashboard from './features/admin/pages/AdminDashboard';
 import PaymentResult from './features/customer/pages/PaymentResult';
 import Profile from './features/customer/pages/Profile';
+import BookingReview from './features/customer/pages/BookingReview';
 import DashboardLayout from './layouts/DashboardLayout';
 
 // Owner Sub-pages
@@ -42,11 +43,13 @@ function App() {
               {/* Public Routes */}
               <Route path="/" element={<><Navbar /><LandingPage /></>} />
               <Route path="/explore" element={<div className="flex flex-col min-h-screen"><Navbar /><ExploreFields /><Footer /></div>} />
+              <Route path="/san/:slug" element={<div className="flex flex-col min-h-screen"><Navbar /><FieldDetails /><Footer /></div>} />
               <Route path="/field/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><FieldDetails /><Footer /></div>} />
               <Route path="/login" element={<div className="flex flex-col min-h-screen"><Navbar /><Login /><Footer /></div>} />
               <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
               <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
               <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
+              <Route path="/booking-review/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><BookingReview /><Footer /></div>} />
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <div className="flex flex-col min-h-screen"><Navbar /><Profile /><Footer /></div>
@@ -54,11 +57,11 @@ function App() {
               } />
 
               {/* Owner Dashboard */}
-              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/services" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Services /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/pitches/create" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><PitchEditor /></DashboardLayout></ProtectedRoute>} />

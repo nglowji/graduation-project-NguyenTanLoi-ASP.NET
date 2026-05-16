@@ -10,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isOwner: boolean;
+  isStaff: boolean;
   isCustomer: boolean;
   updateUser: (data: Partial<AuthResponse>) => void;
 }
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated: !!token,
       isAdmin: user?.role === 3,
       isOwner: user?.role === 2,
+      isStaff: user?.role === 4,
       isCustomer: user?.role === 1,
     }}>
       {children}

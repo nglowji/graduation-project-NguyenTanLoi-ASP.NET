@@ -55,4 +55,17 @@ public class BookingNotificationService : IBookingNotificationService
             _logger.LogError(ex, "Error notifying BookingCancelled for pitch {PitchId}", pitchId);
         }
     }
+
+    public async Task NotifyPaymentSucceededAsync(Guid pitchId, Guid bookingId, decimal amount, DateOnly bookingDate, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group(pitchId.ToString())
+                .SendAsync("PaymentSucceeded", bookingId, amount, bookingDate.ToString("yyyy-MM-dd"), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error notifying PaymentSucceeded for pitch {PitchId}", pitchId);
+        }
+    }
 }

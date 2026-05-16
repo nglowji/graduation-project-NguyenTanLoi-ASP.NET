@@ -35,6 +35,29 @@ public class DashboardController : ApiControllerBase
         return OkResponse(result.Value);
     }
 
+    [HttpGet("owner/revenue")]
+    [Authorize(Roles = "PitchOwner")]
+    [ProducesResponseType(typeof(ApiResponse<OwnerDashboardDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetOwnerRevenue(
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var result = await _mediator.Send(
+            new GetOwnerDashboardQuery(ownerId, days, fromDate, toDate),
+            cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get owner revenue");
+
+        return OkResponse(result.Value);
+    }
+
     [HttpGet("admin/stats")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ApiResponse<AdminDashboardStatsDto>), StatusCodes.Status200OK)]
@@ -45,6 +68,24 @@ public class DashboardController : ApiControllerBase
 
         if (!result.IsSuccess)
             return BadRequestResponse(result.ErrorMessage ?? "Failed to get admin stats");
+
+        return OkResponse(result.Value);
+    }
+
+    [HttpGet("admin/revenue")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(ApiResponse<AdminRevenueReportDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAdminRevenue(
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(new GetAdminRevenueReportQuery(fromDate, toDate, days), cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to get admin revenue");
 
         return OkResponse(result.Value);
     }

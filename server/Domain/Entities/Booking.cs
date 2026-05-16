@@ -8,7 +8,7 @@ namespace Domain.Entities;
 
 public class Booking : BaseEntity, IAggregateRoot
 {
-    private const decimal MinimumDepositPercentage = 30m;
+    private const decimal MinimumDepositPercentage = 10m;
     
     private Booking() { } // EF Core constructor
 

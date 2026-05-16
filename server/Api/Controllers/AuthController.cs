@@ -33,13 +33,13 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestResponse(result.ErrorMessage ?? "Registration failed");
+            return BadRequestResponse(result.ErrorMessage ?? "Đăng ký thất bại.");
 
         return CreatedResponse(
             nameof(GetProfile),
             new { userId = result.Value!.UserId },
             result.Value,
-            "Registration successful"
+            "Đăng ký thành công."
         );
     }
 
@@ -54,9 +54,9 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestResponse(result.ErrorMessage ?? "Login failed");
+            return BadRequestResponse(result.ErrorMessage ?? "Đăng nhập thất bại.");
 
-        return OkResponse(result.Value, "Login successful");
+        return OkResponse(result.Value, "Đăng nhập thành công.");
     }
 
     [HttpPost("google-login")]
@@ -71,9 +71,9 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestResponse(result.ErrorMessage ?? "Google login failed");
+            return BadRequestResponse(result.ErrorMessage ?? "Đăng nhập Google thất bại.");
 
-        return OkResponse(result.Value, "Google login successful");
+        return OkResponse(result.Value, "Đăng nhập Google thành công.");
     }
 
     [HttpPost("facebook-login")]
@@ -88,9 +88,9 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestResponse(result.ErrorMessage ?? "Facebook login failed");
+            return BadRequestResponse(result.ErrorMessage ?? "Đăng nhập Facebook thất bại.");
 
-        return OkResponse(result.Value, "Facebook login successful");
+        return OkResponse(result.Value, "Đăng nhập Facebook thành công.");
     }
 
     [HttpGet("profile")]
@@ -106,7 +106,7 @@ public class AuthController : ApiControllerBase
         var result = await _mediator.Send(new GetProfileQuery(userId), cancellationToken);
 
         if (!result.IsSuccess)
-            return BadRequestResponse(result.ErrorMessage ?? "Failed to get profile");
+            return BadRequestResponse(result.ErrorMessage ?? "Không thể lấy thông tin tài khoản.");
 
         return OkResponse(result.Value);
     }
@@ -116,6 +116,6 @@ public class AuthController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status204NoContent)]
     public IActionResult Logout()
     {
-        return OkResponse<object?>(null, "Logged out successfully"); // Senior rule: 204 doesn't return body, but we can return 200 with success:true
+        return OkResponse<object?>(null, "Đăng xuất thành công."); // Senior rule: 204 doesn't return body, but we can return 200 with success:true
     }
 }

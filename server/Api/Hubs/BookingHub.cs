@@ -20,4 +20,5 @@ public interface IBookingHubClient
     Task TimeSlotStatusChanged(Guid timeSlotId, string status, string? date = null);
     Task BookingCreated(Guid pitchId, Guid timeSlotId, string date);
     Task BookingCancelled(Guid pitchId, Guid timeSlotId, string date);
+    Task PaymentSucceeded(Guid bookingId, decimal amount, string bookingDate);
 }

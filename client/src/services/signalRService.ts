@@ -41,6 +41,10 @@ class SignalRService {
     this.connection?.on('BookingCreated', callback);
   }
 
+  onPaymentSucceeded(callback: (bookingId: string, amount: number, bookingDate: string) => void) {
+    this.connection?.on('PaymentSucceeded', callback);
+  }
+
   off(methodName: string) {
     this.connection?.off(methodName);
   }

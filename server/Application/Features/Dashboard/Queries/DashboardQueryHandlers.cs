@@ -227,6 +227,149 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
     }
 }
 
+/// <summary>Handler for admin revenue report and commission tracing</summary>
+public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenueReportQuery, Result<AdminRevenueReportDto>>
+{
+    private const decimal CommissionRate = 0.10m;
+    private readonly IApplicationDbContext _context;
+
+    public GetAdminRevenueReportQueryHandler(IApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Result<AdminRevenueReportDto>> Handle(GetAdminRevenueReportQuery request, CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var safeDays = Math.Clamp(request.Days, 1, 365);
+        var toDate = request.ToDate ?? today;
+        var fromDate = request.FromDate ?? toDate.AddDays(-(safeDays - 1));
+
+        if (fromDate > toDate)
+            return Result<AdminRevenueReportDto>.Failure("From date must be before to date.");
+
+        var previousTo = fromDate.AddDays(-1);
+        var previousFrom = previousTo.AddDays(-(toDate.DayNumber - fromDate.DayNumber));
+
+        var bookings = await _context.Bookings
+            .AsNoTracking()
+            .Include(b => b.User)
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+                    .ThenInclude(p => p.SportCenter)
+            .Where(b => b.BookingDate >= fromDate
+                && b.BookingDate <= toDate
+                && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed))
+            .OrderByDescending(b => b.BookingDate)
+            .ThenByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var previousBookings = await _context.Bookings
+            .AsNoTracking()
+            .Where(b => b.BookingDate >= previousFrom
+                && b.BookingDate <= previousTo
+                && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed))
+            .ToListAsync(cancellationToken);
+
+        var ownerIds = bookings
+            .Select(b => b.TimeSlot.Pitch.OwnerId)
+            .Distinct()
+            .ToList();
+
+        var owners = await _context.Users
+            .AsNoTracking()
+            .Where(u => ownerIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+        var grossRevenue = bookings.Sum(b => b.TotalPrice.Amount);
+        var platformCommission = grossRevenue * CommissionRate;
+        var previousCommission = previousBookings.Sum(b => b.TotalPrice.Amount) * CommissionRate;
+        var commissionGrowth = previousCommission > 0
+            ? Math.Round((double)((platformCommission - previousCommission) / previousCommission * 100), 1)
+            : 0;
+
+        var trend = bookings
+            .GroupBy(b => b.BookingDate)
+            .Select(g => new AdminRevenueTrendPointDto(
+                g.Key.ToString("yyyy-MM-dd"),
+                g.Sum(b => b.TotalPrice.Amount),
+                g.Sum(b => b.TotalPrice.Amount) * CommissionRate,
+                g.Count()))
+            .OrderBy(item => item.Date)
+            .ToList();
+
+        var ownerRows = bookings
+            .GroupBy(b => b.TimeSlot.Pitch.OwnerId)
+            .Select(g =>
+            {
+                owners.TryGetValue(g.Key, out var owner);
+                var ownerGross = g.Sum(b => b.TotalPrice.Amount);
+                return new AdminOwnerCommissionDto(
+                    g.Key,
+                    owner?.FullName ?? "Unknown owner",
+                    owner?.Email ?? "",
+                    ownerGross,
+                    ownerGross * CommissionRate,
+                    g.Count(),
+                    g.Select(b => b.UserId).Distinct().Count());
+            })
+            .OrderByDescending(item => item.Commission)
+            .ToList();
+
+        var pitchTypes = bookings
+            .GroupBy(b => b.TimeSlot.Pitch.Type.ToString())
+            .Select(g =>
+            {
+                var typeGross = g.Sum(b => b.TotalPrice.Amount);
+                return new AdminPitchTypeCommissionDto(
+                    g.Key,
+                    typeGross,
+                    typeGross * CommissionRate,
+                    g.Count());
+            })
+            .OrderByDescending(item => item.Commission)
+            .ToList();
+
+        var transactions = bookings
+            .Take(100)
+            .Select(b =>
+            {
+                owners.TryGetValue(b.TimeSlot.Pitch.OwnerId, out var owner);
+                return new AdminCommissionTransactionDto(
+                    b.Id,
+                    b.BookingDate.ToString("yyyy-MM-dd"),
+                    b.User?.FullName ?? "Khach hang",
+                    b.User?.Email ?? "",
+                    b.TimeSlot.Pitch.Name,
+                    b.TimeSlot.Pitch.Type.ToString(),
+                    b.TimeSlot.Pitch.SportCenter?.Name ?? "N/A",
+                    owner?.FullName ?? "Unknown owner",
+                    owner?.Email ?? "",
+                    b.TotalPrice.Amount,
+                    b.TotalPrice.Amount * CommissionRate,
+                    b.Status.ToString());
+            })
+            .ToList();
+
+        return Result<AdminRevenueReportDto>.Success(new AdminRevenueReportDto(
+            grossRevenue,
+            platformCommission,
+            grossRevenue - platformCommission,
+            CommissionRate,
+            bookings.Count,
+            bookings.Count(b => b.Status == BookingStatus.Completed),
+            bookings.Count(b => b.Status == BookingStatus.Confirmed),
+            bookings.Select(b => b.UserId).Distinct().Count(),
+            ownerRows.Count,
+            commissionGrowth,
+            trend,
+            ownerRows,
+            pitchTypes,
+            transactions
+        ));
+    }
+}
+
 /// <summary>Handler for admin users list</summary>
 public class GetAdminUsersQueryHandler : IRequestHandler<GetAdminUsersQuery, Result<PagedResult<AdminUserDto>>>
 {

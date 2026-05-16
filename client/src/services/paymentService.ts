@@ -3,10 +3,14 @@ import api from './api';
 export interface CreatePaymentRequest {
   bookingId: string;
   returnUrl: string;
+  provider: 'VNPAY' | 'ZALOPAY';
 }
 
 export interface CreatePaymentResponse {
   paymentUrl: string;
+  provider: 'VNPAY' | 'ZALOPAY';
+  transactionId: string;
+  qrCode?: string | null;
 }
 
 export interface PaymentTransactionDto {
@@ -18,6 +22,8 @@ export interface PaymentTransactionDto {
   status: string;
   createdAt: string;
   providerTxnId?: string;
+  failureReason?: string | null;
+  refundReason?: string | null;
   message?: string;
 }
 

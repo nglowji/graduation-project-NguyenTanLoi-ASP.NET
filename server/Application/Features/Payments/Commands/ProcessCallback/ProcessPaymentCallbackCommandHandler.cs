@@ -8,18 +8,20 @@ namespace Application.Features.Payments.Commands.ProcessCallback;
 public class ProcessPaymentCallbackCommandHandler 
     : IRequestHandler<ProcessPaymentCallbackCommand, Result<PaymentCallbackResult>>
 {
-    private readonly IPaymentService _paymentService;
+    private const string ProviderVnpay = "VNPAY";
+
+    private readonly IPaymentGatewayResolver _paymentGatewayResolver;
     private readonly IBookingRepository _bookingRepository;
     private readonly IPublisher _publisher;
     private readonly ILogger<ProcessPaymentCallbackCommandHandler> _logger;
 
     public ProcessPaymentCallbackCommandHandler(
-        IPaymentService paymentService,
+        IPaymentGatewayResolver paymentGatewayResolver,
         IBookingRepository bookingRepository,
         IPublisher publisher,
         ILogger<ProcessPaymentCallbackCommandHandler> logger)
     {
-        _paymentService = paymentService;
+        _paymentGatewayResolver = paymentGatewayResolver;
         _bookingRepository = bookingRepository;
         _publisher = publisher;
         _logger = logger;
@@ -31,10 +33,10 @@ public class ProcessPaymentCallbackCommandHandler
     {
         _logger.LogInformation("Processing payment callback");
 
-        var result = await _paymentService.ProcessPaymentCallbackAsync(
-            request.QueryParams,
-            cancellationToken
-        );
+        var gateway = _paymentGatewayResolver.Resolve(ProviderVnpay);
+        var result = await gateway.ProcessCallbackAsync(
+            new PaymentGatewayCallback(QueryParams: request.QueryParams),
+            cancellationToken);
 
         if (result.IsSuccess && result.Value != null && result.Value.IsSuccess)
         {
@@ -55,7 +57,7 @@ public class ProcessPaymentCallbackCommandHandler
                     PitchName: booking.TimeSlot.Pitch.Name,
                     BookingDate: booking.BookingDate.ToString("dd/MM/yyyy"),
                     TimeSlot: $"{booking.TimeSlot.TimeRange.StartTime:hh\\:mm} - {booking.TimeSlot.TimeRange.EndTime:hh\\:mm}",
-                    Amount: booking.TotalPrice.Amount
+                    Amount: booking.DepositAmount.Amount
                 ), cancellationToken);
             }
         }

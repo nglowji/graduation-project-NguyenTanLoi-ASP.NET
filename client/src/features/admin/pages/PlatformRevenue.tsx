@@ -1,156 +1,372 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  DollarSign, TrendingUp, BarChart3, PieChart, Download, 
-  CreditCard, Wallet, ArrowUpRight, ArrowDownRight, Activity,
-  ShieldCheck, ChevronRight
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  CalendarDays,
+  CreditCard,
+  Download,
+  Loader2,
+  PieChart,
+  RefreshCw,
+  TrendingUp,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import api from '../../../services/api';
 
+type RevenueTrendPoint = {
+  date: string;
+  grossRevenue: number;
+  commission: number;
+  bookings: number;
+};
+
+type OwnerCommission = {
+  ownerId: string;
+  ownerName: string;
+  ownerEmail: string;
+  grossRevenue: number;
+  commission: number;
+  bookings: number;
+  uniqueCustomers: number;
+};
+
+type PitchTypeCommission = {
+  pitchType: string;
+  grossRevenue: number;
+  commission: number;
+  bookings: number;
+};
+
+type CommissionTransaction = {
+  bookingId: string;
+  bookingDate: string;
+  customerName: string;
+  customerEmail: string;
+  pitchName: string;
+  pitchType: string;
+  sportCenterName: string;
+  ownerName: string;
+  ownerEmail: string;
+  grossAmount: number;
+  commission: number;
+  status: string;
+};
+
+type RevenueReport = {
+  grossRevenue: number;
+  platformCommission: number;
+  ownerRevenue: number;
+  commissionRate: number;
+  totalBookings: number;
+  completedBookings: number;
+  confirmedBookings: number;
+  uniqueCustomers: number;
+  activeOwners: number;
+  commissionGrowth: number;
+  trend: RevenueTrendPoint[];
+  owners: OwnerCommission[];
+  pitchTypes: PitchTypeCommission[];
+  transactions: CommissionTransaction[];
+};
+
+const formatMoney = (value?: number) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
+
+const formatDate = (value?: string) => {
+  if (!value) return '--/--';
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+const statusLabel = (status: string) => {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('complete')) return 'Hoàn thành';
+  if (normalized.includes('confirm')) return 'Đã xác nhận';
+  return status;
+};
+
+const LineChart: React.FC<{ data: RevenueTrendPoint[] }> = ({ data }) => {
+  const width = 760;
+  const height = 250;
+  const padding = 26;
+  const maxValue = Math.max(...data.map((item) => item.commission), 1);
+  const points = data.map((item, index) => {
+    const x = data.length === 1 ? width / 2 : padding + (index / (data.length - 1)) * (width - padding * 2);
+    const y = height - padding - (item.commission / maxValue) * (height - padding * 2);
+    return { ...item, x, y };
+  });
+  const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+
+  if (data.length === 0) {
+    return <div className="grid h-[250px] place-items-center rounded-2xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-950">Chưa có doanh thu trong kỳ này</div>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Biểu đồ hoa hồng theo ngày">
+        {[0, 1, 2, 3].map((line) => {
+          const y = padding + line * ((height - padding * 2) / 3);
+          return <line key={line} x1={padding} x2={width - padding} y1={y} y2={y} stroke="oklch(88% 0.02 250)" strokeWidth="1" />;
+        })}
+        <path d={path} fill="none" stroke="oklch(58% 0.23 250)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((point) => (
+          <g key={`${point.date}-${point.commission}`}>
+            <circle cx={point.x} cy={point.y} r="5" fill="oklch(58% 0.23 250)" />
+            <text x={point.x} y={height - 4} textAnchor="middle" className="fill-slate-400 text-[12px] font-bold">
+              {formatDate(point.date)}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+const DonutChart: React.FC<{ data: PitchTypeCommission[] }> = ({ data }) => {
+  const total = data.reduce((sum, item) => sum + item.commission, 0);
+  let offset = 25;
+  const colors = ['oklch(58% 0.23 250)', 'oklch(68% 0.18 45)', 'oklch(62% 0.16 160)', 'oklch(55% 0.18 285)'];
+
+  if (!total) {
+    return <div className="grid h-56 place-items-center rounded-2xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-950">Chưa có cơ cấu doanh thu</div>;
+  }
+
+  return (
+    <div className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
+      <svg viewBox="0 0 42 42" className="mx-auto h-52 w-52 rotate-[-90deg]" role="img" aria-label="Cơ cấu hoa hồng theo loại sân">
+        <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="oklch(92% 0.01 250)" strokeWidth="7" />
+        {data.map((item, index) => {
+          const percentage = (item.commission / total) * 100;
+          const dash = `${percentage} ${100 - percentage}`;
+          const circle = (
+            <circle
+              key={item.pitchType}
+              cx="21"
+              cy="21"
+              r="15.9"
+              fill="transparent"
+              stroke={colors[index % colors.length]}
+              strokeWidth="7"
+              strokeDasharray={dash}
+              strokeDashoffset={offset}
+            />
+          );
+          offset -= percentage;
+          return circle;
+        })}
+      </svg>
+      <div className="space-y-3">
+        {data.map((item, index) => (
+          <div key={item.pitchType} className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
+              <span className="truncate text-sm font-black text-slate-700 dark:text-slate-200">{item.pitchType}</span>
+            </div>
+            <span className="shrink-0 text-sm font-black text-slate-950 dark:text-white">{Math.round((item.commission / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const PlatformRevenue: React.FC = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [days, setDays] = useState(30);
+  const [report, setReport] = useState<RevenueReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchReport = async () => {
+    setIsLoading(true);
+    setError('');
     try {
-      const res = await api.get('/dashboard/admin/stats') as any;
-      setStats(res);
+      const res = await api.get('/dashboard/admin/revenue', { params: { days } }) as RevenueReport;
+      setReport(res);
     } catch {
-      setStats(null);
+      setError('Không thể tải dữ liệu doanh thu. Kiểm tra quyền admin và server API.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  useEffect(() => {
+    fetchReport();
+  }, [days]);
+
+  const topTransactions = useMemo(() => report?.transactions.slice(0, 8) ?? [], [report]);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-40 gap-8 animate-in fade-in duration-700">
-        <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Processing financial reports...</p>
+      <div className="flex min-h-[420px] flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-indigo-600" size={42} />
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải doanh thu thật từ API</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Treasury Overview</span>
-          </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Quản lý doanh thu</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Quản lý dòng tiền, hoa hồng và thanh toán toàn hệ thống.</p>
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Admin revenue</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Quản lý doanh thu</h1>
+          <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-500">
+            Theo dõi tổng tiền đặt sân, hoa hồng nền tảng và nguồn thu theo chủ sân từ dữ liệu booking đã xác nhận hoặc hoàn thành.
+          </p>
         </div>
-        <button className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95 group">
-          <Download size={18} className="group-hover:-translate-y-0.5 transition-transform" /> 
-          Tải báo cáo tổng kết
-        </button>
-      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {[
-          { title: 'Hoa hồng tháng', value: formatCurrency(stats?.platformCommission || 0), change: `+${stats?.commissionGrowth || 0}%`, up: true, icon: <Wallet size={24} />, color: 'blue-600' },
-          { title: 'Tổng GD hệ thống', value: formatCurrency((stats?.platformCommission || 0) * 10), change: '+15.2%', up: true, icon: <CreditCard size={24} />, color: 'indigo-600' },
-          { title: 'Giao dịch chờ', value: formatCurrency(0), change: '0 đơn', up: true, icon: <Activity size={24} />, color: 'sky-500' },
-          { title: 'Tỷ lệ tăng trưởng', value: '12.4%', change: 'FY2024', up: true, icon: <TrendingUp size={24} />, color: 'emerald-600' },
-        ].map((s, i) => (
-          <motion.div 
-            key={s.title}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-8 relative overflow-hidden group hover:shadow-xl hover:border-blue-600/20 transition-all shadow-sm"
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            {[7, 30, 90].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDays(value)}
+                className={`h-10 rounded-lg px-4 text-xs font-black transition ${
+                  days === value ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500'
+                }`}
+              >
+                {value} ngày
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={fetchReport}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700"
           >
-            <div className="flex items-center justify-between mb-8 relative z-10">
-              <div className={`w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-${s.color} border border-slate-100 dark:border-slate-700 shadow-inner group-hover:scale-110 transition-transform duration-500`}>
-                {s.icon}
-              </div>
-              <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black ${s.up ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                {s.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                {s.change}
-              </div>
-            </div>
-            <div className="relative z-10">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{s.title}</p>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none">{s.value}</h3>
-            </div>
-            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-slate-50 dark:bg-slate-900/50 rounded-full opacity-50 group-hover:scale-110 transition-transform" />
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-10 shadow-sm group hover:shadow-xl transition-all">
-          <div className="flex items-center justify-between mb-12">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 border border-blue-100 dark:border-blue-500/20">
-                  <BarChart3 size={20} />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Dòng tiền hệ thống</h3>
-              </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-13">Phân tích biến động hoa hồng theo tháng</p>
-            </div>
-          </div>
-          
-          <div className="h-80 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/30 group-hover:bg-white dark:group-hover:bg-slate-800 transition-colors">
-            <Activity size={48} className="text-slate-200 dark:text-slate-800 mb-6 animate-pulse" />
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Aggregating nationwide data...</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-10 shadow-sm group hover:shadow-xl transition-all">
-          <div className="flex items-center justify-between mb-12">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 border border-indigo-100 dark:border-indigo-500/20">
-                  <PieChart size={20} />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Cơ cấu nguồn thu</h3>
-              </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-13">Tỷ trọng theo loại sân & khu vực</p>
-            </div>
-            <button className="p-3 text-slate-400 hover:text-blue-600 transition-colors"><ChevronRight size={20} /></button>
-          </div>
-          <div className="h-80 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/30 group-hover:bg-white dark:group-hover:bg-slate-800 transition-colors">
-            <div className="relative w-40 h-40 mb-6">
-              <div className="absolute inset-0 border-8 border-slate-100 dark:border-slate-800 rounded-full" />
-              <div className="absolute inset-0 border-8 border-indigo-600 rounded-full border-t-transparent border-l-transparent rotate-45" />
-            </div>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Analyzing category weights...</p>
-          </div>
-        </div>
-      </div>
-      
-      <motion.div 
-        whileHover={{ scale: 1.01 }}
-        className="p-10 bg-slate-900 dark:bg-blue-600/10 border border-slate-800 dark:border-blue-500/20 rounded-[3rem] relative overflow-hidden group cursor-pointer shadow-2xl"
-      >
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400">
-                <ShieldCheck size={24} />
-              </div>
-              <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Compliance & Transparency</span>
-            </div>
-            <h4 className="text-3xl font-black text-white leading-tight">Hệ thống đối soát & thanh toán an toàn</h4>
-            <p className="text-slate-400 text-sm font-medium max-w-xl">Mọi giao dịch trên nền tảng SmartSport đều được mã hóa và đối soát tự động, đảm bảo tính minh bạch tuyệt đối cho chủ sân và người chơi.</p>
-          </div>
-          <button className="px-8 py-4 bg-white text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-3 group/btn shadow-xl active:scale-95">
-            Xem quy trình thanh toán <ArrowUpRight size={18} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+            <RefreshCw size={18} />
+            Làm mới
           </button>
         </div>
-        <DollarSign className="absolute -bottom-10 -right-10 w-64 h-64 text-white/5 group-hover:scale-110 transition-transform duration-1000" />
-      </motion.div>
+      </header>
+
+      {error && (
+        <div className="flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+          <AlertCircle size={20} />
+          {error}
+        </div>
+      )}
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Hoa hồng nền tảng', value: formatMoney(report?.platformCommission), detail: `${report?.commissionGrowth || 0}% so với kỳ trước`, icon: <Wallet size={22} />, tone: 'text-indigo-600' },
+          { label: 'Tổng tiền đặt sân', value: formatMoney(report?.grossRevenue), detail: `${report?.totalBookings || 0} booking hợp lệ`, icon: <CreditCard size={22} />, tone: 'text-blue-600' },
+          { label: 'Doanh thu chủ sân', value: formatMoney(report?.ownerRevenue), detail: `${report?.activeOwners || 0} chủ sân có doanh thu`, icon: <Users size={22} />, tone: 'text-emerald-600' },
+          { label: 'Tỷ lệ hoa hồng', value: `${Math.round((report?.commissionRate || 0) * 100)}%`, detail: `${report?.uniqueCustomers || 0} khách đã đặt sân`, icon: <TrendingUp size={22} />, tone: 'text-amber-600' },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className={`mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-50 ${item.tone} dark:bg-slate-800`}>
+              {item.icon}
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+            <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{item.value}</p>
+            <p className="mt-1 text-xs font-bold text-slate-400">{item.detail}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Hoa hồng theo ngày</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">Dữ liệu từ `/dashboard/admin/revenue`.</p>
+            </div>
+            <CalendarDays className="text-indigo-600" size={24} />
+          </div>
+          <LineChart data={report?.trend ?? []} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Cơ cấu loại sân</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">Tỷ trọng hoa hồng theo loại sân.</p>
+            </div>
+            <PieChart className="text-blue-600" size={24} />
+          </div>
+          <DonutChart data={report?.pitchTypes ?? []} />
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-5 dark:border-slate-800">
+            <h2 className="text-lg font-black text-slate-950 dark:text-white">Top chủ sân theo hoa hồng</h2>
+            <p className="mt-1 text-xs font-bold text-slate-400">Xếp hạng theo phần nền tảng nhận được.</p>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {(report?.owners ?? []).slice(0, 6).map((owner, index) => (
+              <div key={owner.ownerId} className="grid grid-cols-[38px_minmax(0,1fr)_auto] gap-3 p-4">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 text-sm font-black text-indigo-600">{index + 1}</div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950 dark:text-white">{owner.ownerName}</p>
+                  <p className="mt-1 truncate text-xs font-bold text-slate-400">{owner.bookings} booking · {owner.uniqueCustomers} khách</p>
+                </div>
+                <p className="text-right text-sm font-black text-indigo-600">{formatMoney(owner.commission)}</p>
+              </div>
+            ))}
+            {(report?.owners ?? []).length === 0 && <div className="p-8 text-center text-sm font-bold text-slate-400">Chưa có chủ sân phát sinh hoa hồng.</div>}
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Giao dịch hoa hồng mới nhất</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">Thể hiện người đặt, sân và chủ sân tương ứng.</p>
+            </div>
+            <button className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50 text-slate-500 dark:bg-slate-800" title="Xuất báo cáo">
+              <Download size={18} />
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[920px] w-full text-left">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:bg-slate-950">
+                <tr>
+                  <th className="px-4 py-3">Người đặt</th>
+                  <th className="px-4 py-3">Sân</th>
+                  <th className="px-4 py-3">Chủ sân</th>
+                  <th className="px-4 py-3 text-right">Tiền sân</th>
+                  <th className="px-4 py-3 text-right">Hoa hồng</th>
+                  <th className="px-4 py-3">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {topTransactions.map((item) => (
+                  <tr key={item.bookingId} className="text-sm">
+                    <td className="px-4 py-4">
+                      <p className="font-black text-slate-950 dark:text-white">{item.customerName}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">{formatDate(item.bookingDate)}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-black text-slate-700 dark:text-slate-200">{item.pitchName}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">{item.sportCenterName}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-black text-slate-700 dark:text-slate-200">{item.ownerName}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">{item.ownerEmail}</p>
+                    </td>
+                    <td className="px-4 py-4 text-right font-black text-slate-700 dark:text-slate-200">{formatMoney(item.grossAmount)}</td>
+                    <td className="px-4 py-4 text-right font-black text-indigo-600">{formatMoney(item.commission)}</td>
+                    <td className="px-4 py-4">
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-100">
+                        {statusLabel(item.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {topTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm font-bold text-slate-400">Chưa có giao dịch hoa hồng trong kỳ này.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

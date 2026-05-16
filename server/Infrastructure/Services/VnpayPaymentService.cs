@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Application.Common.Interfaces;
 using Application.Common.DTOs;
+using Application.Features.Payments.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.ValueObjects;
@@ -12,8 +13,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
-public class VnpayPaymentService : IPaymentService
+public class VnpayPaymentService : IPaymentService, IPaymentGateway
 {
+    public string Provider => "VNPAY";
+
     private readonly IConfiguration _configuration;
     private readonly IApplicationDbContext _context;
     private readonly IBookingNotificationService _notificationService;
@@ -78,11 +81,47 @@ public class VnpayPaymentService : IPaymentService
             ?? throw new InvalidOperationException("VnPay:TmnCode is not configured");
         _vnpayHashSecret = configuration["VnPay:HashSecret"] 
             ?? throw new InvalidOperationException("VnPay:HashSecret is not configured");
+
+        if (IsPlaceholderCredential(_vnpayTmnCode) || IsPlaceholderCredential(_vnpayHashSecret))
+        {
+            _logger.LogWarning(
+                "VNPAY credentials are placeholders. Configure VnPay:TmnCode and VnPay:HashSecret before creating real payment URLs."
+            );
+        }
     }
 
     #region Public Methods
 
-    public async Task<Result<string>> CreatePaymentUrlAsync(
+    public Task<Result<PaymentInitResult>> CreatePaymentAsync(
+        PaymentGatewayCreateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return CreatePaymentUrlAsync(
+            request.BookingId,
+            request.Amount,
+            request.ReturnUrl,
+            request.IpAddress,
+            cancellationToken);
+    }
+
+    public Task<Result<PaymentCallbackResult>> ProcessCallbackAsync(
+        PaymentGatewayCallback callback,
+        CancellationToken cancellationToken = default)
+    {
+        if (callback.QueryParams is null)
+            return Task.FromResult(Result<PaymentCallbackResult>.Failure("VNPAY callback query parameters are required"));
+
+        return ProcessPaymentCallbackAsync(callback.QueryParams, cancellationToken);
+    }
+
+    public Task<Result> SynchronizePaymentAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Result.Success());
+    }
+
+    public async Task<Result<PaymentInitResult>> CreatePaymentUrlAsync(
         Guid bookingId,
         decimal amount,
         string returnUrl,
@@ -93,10 +132,13 @@ public class VnpayPaymentService : IPaymentService
         {
             var booking = await GetBookingWithDetailsAsync(bookingId, cancellationToken);
             if (booking == null)
-                return Result<string>.Failure("Booking not found");
+                return Result<PaymentInitResult>.Failure("Booking not found");
+
+            if (IsPlaceholderCredential(_vnpayTmnCode) || IsPlaceholderCredential(_vnpayHashSecret))
+                return Result<PaymentInitResult>.Failure("VNPAY chưa được cấu hình TmnCode/HashSecret hợp lệ.");
 
             if (await HasSuccessfulPaymentAsync(bookingId, cancellationToken))
-                return Result<string>.Failure("Booking already paid");
+                return Result<PaymentInitResult>.Failure("Booking already paid");
 
             var transaction = await GetOrCreateTransactionAsync(
                 bookingId,
@@ -113,12 +155,17 @@ public class VnpayPaymentService : IPaymentService
                 transaction.Id
             );
 
-            return Result<string>.Success(paymentUrl);
+            return Result<PaymentInitResult>.Success(new PaymentInitResult(
+                transaction.Id,
+                "VNPAY",
+                paymentUrl,
+                null
+            ));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating payment URL for booking {BookingId}", bookingId);
-            return Result<string>.Failure("Failed to create payment URL");
+            return Result<PaymentInitResult>.Failure("Failed to create payment URL");
         }
     }
 
@@ -303,6 +350,7 @@ public class VnpayPaymentService : IPaymentService
     {
         return await _context.PaymentTransactions
             .Include(pt => pt.Booking)
+                .ThenInclude(b => b.TimeSlot)
             .FirstOrDefaultAsync(pt => pt.Id == transactionId, cancellationToken);
     }
 
@@ -425,6 +473,14 @@ public class VnpayPaymentService : IPaymentService
             transaction.Booking.TimeSlot.PitchId,
             transaction.Booking.TimeSlotId,
             "Confirmed",
+            transaction.Booking.BookingDate,
+            cancellationToken
+        );
+
+        await _notificationService.NotifyPaymentSucceededAsync(
+            transaction.Booking.TimeSlot.PitchId,
+            transaction.BookingId,
+            transaction.Amount.Amount,
             transaction.Booking.BookingDate,
             cancellationToken
         );
@@ -757,6 +813,13 @@ public class VnpayPaymentService : IPaymentService
             RESPONSE_CODE_WRONG_PASSWORD => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định",
             _ => $"Giao dịch thất bại (Mã lỗi: {responseCode})"
         };
+    }
+
+    private static bool IsPlaceholderCredential(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            || value.Contains("YOUR_", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("DEMO_", StringComparison.OrdinalIgnoreCase);
     }
 
     #endregion

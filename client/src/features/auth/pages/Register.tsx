@@ -27,6 +27,28 @@ const Register: React.FC = () => {
   const auth = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState<string[]>([]);
+
+  const errorTranslations: Record<string, string> = {
+    'Validation failed': 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
+    'Registration failed': 'Đăng ký thất bại. Vui lòng kiểm tra lại.',
+    'Email already exists': 'Email đã được sử dụng.',
+    'Email is required': 'Email là bắt buộc.',
+    'Invalid email format': 'Email không đúng định dạng.',
+    'Email cannot exceed 255 characters': 'Email không được vượt quá 255 ký tự.',
+    'Password is required': 'Mật khẩu là bắt buộc.',
+    'Password must be at least 8 characters': 'Mật khẩu phải có ít nhất 8 ký tự.',
+    'Password must contain at least one uppercase letter': 'Mật khẩu phải có ít nhất 1 chữ hoa.',
+    'Password must contain at least one lowercase letter': 'Mật khẩu phải có ít nhất 1 chữ thường.',
+    'Password must contain at least one number': 'Mật khẩu phải có ít nhất 1 chữ số.',
+    'Password must contain at least one special character': 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt.',
+    'Full name is required': 'Họ và tên là bắt buộc.',
+    'Full name cannot exceed 200 characters': 'Họ và tên không được vượt quá 200 ký tự.',
+    'Phone number is required': 'Số điện thoại là bắt buộc.',
+    'Invalid Vietnamese phone number format': 'Số điện thoại không đúng định dạng Việt Nam.'
+  };
+
+  const toVietnameseError = (message: string) => errorTranslations[message] ?? message;
 
   // Form Basic Data
   const [name, setName] = useState('');
@@ -49,16 +71,19 @@ const Register: React.FC = () => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
+      setErrorDetails([]);
       return;
     }
 
     if (!selectedProvince || !selectedDistrict || !selectedWard) {
       setError('Vui lòng chọn đầy đủ địa chỉ.');
+      setErrorDetails([]);
       return;
     }
 
     setIsLoading(true);
     setError('');
+    setErrorDetails([]);
 
     try {
       const fullAddress = `${detailAddress ? detailAddress + ', ' : ''}${selectedWard.name}, ${selectedDistrict.name}, ${selectedProvince.name}`;
@@ -73,7 +98,14 @@ const Register: React.FC = () => {
       });
       navigate('/login');
     } catch (err: any) {
-      setError(err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại.');
+      const details = Array.isArray(err?.errors)
+        ? err.errors.filter(Boolean).map(toVietnameseError)
+        : [];
+      const message = err?.message
+        ? toVietnameseError(err.message)
+        : 'Đăng ký thất bại. Vui lòng kiểm tra lại.';
+      setError(message);
+      setErrorDetails(details);
     } finally {
       setIsLoading(false);
     }
@@ -83,17 +115,22 @@ const Register: React.FC = () => {
     onSuccess: async (tokenResponse) => {
       setIsLoading(true);
       setError('');
+      setErrorDetails([]);
       try {
         const response = await authService.googleLogin(tokenResponse.access_token);
         auth.login(response);
         navigate('/');
       } catch (err: any) {
         setError(err.message || 'Đăng ký Google thất bại.');
+        setErrorDetails([]);
       } finally {
         setIsLoading(false);
       }
     },
-    onError: () => setError('Đăng ký Google thất bại.')
+    onError: () => {
+      setError('Đăng ký Google thất bại.');
+      setErrorDetails([]);
+    }
   });
 
   const inputClasses = "w-full bg-white border-2 border-slate-200 rounded-2xl py-4 px-6 focus:outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold text-sm text-slate-900 placeholder:text-slate-400";
@@ -103,13 +140,13 @@ const Register: React.FC = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex-1 flex flex-col lg:flex-row relative z-10"
+      className="flex-1 flex flex-col md:flex-row relative z-10"
       style={{ marginTop: '80px' }}
     >
-      <div className="hidden lg:block lg:w-1/2 relative bg-slate-900 overflow-hidden order-2">
+      <div className="hidden md:block md:w-1/2 relative bg-slate-900 overflow-hidden order-2">
         <img 
-          src="https://images.unsplash.com/photo-1595435066359-6286386730b9?q=80&w=1500" 
-          alt="Sports Complex" 
+          src="https://haenglish.edu.vn/wp-content/uploads/2023/08/sport-equipment-concept-1284-13034.jpg"
+          alt="Sports equipment" 
           className="absolute inset-0 w-full h-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-linear-to-t from-slate-900 via-transparent to-transparent" />
@@ -119,13 +156,13 @@ const Register: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white order-1">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white order-1">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-lg"
         >
-          <div className="mb-10 text-center lg:text-left">
+          <div className="mb-10 text-center md:text-left">
             <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Tạo tài khoản mới</h2>
             <p className="text-slate-500 font-bold">Bắt đầu hành trình thể thao của bạn ngay hôm nay</p>
           </div>
@@ -133,9 +170,19 @@ const Register: React.FC = () => {
           {error && (
             <motion.div 
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-lg shadow-red-500/5"
+              className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold shadow-lg shadow-red-500/5"
             >
-              <Lock size={18} /> {error}
+              <div className="flex items-center gap-3">
+                <Lock size={18} />
+                <span>{error}</span>
+              </div>
+              {errorDetails.length > 0 && (
+                <ul className="mt-2 list-disc list-inside text-red-600/90 font-semibold text-xs">
+                  {errorDetails.map((item, index) => (
+                    <li key={`${item}-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              )}
             </motion.div>
           )}
 
