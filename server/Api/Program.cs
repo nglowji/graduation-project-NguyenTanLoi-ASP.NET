@@ -143,13 +143,16 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Sports Pitch Booking API v1");
-        options.RoutePrefix = string.Empty;
+        options.RoutePrefix = "swagger";
     });
 }
 
@@ -163,6 +166,16 @@ app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/", () => Results.Ok(new
+{
+    Status = "Healthy",
+    Service = "Sports Pitch Booking API",
+    Environment = app.Environment.EnvironmentName,
+    Health = "/health",
+    ApiHealth = "/api/health",
+    Swagger = swaggerEnabled ? "/swagger" : "Disabled. Set Swagger__Enabled=true to enable it."
+}));
 
 app.MapControllers();
 app.MapHub<Api.Hubs.BookingHub>("/hubs/booking");

@@ -38,6 +38,7 @@ Set these environment variables:
 ```text
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:10000
+Swagger__Enabled=true
 ConnectionStrings__DefaultConnection=<postgres-connection-string>
 Jwt__SecretKey=<new-strong-secret>
 Jwt__Issuer=SmartSportAPI
@@ -142,6 +143,8 @@ VITE_SIGNALR_URL=https://<render-service>.onrender.com/hubs/booking
 
 `VITE_SIGNALR_URL` is optional locally because the client can derive it from `VITE_API_URL`, but set it explicitly in Vercel for clarity.
 
+Vite reads `VITE_*` variables at build time. After adding or changing `VITE_API_URL` in Vercel, redeploy the frontend so the production bundle stops using the local fallback.
+
 ## 4. GitHub Actions Secrets
 
 Add these repository secrets in GitHub Actions:
@@ -164,7 +167,9 @@ curl --fail --show-error --silent --request POST "$DEPLOY_HOOK"
 After deploy:
 
 ```text
+GET https://<render-service>.onrender.com/
 GET https://<render-service>.onrender.com/health
+Open https://<render-service>.onrender.com/swagger
 Open https://<vercel-app>.vercel.app
 Login/register works
 Booking calls do not show CORS errors
@@ -196,4 +201,43 @@ Do not change the PostgreSQL variable to `Server=...`; keep:
 
 ```text
 ConnectionStrings__DefaultConnection=Host=<host>;Port=5432;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+If Render logs show:
+
+```text
+System.Net.Sockets.SocketException: Name or service not known
+at System.Net.Dns.GetHostEntryOrAddressesCore...
+at Npgsql...
+```
+
+The backend is using PostgreSQL correctly, but the `Host` value in `ConnectionStrings__DefaultConnection` is wrong or cannot be resolved.
+
+Fix checklist:
+
+```text
+1. Open Render Dashboard > PostgreSQL database > Info/Connections.
+2. Copy the database Hostname exactly, without https:// and without quotes.
+3. Make sure the Web Service and PostgreSQL database are in the same Render account/project.
+4. In Web Service > Environment, update ConnectionStrings__DefaultConnection.
+5. Save changes, then Manual Deploy > Clear build cache & deploy.
+```
+
+Correct examples:
+
+```text
+# If using Render internal hostname:
+ConnectionStrings__DefaultConnection=Host=<internal-hostname>;Port=5432;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+
+# If using Render external hostname:
+ConnectionStrings__DefaultConnection=Host=<external-hostname>;Port=5432;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+Wrong examples:
+
+```text
+ConnectionStrings__DefaultConnection=Host=https://xxxxx.render.com;...
+ConnectionStrings__DefaultConnection=Host=<host>;...
+ConnectionStrings__DefaultConnection=postgresql://user:password@host/database
+ConnectionStrings__DefaultConnection=Host=postgres://user:password@host/database;...
 ```

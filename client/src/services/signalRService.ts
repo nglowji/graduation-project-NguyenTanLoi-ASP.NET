@@ -1,9 +1,9 @@
 import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import { API_URL } from './api';
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5164/api/v1';
 const signalRUrl =
   import.meta.env.VITE_SIGNALR_URL ||
-  `${apiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')}/hubs/booking`;
+  `${API_URL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')}/hubs/booking`;
 
 class SignalRService {
   private connection: HubConnection | null = null;
