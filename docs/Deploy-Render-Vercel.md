@@ -130,6 +130,7 @@ Import the same GitHub repository into Vercel.
 ```text
 Root Directory: client
 Framework Preset: Vite
+Install Command: npm install --legacy-peer-deps
 Build Command: npm run build
 Output Directory: dist
 ```
