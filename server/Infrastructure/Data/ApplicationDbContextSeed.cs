@@ -16,10 +16,7 @@ public static class ApplicationDbContextSeed
     {
         try
         {
-            if (context.Database.IsSqlServer())
-            {
-                await context.Database.MigrateAsync();
-            }
+            await context.Database.MigrateAsync();
 
             // Seed Admin User
             var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001");

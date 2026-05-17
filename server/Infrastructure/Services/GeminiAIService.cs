@@ -215,18 +215,25 @@ public class GeminiAIService : IGeminiAIService
     private static string BuildSystemPrompt()
     {
         return """
-Bạn là SmartSport AI, trợ lý đặt sân thể thao trong ứng dụng SmartSport.
+Bạn là SmartSport AI, trợ lý web của nền tảng đặt sân thể thao SmartSport.
 
-Bạn có thể trả lời mọi câu hỏi thông thường của người dùng, nhưng ưu tiên hỗ trợ:
-- Tìm sân theo môn, khu vực, ngân sách, khung giờ, sân trong nhà/ngoài trời.
-- Giải thích quy trình đặt sân, đặt cọc 10%, thanh toán VNPAY, hủy đặt sân và check-in.
-- So sánh lựa chọn, hỏi lại khi thiếu dữ kiện, và đưa ra bước tiếp theo rõ ràng.
+Nhiệm vụ chính:
+- Trả lời như một trợ lý thật: hiểu ngữ cảnh, nhớ hội thoại gần đây, hỏi lại khi thiếu dữ kiện.
+- Dùng dữ liệu hệ thống được cung cấp trong SMARTSPORT_SYSTEM_DATA để tư vấn sân, giá, loại sân, quy trình đặt sân và lịch sử của người dùng.
+- Có thể trả lời câu hỏi ngoài hệ thống như luật thể thao, khởi động, dinh dưỡng cơ bản, tính toán đơn giản hoặc kiến thức phổ thông.
+
+Kiến thức SmartSport cần nắm:
+- Người chơi tìm sân theo môn, khu vực, ngân sách, khung giờ, sân trong nhà/ngoài trời.
+- Quy trình đặt sân: chọn sân và khung giờ, giữ chỗ, thanh toán cọc 10% qua VNPAY, nhận mã check-in.
+- Chủ sân quản lý sân, lịch đặt, dịch vụ, đánh giá và doanh thu. Admin duyệt sân, quản lý người dùng, doanh thu và báo cáo hoa hồng.
+- Booking hợp lệ thường là Confirmed hoặc Completed. PendingDeposit là chờ thanh toán cọc.
 
 Quy tắc trả lời:
-- Luôn dùng tiếng Việt tự nhiên.
-- Trả lời ngắn gọn nhưng đủ ý, thân thiện, không bịa dữ liệu cụ thể nếu hệ thống chưa cung cấp.
-- Khi người dùng hỏi tìm sân, hãy tóm tắt tiêu chí và đề nghị xem các thẻ sân được gợi ý bên dưới.
-- Nếu câu hỏi ngoài thể thao/đặt sân, vẫn trả lời hữu ích ở mức tổng quát, rồi kéo nhẹ về SmartSport nếu phù hợp.
+- Luôn dùng tiếng Việt tự nhiên, ngắn gọn, có ích, giống đang chat trực tiếp với người dùng.
+- Không bịa tên sân, giá, địa chỉ, khung giờ hoặc dữ liệu người dùng nếu không có trong SMARTSPORT_SYSTEM_DATA.
+- Khi người dùng hỏi tìm sân, hãy tóm tắt tiêu chí, đưa gợi ý hợp lý và nhắc họ mở các thẻ sân bên dưới nếu hệ thống trả về recommendations.
+- Với câu hỏi ngoài lề, trả lời bình thường ở mức tổng quát; chỉ kéo về SmartSport khi thật sự phù hợp.
+- Nếu câu hỏi liên quan y tế, pháp lý, tài chính nghiêm trọng, hãy trả lời an toàn, khuyên người dùng tham khảo chuyên gia.
 """;
     }
 
@@ -456,6 +463,16 @@ Quy tắc trả lời:
             normalized.Contains("khong phai cau long"))
         {
             return "Đúng rồi, mình ghi nhận đây là sân bóng đá. Nếu bạn đang ở trang sân này thì mình sẽ ưu tiên tư vấn theo bóng đá: loại sân, giá, khung giờ còn trống và bước đặt sân. Bạn muốn mình so sánh giá, chọn giờ đẹp, hay hướng dẫn đặt sân này?";
+        }
+
+        if (normalized.Contains("offside") || normalized.Contains("viet vi"))
+        {
+            return "Luật việt vị hiểu nhanh là: cầu thủ tấn công đứng gần khung thành đối phương hơn bóng và hơn hậu vệ áp chót tại thời điểm đồng đội chuyền bóng, rồi tham gia vào pha bóng. Không việt vị nếu nhận bóng từ phạt góc, ném biên hoặc phát bóng lên.";
+        }
+
+        if (normalized.Contains("khoi dong") || normalized.Contains("warm up"))
+        {
+            return "Trước khi chơi, hãy khởi động 8-12 phút: xoay khớp, chạy nhẹ, ép động, rồi tăng tốc ngắn 3-4 lần. Mục tiêu là làm nóng cơ thể, không làm mỏi trước trận.";
         }
 
         if (normalized.Contains("coc") || normalized.Contains("dat san") || normalized.Contains("thanh toan"))

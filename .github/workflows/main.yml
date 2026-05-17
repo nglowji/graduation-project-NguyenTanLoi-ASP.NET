@@ -70,12 +70,25 @@ jobs:
   backend-deploy:
     name: Backend (ASP.NET) Deploy to Render
     runs-on: ubuntu-latest
-    needs: backend-build-test
+    needs: [backend-build-test, frontend-build-deploy]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
     - name: Trigger Render Deployment
       env:
         DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      shell: bash
       run: |
-        curl -X POST "$DEPLOY_HOOK"
+        DEPLOY_HOOK="$(printf '%s' "$DEPLOY_HOOK" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//')"
+
+        if [ -z "$DEPLOY_HOOK" ]; then
+          echo "::error::Missing secret RENDER_DEPLOY_HOOK_URL. Add the Render deploy hook URL in GitHub repository secrets."
+          exit 1
+        fi
+
+        if [[ ! "$DEPLOY_HOOK" =~ ^https?:// ]]; then
+          echo "::error::RENDER_DEPLOY_HOOK_URL must start with http:// or https://. Re-copy the Deploy Hook URL from Render without extra text."
+          exit 1
+        fi
+
+        curl --fail --show-error --silent --request POST "$DEPLOY_HOOK"
         echo "Successfully triggered Render deployment."

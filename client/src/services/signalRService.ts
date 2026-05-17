@@ -1,5 +1,10 @@
 import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5164/api/v1';
+const signalRUrl =
+  import.meta.env.VITE_SIGNALR_URL ||
+  `${apiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')}/hubs/booking`;
+
 class SignalRService {
   private connection: HubConnection | null = null;
 
@@ -7,7 +12,7 @@ class SignalRService {
     if (this.connection) return;
 
     this.connection = new HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_API_URL || 'http://localhost:5167'}/hubs/booking`)
+      .withUrl(signalRUrl)
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Information)
       .build();

@@ -29,7 +29,7 @@ public class ChatConversationConfiguration : IEntityTypeConfiguration<ChatConver
             .HasConversion(
                 v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                 v => System.Text.Json.JsonSerializer.Deserialize<List<ChatMessage>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<ChatMessage>())
-            .HasColumnType("nvarchar(max)")
+            .HasColumnType("text")
             .Metadata.SetValueComparer(new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<ChatMessage>>(
                 (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
                 c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
