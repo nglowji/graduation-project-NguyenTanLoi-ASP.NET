@@ -42,6 +42,40 @@ const PITCH_TYPE_NAME_TO_ID: Record<string, string> = {
   TableTennis: '9',
 };
 
+type PitchFormState = {
+  name: string;
+  address: string;
+  description: string;
+  sportCategory: string;
+  pitchType: string;
+  isIndoor: boolean;
+  images: string[];
+  timeSlots: { startTime: string; endTime: string; price: string }[];
+};
+
+const normalizePitchTypeId = (rawType: unknown) => {
+  if (typeof rawType === 'number') return rawType > 0 ? rawType.toString() : '1';
+  if (typeof rawType === 'string') {
+    if (PITCH_TYPE_NAME_TO_ID[rawType]) return PITCH_TYPE_NAME_TO_ID[rawType];
+    const numericType = Number(rawType);
+    if (Number.isFinite(numericType) && numericType > 0) return numericType.toString();
+  }
+  return '1';
+};
+
+const toTimeInputValue = (value: unknown) => {
+  const text = String(value || '');
+  return text.includes(':') ? text.substring(0, 5) : '';
+};
+
+const toApiTimeValue = (value: string) => value.length === 5 ? `${value}:00` : value;
+
+const parseMinutes = (value: string) => {
+  const [hour, minute] = value.split(':').map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return Number.NaN;
+  return hour * 60 + minute;
+};
+
 const PitchEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,7 +84,7 @@ const PitchEditor: React.FC = () => {
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PitchFormState>({
     name: '',
     address: '',
     description: '',
@@ -89,16 +123,6 @@ const PitchEditor: React.FC = () => {
         return;
       }
 
-      const normalizePitchTypeId = (rawType: unknown) => {
-        if (typeof rawType === 'number') return rawType > 0 ? rawType.toString() : '1';
-        if (typeof rawType === 'string') {
-          if (PITCH_TYPE_NAME_TO_ID[rawType]) return PITCH_TYPE_NAME_TO_ID[rawType];
-          const numericType = Number(rawType);
-          if (Number.isFinite(numericType) && numericType > 0) return numericType.toString();
-        }
-        return '1';
-      };
-
       const pitchTypeId = normalizePitchTypeId(pitch.pitchType ?? pitch.type);
       const category = SPORT_CATEGORIES.find((item) => item.types.some((type) => type.id === pitchTypeId))?.id || 'football';
       const activeTimeSlots = (pitch.timeSlots || []).filter((slot: any) => slot.isActive !== false);
@@ -112,8 +136,8 @@ const PitchEditor: React.FC = () => {
         isIndoor: pitch.isIndoor || false,
         images: pitch.images?.length > 0 ? pitch.images.map((image: any) => image.imageUrl || image) : [''],
         timeSlots: activeTimeSlots.map((slot: any) => ({
-          startTime: slot.startTime.substring(0, 5),
-          endTime: slot.endTime.substring(0, 5),
+          startTime: toTimeInputValue(slot.startTime),
+          endTime: toTimeInputValue(slot.endTime),
           price: (slot.price ?? slot.amount ?? 0).toString(),
         })),
       });
@@ -125,28 +149,24 @@ const PitchEditor: React.FC = () => {
   };
 
   const handleGenerateSlots = () => {
-    const parseTime = (value: string) => {
-      const [hour, minute] = value.split(':').map(Number);
-      return hour * 60 + (minute || 0);
-    };
     const formatTime = (value: number) => {
       const hour = Math.floor(value / 60);
       const minute = value % 60;
       return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
     };
 
-    let current = parseTime(autoGen.startTime);
-    const end = parseTime(autoGen.endTime);
+    let current = parseMinutes(autoGen.startTime);
+    const end = parseMinutes(autoGen.endTime);
     const duration = autoGen.duration * 60;
 
-    if (end <= current || duration <= 0) {
+    if (!Number.isFinite(current) || !Number.isFinite(end) || end <= current || duration <= 0) {
       setError('Giờ đóng cửa phải sau giờ mở cửa và thời lượng phải hợp lệ.');
       return;
     }
 
-    const peakStart = parseTime('17:00');
-    const peakEnd = parseTime('22:00');
-    const nextSlots = [];
+    const peakStart = parseMinutes('17:00');
+    const peakEnd = parseMinutes('22:00');
+    const nextSlots: PitchFormState['timeSlots'] = [];
 
     while (current + duration <= end) {
       let finalPrice = Number(autoGen.price) || 0;
@@ -167,8 +187,42 @@ const PitchEditor: React.FC = () => {
       return;
     }
 
-    setFormData({ ...formData, timeSlots: nextSlots });
+    setFormData((currentForm) => ({ ...currentForm, timeSlots: nextSlots }));
     setError('');
+  };
+
+  const validateTimeSlots = () => {
+    if (formData.timeSlots.length === 0) {
+      return 'Vui lòng thêm ít nhất một khung giờ.';
+    }
+
+    const normalized = formData.timeSlots.map((slot, index) => ({
+      index,
+      start: parseMinutes(slot.startTime),
+      end: parseMinutes(slot.endTime),
+      price: Number(slot.price),
+    }));
+
+    const invalid = normalized.find((slot) =>
+      !Number.isFinite(slot.start) ||
+      !Number.isFinite(slot.end) ||
+      slot.end <= slot.start ||
+      !Number.isFinite(slot.price) ||
+      slot.price <= 0
+    );
+
+    if (invalid) {
+      return `Khung giờ ${invalid.index + 1} chưa hợp lệ. Giờ kết thúc phải sau giờ bắt đầu và giá phải lớn hơn 0.`;
+    }
+
+    const sorted = [...normalized].sort((a, b) => a.start - b.start);
+    for (let index = 1; index < sorted.length; index += 1) {
+      if (sorted[index].start < sorted[index - 1].end) {
+        return `Khung giờ ${sorted[index - 1].index + 1} và ${sorted[index].index + 1} đang bị trùng nhau.`;
+      }
+    }
+
+    return '';
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -177,10 +231,16 @@ const PitchEditor: React.FC = () => {
     setError('');
 
     try {
+      const validationError = validateTimeSlots();
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
       const timeSlots = formData.timeSlots.map((slot) => ({
-        startTime: slot.startTime.includes(':') && slot.startTime.split(':').length === 2 ? `${slot.startTime}:00` : slot.startTime,
-        endTime: slot.endTime.includes(':') && slot.endTime.split(':').length === 2 ? `${slot.endTime}:00` : slot.endTime,
-        price: Number(slot.price) || 0,
+        startTime: toApiTimeValue(slot.startTime),
+        endTime: toApiTimeValue(slot.endTime),
+        price: Number(slot.price),
       }));
 
       const payload = {
@@ -188,7 +248,7 @@ const PitchEditor: React.FC = () => {
         description: formData.description.trim(),
         pitchType: Number(formData.pitchType),
         isIndoor: formData.isIndoor,
-        images: formData.images.filter((image) => image.trim() !== ''),
+        images: formData.images.map((image) => image.trim()).filter(Boolean),
         timeSlots,
       };
 
@@ -220,9 +280,9 @@ const PitchEditor: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+    <div className="mx-auto max-w-[1500px] min-w-0 space-y-6 pb-16">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <button
             type="button"
             onClick={() => navigate('/dashboard/owner/pitches')}
@@ -232,7 +292,7 @@ const PitchEditor: React.FC = () => {
             Quay lại danh sách sân
           </button>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Pitch setup</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
             {isEditing ? 'Cập nhật thông tin sân' : 'Thêm sân mới'}
           </h1>
           <p className="mt-2 text-sm font-semibold text-slate-500">Thiết lập thông tin hiển thị, loại sân, hình ảnh và khung giờ đặt sân.</p>
@@ -242,7 +302,7 @@ const PitchEditor: React.FC = () => {
           type="submit"
           form="pitch-editor-form"
           disabled={isSubmitting}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
         >
           {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
           {isEditing ? 'Lưu thay đổi' : 'Đăng sân'}
@@ -250,15 +310,15 @@ const PitchEditor: React.FC = () => {
       </header>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
-          <AlertCircle size={20} />
+        <div className="flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
+          <AlertCircle size={20} className="mt-0.5 shrink-0" />
           {error}
         </div>
       )}
 
-      <form id="pitch-editor-form" onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <form id="pitch-editor-form" onSubmit={handleSubmit} className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
+        <div className="min-w-0 space-y-6">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600">
                 <Building2 size={20} />
@@ -352,7 +412,7 @@ const PitchEditor: React.FC = () => {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
                 <Clock size={20} />
@@ -368,9 +428,9 @@ const PitchEditor: React.FC = () => {
                 <Wand2 size={15} className="text-blue-600" />
                 Tạo nhanh khung giờ
               </div>
-              <div className="grid gap-3 md:grid-cols-4">
-                <input type="time" value={autoGen.startTime} onChange={(event) => setAutoGen({ ...autoGen, startTime: event.target.value })} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" />
-                <input type="time" value={autoGen.endTime} onChange={(event) => setAutoGen({ ...autoGen, endTime: event.target.value })} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" />
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <input type="time" value={autoGen.startTime} onChange={(event) => setAutoGen({ ...autoGen, startTime: event.target.value })} className="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" />
+                <input type="time" value={autoGen.endTime} onChange={(event) => setAutoGen({ ...autoGen, endTime: event.target.value })} className="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" />
                 <input type="number" step="0.5" value={autoGen.duration} onChange={(event) => setAutoGen({ ...autoGen, duration: Number(event.target.value) })} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" placeholder="Số giờ" />
                 <input type="number" value={autoGen.price} onChange={(event) => setAutoGen({ ...autoGen, price: event.target.value })} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white" placeholder="Giá" />
               </div>
@@ -380,29 +440,34 @@ const PitchEditor: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-2">
               {formData.timeSlots.map((slot, index) => (
-                <div key={`${slot.startTime}-${index}`} className="grid grid-cols-[1fr_1fr_1.2fr_38px] gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                <div key={`${slot.startTime}-${index}`} className="grid min-w-0 grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(110px,1.15fr)_40px]">
                   <input type="time" value={slot.startTime} onChange={(event) => {
                     const slots = [...formData.timeSlots];
                     slots[index].startTime = event.target.value;
                     setFormData({ ...formData, timeSlots: slots });
-                  }} className="h-9 rounded-lg bg-slate-50 px-2 text-xs font-black outline-none dark:bg-slate-900 dark:text-white" />
+                  }} className="h-10 min-w-0 rounded-lg bg-slate-50 px-2 text-xs font-black outline-none dark:bg-slate-900 dark:text-white" />
                   <input type="time" value={slot.endTime} onChange={(event) => {
                     const slots = [...formData.timeSlots];
                     slots[index].endTime = event.target.value;
                     setFormData({ ...formData, timeSlots: slots });
-                  }} className="h-9 rounded-lg bg-slate-50 px-2 text-xs font-black outline-none dark:bg-slate-900 dark:text-white" />
+                  }} className="h-10 min-w-0 rounded-lg bg-slate-50 px-2 text-xs font-black outline-none dark:bg-slate-900 dark:text-white" />
                   <input type="number" value={slot.price} onChange={(event) => {
                     const slots = [...formData.timeSlots];
                     slots[index].price = event.target.value;
                     setFormData({ ...formData, timeSlots: slots });
-                  }} className="h-9 rounded-lg bg-blue-50 px-2 text-right text-xs font-black text-blue-700 outline-none dark:bg-blue-950/40" />
-                  <button type="button" onClick={() => setFormData({ ...formData, timeSlots: formData.timeSlots.filter((_, itemIndex) => itemIndex !== index) })} className="grid h-9 place-items-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100">
+                  }} className="h-10 min-w-0 rounded-lg bg-blue-50 px-2 text-right text-xs font-black text-blue-700 outline-none dark:bg-blue-950/40" />
+                  <button type="button" onClick={() => setFormData({ ...formData, timeSlots: formData.timeSlots.filter((_, itemIndex) => itemIndex !== index) })} className="grid h-10 place-items-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100">
                     <Trash2 size={15} />
                   </button>
                 </div>
               ))}
+              {formData.timeSlots.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-950/50">
+                  Chưa có khung giờ. Dùng tạo nhanh hoặc thêm từng khung giờ bên dưới.
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, timeSlots: [...formData.timeSlots, { startTime: '07:00', endTime: '08:00', price: autoGen.price }] })}
@@ -415,8 +480,8 @@ const PitchEditor: React.FC = () => {
           </section>
         </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <aside className="min-w-0 space-y-6">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-600">
                 <Camera size={20} />
@@ -433,7 +498,7 @@ const PitchEditor: React.FC = () => {
 
             <div className="space-y-3">
               {formData.images.map((image, index) => (
-                <div key={index} className="flex gap-2">
+                <div key={index} className="flex min-w-0 gap-2">
                   <input
                     value={image}
                     onChange={(event) => {
@@ -458,30 +523,30 @@ const PitchEditor: React.FC = () => {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tóm tắt</p>
             <div className="mt-4 space-y-3 text-sm font-bold">
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400">Môn</span>
-                <span className="text-right text-slate-800 dark:text-slate-200">{selectedCategory.label}</span>
+                <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{selectedCategory.label}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400">Loại</span>
-                <span className="text-right text-slate-800 dark:text-slate-200">{selectedCategory.types.find((type) => type.id === formData.pitchType)?.label}</span>
+                <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{selectedCategory.types.find((type) => type.id === formData.pitchType)?.label}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400">Hình thức</span>
-                <span className="text-right text-slate-800 dark:text-slate-200">{formData.isIndoor ? 'Trong nhà' : 'Ngoài trời'}</span>
+                <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{formData.isIndoor ? 'Trong nhà' : 'Ngoài trời'}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400">Khung giờ</span>
-                <span className="text-right text-slate-800 dark:text-slate-200">{formData.timeSlots.length}</span>
+                <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{formData.timeSlots.length}</span>
               </div>
             </div>
             {!isEditing && formData.address && (
-              <div className="mt-4 flex gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-500 dark:bg-slate-800">
+              <div className="mt-4 flex min-w-0 gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-500 dark:bg-slate-800">
                 <MapPin size={15} className="shrink-0 text-blue-600" />
-                {formData.address}
+                <span className="min-w-0 break-words">{formData.address}</span>
               </div>
             )}
           </section>

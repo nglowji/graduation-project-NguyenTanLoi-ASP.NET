@@ -68,7 +68,11 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
             // ── 3. Cập nhật hình ảnh (Images) ────────────────────────────────────
             if (request.Images != null)
             {
-                var newUrls = request.Images.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+                var newUrls = request.Images
+                    .Where(u => !string.IsNullOrWhiteSpace(u))
+                    .Select(u => u.Trim())
+                    .Distinct()
+                    .ToList();
                 
                 // Tìm các ảnh cần xóa (có trong DB nhưng không có trong request)
                 var currentImages = pitch.Images.ToList();
@@ -88,6 +92,22 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
                 foreach (var url in urlsToAdd)
                 {
                     pitch.AddImage(url, pitch.Images.Count(img => !imagesToRemove.Contains(img)) == 0);
+                }
+
+                var remainingImages = pitch.Images
+                    .Where(img => !imagesToRemove.Contains(img))
+                    .ToList();
+                var primaryUrl = newUrls.FirstOrDefault();
+                var primaryImage = remainingImages.FirstOrDefault(img => img.ImageUrl == primaryUrl);
+
+                if (primaryImage != null)
+                {
+                    foreach (var img in remainingImages)
+                    {
+                        img.SetAsSecondary();
+                    }
+
+                    primaryImage.SetAsPrimary();
                 }
             }
 

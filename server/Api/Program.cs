@@ -190,17 +190,16 @@ try
     Log.Information("🚀 ĐANG KHỞI ĐỘNG BACKEND SPORTS PITCH BOOKING...");
     Log.Information("=========================================================");
     
-    // Seed Database
+    // Apply database migrations without creating default data.
     using (var scope = app.Services.CreateScope())
     {
         var services = scope.ServiceProvider;
         var context = services.GetRequiredService<Infrastructure.Data.ApplicationDbContext>();
-        var passwordHasher = services.GetRequiredService<Application.Common.Interfaces.IPasswordHasher>();
         var logger = services.GetRequiredService<ILogger<Program>>();
         
-        Log.Information("⏳ Đang kiểm tra và khởi tạo Database...");
-        await Infrastructure.Data.ApplicationDbContextSeed.SeedAsync(context, passwordHasher, logger);
-        Log.Information("✅ KHỞI TẠO DATABASE THÀNH CÔNG! Dữ liệu đã sẵn sàng.");
+        Log.Information("Applying database migrations...");
+        await Infrastructure.Data.ApplicationDbContextSeed.SeedAsync(context, logger);
+        Log.Information("Database is ready. No default data was created.");
     }
 
     Log.Information("🌟 SERVER ĐANG CHẠY MƯỢT MÀ! (Bấm Ctrl+C để tắt)");

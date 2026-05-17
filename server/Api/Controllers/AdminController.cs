@@ -64,7 +64,7 @@ public class AdminController : ApiControllerBase
             request.FullName,
             request.PhoneNumber,
             request.Address,
-            (UserRole)request.Role
+            Role: (UserRole)request.Role
         );
 
         var result = await _mediator.Send(command, cancellationToken);

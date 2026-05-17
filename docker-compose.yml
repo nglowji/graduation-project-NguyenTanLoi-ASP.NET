@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartsport-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: SportsPitchBooking_Dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - smartsport_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d SportsPitchBooking_Dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  smartsport_postgres_data:

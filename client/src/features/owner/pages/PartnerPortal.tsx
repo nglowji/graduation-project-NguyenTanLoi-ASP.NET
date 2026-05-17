@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { authService, UserRole } from '../../../services/authService';
 import { 
   TrendingUp, 
@@ -18,6 +19,7 @@ import {
 
 import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 const PartnerPortal: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -34,6 +36,7 @@ const PartnerPortal: React.FC = () => {
     email: '',
     businessName: '',
     address: '',
+    mapLink: '',
     password: ''
   });
 
@@ -60,13 +63,35 @@ const PartnerPortal: React.FC = () => {
     setError('');
     
     try {
-      await authService.register({
-        email: formData.email,
+      const selectedProvince = provinces.find((province) => province.code === provinceCode);
+      const selectedDistrict = districts.find((district) => district.code === districtCode);
+      const fullAddress = [
+        formData.address.trim(),
+        selectedWard,
+        selectedDistrict?.name,
+        selectedProvince?.name
+      ].filter(Boolean).join(', ');
+
+      if (!selectedProvince || !selectedDistrict || !selectedWard || !formData.address.trim()) {
+        setError('Vui lòng nhập đầy đủ tỉnh/thành, quận/huyện, phường/xã và địa chỉ cụ thể.');
+        return;
+      }
+
+      const response = await authService.register({
+        email: formData.email.trim(),
         password: formData.password,
-        fullName: formData.fullName,
-        phoneNumber: formData.phone,
+        fullName: formData.fullName.trim(),
+        phoneNumber: formData.phone.replace(/\s/g, ''),
+        address: fullAddress,
+        mapLink: formData.mapLink.trim() || null,
+        businessName: formData.businessName.trim(),
+        ward: selectedWard,
+        district: selectedDistrict.name,
+        city: selectedProvince.name,
         role: UserRole.PitchOwner
       });
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response));
       setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Đăng ký đối tác thất bại. Vui lòng thử lại.');
@@ -421,7 +446,10 @@ const PartnerPortal: React.FC = () => {
                     Cảm ơn bạn đã tin tưởng SmartSport. <br/>
                     Đội ngũ của chúng tôi sẽ liên hệ với bạn qua số điện thoại <span className="font-bold text-slate-900">{formData.phone}</span> trong vòng 24h tới.
                   </p>
-                  <button onClick={() => setIsSuccess(false)} className="text-primary font-bold hover:underline">Gửi lại đơn khác</button>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                    <button type="button" onClick={() => navigate('/dashboard/owner')} className="rounded-xl bg-primary px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark">Vào trang quản lý sân</button>
+                    <button type="button" onClick={() => setIsSuccess(false)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-primary transition hover:bg-slate-50">Gửi lại đơn khác</button>
+                  </div>
                 </div>
               ) : (
                 <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleRegister}>
@@ -494,6 +522,7 @@ const PartnerPortal: React.FC = () => {
                     <div className="space-y-1.5">
                       <label className="text-sm font-bold text-slate-700">Tỉnh / Thành phố</label>
                       <select 
+                        required
                         value={provinceCode || ''}
                         onChange={handleProvinceChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm appearance-none cursor-pointer"
@@ -507,6 +536,7 @@ const PartnerPortal: React.FC = () => {
                     <div className="space-y-1.5">
                       <label className="text-sm font-bold text-slate-700">Quận / Huyện</label>
                       <select 
+                        required
                         value={districtCode || ''}
                         onChange={handleDistrictChange}
                         disabled={!provinceCode}
@@ -522,6 +552,7 @@ const PartnerPortal: React.FC = () => {
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-sm font-bold text-slate-700">Phường / Xã</label>
                     <select 
+                      required
                       value={selectedWard}
                       onChange={(e) => setSelectedWard(e.target.value)}
                       disabled={!districtCode}
@@ -556,7 +587,14 @@ const PartnerPortal: React.FC = () => {
                         Mở bản đồ chọn vị trí
                       </button>
                     </div>
-                    <input type="text" placeholder="Dán link Google Maps hoặc tọa độ (Lat, Long)" className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm" />
+                    <input
+                      name="mapLink"
+                      value={formData.mapLink}
+                      onChange={handleInputChange}
+                      type="text"
+                      placeholder="Dán link Google Maps hoặc tọa độ (Lat, Long)"
+                      className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm"
+                    />
                   </div>
                   <div className="md:col-span-2 pt-4">
                     <button 

@@ -10,5 +10,10 @@ public record RegisterCommand(
     string FullName,
     string PhoneNumber,
     string? Address = null,
+    string? MapLink = null,
+    string? BusinessName = null,
+    string? Ward = null,
+    string? District = null,
+    string? City = null,
     UserRole Role = UserRole.Customer
 ) : IRequest<Result<AuthResponse>>;

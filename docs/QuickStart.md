@@ -1,154 +1,180 @@
 # Quick Start Guide
 
-## 🚀 Khởi Động API Trong 3 Bước
+## Start API Locally
 
-### Bước 1: Build Project
+### 1. Start PostgreSQL
+
+The backend development config uses PostgreSQL at `localhost:5432`:
+
+```text
+Database: SportsPitchBooking_Dev
+Username: postgres
+Password: postgres
+```
+
+Option A: Docker Desktop
+
+Install Docker Desktop first if the `docker` command is not available:
+
+```text
+https://www.docker.com/products/docker-desktop/
+```
+
+After installation, restart PowerShell or VS Code terminal, then check:
+
+```bash
+docker --version
+docker compose version
+```
+
+From the repository root:
+
+```bash
+docker compose up -d postgres
+```
+
+Check that PostgreSQL is running:
+
+```bash
+docker compose ps
+```
+
+Option B: PostgreSQL installer, without Docker
+
+Install PostgreSQL 16 from:
+
+```text
+https://www.postgresql.org/download/windows/
+```
+
+During setup, use this password for the `postgres` user:
+
+```text
+postgres
+```
+
+After installation, create the development database:
+
+```powershell
+createdb -U postgres SportsPitchBooking_Dev
+```
+
+If `createdb` is not found, use pgAdmin or add PostgreSQL `bin` to PATH. The default path is usually:
+
+```text
+C:\Program Files\PostgreSQL\16\bin
+```
+
+### 2. Build Backend
+
 ```bash
 cd server
 dotnet build
 ```
 
-### Bước 2: Chạy Migrations (Nếu Chưa Có Database)
+### 3. Apply Migrations
+
 ```bash
 cd Infrastructure
 dotnet ef database update --startup-project ../Api
 ```
 
-### Bước 3: Start API
+If `dotnet ef` is missing:
+
 ```bash
-cd Api
+dotnet tool install --global dotnet-ef
+```
+
+### 4. Start API
+
+```bash
+cd ../Api
 dotnet run --launch-profile http
 ```
 
-API sẽ chạy tại: **http://localhost:5164**
+API URL:
 
----
+```text
+http://localhost:5164
+```
 
-## ✅ Kiểm Tra API Hoạt Động
+## Check API
 
-### Health Check
+Health check:
+
 ```bash
 curl http://localhost:5164/health
 ```
 
-**Expected:** `Healthy`
+Swagger:
 
-### Swagger UI
-Mở trình duyệt: **http://localhost:5164/swagger**
-
----
-
-## 🧪 Test API Nhanh
-
-### Test Register
-```powershell
-powershell -File test-register-valid.ps1
+```text
+http://localhost:5164/swagger
 ```
 
-### Test Login
-```powershell
-powershell -File test-login-new-user.ps1
+## Test Accounts
+
+Seed data creates these accounts when the backend starts successfully:
+
+```text
+admin@smartsport.vn / Admin@123
+owner@smartsport.vn / Owner@123
+customer@smartsport.vn / Customer@123
 ```
 
-### Test Complete Flow
-```powershell
-powershell -File test-complete-flow.ps1
-```
+## Troubleshooting
 
----
+### Failed to connect to 127.0.0.1:5432
 
-## 📝 Test Account
+This means PostgreSQL is not running locally.
 
-Tạo user mới qua API hoặc dùng test account:
+Fix with Docker Desktop:
 
-| Email | Password | Role |
-|-------|----------|------|
-| testuser@gmail.com | Test@123456 | Customer |
-
----
-
-## 🔧 Seed Data (Optional)
-
-### Generate Password Hashes
 ```bash
-dotnet run --project Tools/Tools.csproj
+docker compose up -d postgres
 ```
 
-### Seed Database
-```bash
-sqlcmd -S "localhost" -d SportsPitchBooking_Dev -i seed-data.sql
-```
+If PowerShell says `docker` is not recognized, Docker Desktop is not installed or the terminal was opened before Docker added itself to PATH. Install Docker Desktop, reopen the terminal, then run the command again.
 
-### Update Seed Passwords
-```bash
-sqlcmd -S "localhost" -d SportsPitchBooking_Dev -i update-seed-passwords.sql
-```
+Fix without Docker:
 
----
-
-## 📚 Documentation
-
-- **API Testing Summary:** `API_TESTING_SUMMARY.md`
-- **Concurrency Guide:** `README_CONCURRENCY.md`
-- **Payment Integration:** `README_PAYMENT.md`
-- **Features Overview:** `README_FEATURES.md`
-
----
-
-## 🎯 API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Đăng ký
-- `POST /api/v1/auth/login` - Đăng nhập
-- `GET /api/v1/auth/profile` - Xem profile (requires auth)
-
-### Pitches
-- `GET /api/v1/pitches/search` - Tìm kiếm sân
-- `GET /api/v1/pitches/{id}` - Chi tiết sân
-- `GET /api/v1/pitches/{id}/timeslots` - Xem time slots
-
-### Bookings
-- `POST /api/v1/bookings/lock` - Lock time slot
-- `POST /api/v1/bookings` - Tạo booking
-- `GET /api/v1/bookings/{id}` - Chi tiết booking
-- `POST /api/v1/bookings/{id}/cancel` - Hủy booking
-
-### Payments
-- `POST /api/v1/payments` - Tạo payment URL
-- `GET /api/v1/payments/callback` - VNPAY callback
-- `GET /api/v1/payments/{id}` - Chi tiết payment
-
----
-
-## 🛠️ Troubleshooting
-
-### Port Already In Use
 ```powershell
-# Kill process on port 5164
-$conn = Get-NetTCPConnection -LocalPort 5164 -ErrorAction SilentlyContinue
-if ($conn) { Stop-Process -Id $conn.OwningProcess -Force }
+createdb -U postgres SportsPitchBooking_Dev
 ```
 
-### Database Connection Error
-Kiểm tra connection string trong `Api/appsettings.Development.json`:
+Then make sure the PostgreSQL service is running in Windows Services.
+
+The development connection string is in `server/Api/appsettings.Development.json`:
+
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=SportsPitchBooking_Dev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=SportsPitchBooking_Dev;Username=postgres;Password=postgres"
   }
 }
 ```
 
-### Migration Error
-```bash
-# Drop database và tạo lại
-cd Infrastructure
-dotnet ef database drop --startup-project ../Api
-dotnet ef database update --startup-project ../Api
+### Port 5164 Already In Use
+
+PowerShell:
+
+```powershell
+$conn = Get-NetTCPConnection -LocalPort 5164 -ErrorAction SilentlyContinue
+if ($conn) { Stop-Process -Id $conn.OwningProcess -Force }
 ```
 
----
+### Reset Local Database
 
-## 📞 Support
+This deletes all local PostgreSQL data:
 
-Xem chi tiết trong `API_TESTING_SUMMARY.md` hoặc check Swagger UI tại http://localhost:5164/swagger
+```bash
+docker compose down -v
+docker compose up -d postgres
+```
+
+Then rerun migrations:
+
+```bash
+cd server/Infrastructure
+dotnet ef database update --startup-project ../Api
+```
