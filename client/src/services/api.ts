@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+const LOCAL_API_URL = 'http://localhost:5164/api/v1';
+const PRODUCTION_API_URL = 'https://smartsport-api.onrender.com/api/v1';
+
 export const API_URL =
   import.meta.env.VITE_API_URL ||
-  'http://localhost:5164/api/v1';
+  (import.meta.env.DEV ? LOCAL_API_URL : PRODUCTION_API_URL);
 
 export const API_BASE_URL = API_URL;
 

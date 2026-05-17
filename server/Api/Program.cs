@@ -67,6 +67,8 @@ builder.Services.AddAuthorization(options =>
 // Swagger Configuration
 builder.Services.AddSwaggerGen(options =>
 {
+    options.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace('+', '.'));
+
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Sports Pitch Booking API",

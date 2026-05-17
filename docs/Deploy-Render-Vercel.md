@@ -145,6 +145,8 @@ VITE_SIGNALR_URL=https://<render-service>.onrender.com/hubs/booking
 
 Vite reads `VITE_*` variables at build time. After adding or changing `VITE_API_URL` in Vercel, redeploy the frontend so the production bundle stops using the local fallback.
 
+The repository also includes `client/.env.production` with the Render backend URL as a non-secret production default. Vercel environment variables still take priority if you set them in the dashboard.
+
 ## 4. GitHub Actions Secrets
 
 Add these repository secrets in GitHub Actions:
