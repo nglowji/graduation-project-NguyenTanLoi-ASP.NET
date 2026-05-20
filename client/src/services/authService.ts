@@ -39,6 +39,10 @@ export const authService = {
   register: async (command: any): Promise<AuthResponse> => {
     return await api.post('/auth/register', command);
   },
+
+  registerOwnerCenter: async (command: any): Promise<AuthResponse> => {
+    return await api.post('/auth/register-owner-center', command);
+  },
   
   logout: () => {
     localStorage.removeItem('token');

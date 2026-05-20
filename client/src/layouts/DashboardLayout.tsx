@@ -21,6 +21,7 @@ import {
   Sun,
   TrendingUp,
   Users,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -61,6 +62,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const auth = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [bookingNotifications, setBookingNotifications] = useState<any[]>([]);
 
@@ -70,6 +72,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
     ['/dashboard/owner', '/dashboard/owner/bookings', '/dashboard/owner/reviews'].includes(item.path)
   );
   const navItems = isAdmin ? adminNavItems : isStaff ? staffNavItems : ownerNavItems;
+  const mobileQuickItems = useMemo(() => {
+    const activeItem = navItems.find((item) => item.path === location.pathname);
+    const baseItems = navItems.slice(0, 4);
+
+    if (activeItem && !baseItems.some((item) => item.path === activeItem.path)) {
+      return [...baseItems.slice(0, 3), activeItem];
+    }
+
+    return baseItems;
+  }, [navItems, location.pathname]);
   const accentColor = isAdmin ? 'text-indigo-600' : 'text-blue-600';
   const accentBg = isAdmin ? 'bg-indigo-50' : 'bg-blue-50';
   const accentBorder = isAdmin ? 'border-indigo-100' : 'border-blue-100';
@@ -127,11 +139,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
     navigate('/login');
   };
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased transition-colors duration-300 dark:bg-[#0F172A] dark:text-slate-100">
-      <aside className={`${collapsed ? 'w-[88px]' : 'w-[280px]'} relative z-50 flex h-full flex-col border-r border-slate-200 bg-white transition-all duration-500 dark:border-slate-800 dark:bg-[#1E293B]`}>
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Đóng menu"
+          onClick={closeMobileMenu}
+          className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden"
+        />
+      )}
+
+      <aside className={`${collapsed ? 'lg:w-[88px]' : 'lg:w-[280px]'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-[#1E293B] lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex h-20 shrink-0 items-center overflow-hidden border-b border-slate-50 px-6 dark:border-slate-800/50">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 shadow-sm dark:bg-white">
               <span className="text-xl font-black tracking-tighter text-white dark:text-slate-900">S</span>
             </div>
@@ -144,6 +167,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
               </motion.div>
             )}
           </div>
+          <button
+            type="button"
+            onClick={closeMobileMenu}
+            className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-500 lg:hidden"
+            aria-label="Đóng menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto overflow-x-hidden px-4 py-6">
@@ -156,6 +187,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={closeMobileMenu}
                   className={`group relative flex items-center gap-3 rounded-xl border border-transparent px-4 py-3.5 text-sm font-bold transition-all duration-300 ${
                     isActive
                       ? `${accentBg} ${accentColor} shadow-sm`
@@ -185,6 +217,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
             </button>
             <Link
               to="/"
+              onClick={closeMobileMenu}
               className="flex items-center gap-3 rounded-xl border border-transparent px-4 py-3.5 text-sm font-bold text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
@@ -209,13 +242,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
       </aside>
 
       <div className="relative flex h-full min-w-0 flex-1 flex-col">
-        <header className="relative z-40 flex h-20 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 dark:border-slate-800/50 dark:bg-[#1E293B]">
-          <div className="flex items-center gap-6">
+        <header className="relative z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-800/50 dark:bg-[#1E293B] sm:h-20 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <button
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => {
+                if (window.innerWidth < 1024) setMobileMenuOpen(true);
+                else setCollapsed(!collapsed);
+              }}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-all hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
             >
-              {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
+              <span className="lg:hidden"><Menu size={20} /></span>
+              <span className="hidden lg:inline-flex">{collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}</span>
             </button>
 
             <div className="group hidden min-w-[240px] items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 transition-all focus-within:border-slate-300 dark:border-slate-800 dark:bg-slate-800/50 dark:focus-within:border-slate-600 md:flex">
@@ -224,7 +261,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <div className="flex items-center gap-2">
               <div className="relative">
                 <button
@@ -242,7 +279,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute right-0 top-12 z-50 w-[390px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="fixed left-3 right-3 top-20 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[390px]">
                     <div className="bg-slate-950 p-4 text-white dark:bg-slate-800">
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -301,9 +338,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
               </button>
             </div>
 
-            <div className="mx-1 h-10 w-px bg-slate-200 dark:bg-slate-800" />
+            <div className="mx-1 hidden h-10 w-px bg-slate-200 dark:bg-slate-800 sm:block" />
 
-            <div className="flex items-center gap-4 pl-2">
+            <div className="flex min-w-0 items-center gap-3 pl-0 sm:gap-4 sm:pl-2">
               <div className="hidden flex-col items-end sm:flex">
                 <span className="text-sm font-extrabold leading-none text-slate-900 dark:text-white">
                   {auth.user?.fullName || (isAdmin ? 'Administrator' : 'Pitch Owner')}
@@ -326,7 +363,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         </header>
 
         <main className="custom-scrollbar relative flex-1 overflow-y-auto bg-[#F8FAFC] dark:bg-[#0F172A]">
-          <div className="mx-auto min-h-full max-w-[1600px] p-8">
+          <div className="mx-auto min-h-full max-w-[1600px] p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -340,6 +377,29 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
             </AnimatePresence>
           </div>
         </main>
+
+        <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl shadow-slate-900/15 dark:border-slate-800 dark:bg-slate-900 lg:hidden">
+          {mobileQuickItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={closeMobileMenu}
+                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-black transition ${
+                  isActive
+                    ? `${accentBg} ${accentColor}`
+                    : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Icon size={18} strokeWidth={isActive ? 2.7 : 2.2} />
+                <span className="max-w-full truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

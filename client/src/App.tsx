@@ -1,10 +1,10 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import AIChatBox from './components/AIChatBox';
 import LandingPage from './features/landing/pages/LandingPage';
 import ExploreFields from './features/customer/pages/ExploreFields';
 import FieldDetails from './features/customer/pages/FieldDetails';
@@ -17,6 +17,8 @@ import PaymentResult from './features/customer/pages/PaymentResult';
 import Profile from './features/customer/pages/Profile';
 import BookingReview from './features/customer/pages/BookingReview';
 import DashboardLayout from './layouts/DashboardLayout';
+
+const AIChatBox = lazy(() => import('./components/AIChatBox'));
 
 // Owner Sub-pages
 import MyPitches from './features/owner/pages/MyPitches';
@@ -83,7 +85,9 @@ function App() {
                 </ProtectedRoute>
               } />
             </Routes>
-            <AIChatBox />
+            <Suspense fallback={null}>
+              <AIChatBox />
+            </Suspense>
           </div>
         </AuthProvider>
       </ThemeProvider>

@@ -1,91 +1,60 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Target, Users, MapPin, ShieldCheck } from 'lucide-react';
+import { MapPin, ShieldCheck, Target, Users } from 'lucide-react';
+
+const statCards = [
+  { value: '3 bước', label: 'Tìm sân, giữ lịch, thanh toán cọc' },
+  { value: 'QR', label: 'Check-in nhanh tại sân' },
+  { value: 'AI', label: 'Gợi ý sân theo vị trí và nhu cầu' },
+  { value: '0đ', label: 'Phí khởi tạo cho chủ sân' },
+];
 
 const AboutSection: React.FC = () => {
   return (
-    <section className="py-24 bg-slate-50 relative overflow-hidden border-t border-b border-slate-200">
-      <div className="container mx-auto px-6 max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          
-          {/* Cột Trái: Câu chuyện thương hiệu */}
+    <section className="border-y border-slate-200 bg-slate-50 py-18 sm:py-24">
+      <div className="container mx-auto max-w-6xl px-5 sm:px-6">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-16">
           <div>
-            <span className="text-primary font-bold tracking-widest uppercase mb-4 block">Về Chúng Tôi</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
-              Nền tảng Thể thao số <br /> <span className="text-primary">Tiên phong</span>
+            <span className="mb-4 block text-xs font-black uppercase tracking-[0.28em] text-primary">Về SmartSport</span>
+            <h2 className="mb-6 max-w-2xl text-3xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+              Một nơi để người chơi đặt sân và chủ sân vận hành gọn hơn.
             </h2>
-            <p className="text-slate-600 text-lg md:text-xl leading-relaxed mb-8">
-              SmartSport ra đời với sứ mệnh đơn giản hóa việc kết nối giữa cộng đồng những người đam mê thể thao và các chủ cơ sở kinh doanh sân bãi. Bằng việc ứng dụng công nghệ hiện đại, chúng tôi xóa bỏ mọi rào cản trong việc tìm kiếm, đặt lịch và quản lý.
+            <p className="mb-8 max-w-2xl text-base font-semibold leading-8 text-slate-600 sm:text-lg">
+              SmartSport gom tìm kiếm sân, lịch trống, thanh toán cọc, mã check-in và dashboard vận hành vào cùng một hệ thống. Người chơi giảm thời gian hỏi sân; chủ sân giảm thao tác thủ công.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2 text-slate-700 font-bold bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                <Target className="text-primary" size={20} /> Đặt Sân Nhanh
-              </div>
-              <div className="flex items-center gap-2 text-slate-700 font-bold bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                <ShieldCheck className="text-primary" size={20} /> Thanh Toán An Toàn
-              </div>
-              <div className="flex items-center gap-2 text-slate-700 font-bold bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                <MapPin className="text-primary" size={20} /> Phủ Sóng Toàn Quốc
-              </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { icon: <Target size={20} />, label: 'Đặt sân nhanh' },
+                { icon: <ShieldCheck size={20} />, label: 'Thanh toán an toàn' },
+                { icon: <MapPin size={20} />, label: 'Lọc theo khu vực' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-sm">
+                  <span className="text-primary">{item.icon}</span>
+                  {item.label}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Cột Phải: Khối Thống kê (Stats Grid) */}
-          <div className="grid grid-cols-2 gap-6 relative">
-            {/* Lớp nền trang trí */}
-            <div className="absolute inset-0 bg-primary/5 rounded-[3rem] -m-6 -z-10" />
-
-            {/* Stat 1 */}
-            <motion.div 
-              animate={{ 
-                x: [0, 15, 0, -15, 0],
-                y: [-15, 0, 15, 0, -15]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
-            >
-              <span className="text-3xl font-black text-primary mb-2">Đang mở rộng</span>
-              <span className="text-slate-600 font-bold text-xs uppercase tracking-widest">Phủ sóng toàn quốc</span>
-            </motion.div>
-
-            {/* Stat 2 */}
-            <motion.div 
-              animate={{ 
-                x: [-15, 0, 15, 0, -15],
-                y: [0, 15, 0, -15, 0]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/50 flex flex-col items-center text-center relative z-10"
-            >
-              <span className="text-3xl font-black text-white mb-2">SmartSport</span>
-              <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Hệ sinh thái thể thao</span>
-            </motion.div>
-
-            {/* Stat 3 */}
-            <motion.div 
-              animate={{ 
-                x: [15, 0, -15, 0, 15],
-                y: [0, -15, 0, 15, 0]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center relative z-10"
-            >
-              <Users className="text-primary mb-4" size={48} strokeWidth={1.5} />
-              <span className="text-slate-600 font-bold text-xs uppercase tracking-widest">Cộng đồng sôi động</span>
-            </motion.div>
-
-            {/* Stat 4 */}
-            <motion.div 
-              animate={{ 
-                x: [0, -15, 0, 15, 0],
-                y: [15, 0, -15, 0, 15]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/30 flex flex-col items-center text-center relative z-10"
-            >
-              <span className="text-3xl font-black text-white mb-2">0đ</span>
-              <span className="text-primary-50 font-bold text-xs uppercase tracking-widest">Phí khởi tạo</span>
-            </motion.div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {statCards.map((item, index) => (
+              <div
+                key={item.label}
+                className={`rounded-2xl border p-5 shadow-sm ${
+                  index === 1
+                    ? 'border-slate-800 bg-slate-950 text-white'
+                    : index === 3
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-slate-200 bg-white text-slate-950'
+                }`}
+              >
+                {index === 2 && <Users className="mb-5 text-primary" size={34} strokeWidth={1.7} />}
+                <p className="text-2xl font-black sm:text-3xl">{item.value}</p>
+                <p className={`mt-3 text-xs font-black uppercase leading-5 tracking-widest ${index === 0 || index === 2 ? 'text-slate-500' : 'text-white/75'}`}>
+                  {item.label}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

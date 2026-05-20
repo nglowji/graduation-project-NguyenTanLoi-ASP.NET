@@ -63,6 +63,7 @@ const pageStyle = {
 const BookingReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isZaloPayEnabled = import.meta.env.VITE_ENABLE_ZALOPAY === 'true';
 
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -141,7 +142,7 @@ const BookingReview: React.FC = () => {
       const paymentResponse = await paymentService.createPayment({
         bookingId: booking.id,
         returnUrl: `${window.location.origin}/payment-result`,
-        provider: paymentProvider,
+        provider: isZaloPayEnabled ? paymentProvider : 'VNPAY',
       });
       if (paymentResponse.provider === 'ZALOPAY' && paymentResponse.qrCode) {
         setPaymentModal({
@@ -257,7 +258,7 @@ const BookingReview: React.FC = () => {
         <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_90%_0%,oklch(96%_0.02_250)_0%,transparent_55%)]" />
       </div>
 
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500 transition hover:text-[var(--accent)]">
           <ArrowLeft size={16} />
           Quay lại
@@ -271,7 +272,7 @@ const BookingReview: React.FC = () => {
             </div>
             <h1 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl font-heading">Xác nhận đặt sân</h1>
             <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
-              Kiểm tra lại người đặt, sân, khung giờ và số tiền cọc trước khi chuyển sang cổng thanh toán.
+              Xem nhanh lịch, cập nhật liên hệ nếu cần, rồi thanh toán cọc để giữ sân.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-[var(--panel)] px-4 py-3 shadow-sm">
@@ -287,17 +288,38 @@ const BookingReview: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-[var(--panel)] p-3 shadow-sm sm:grid-cols-3">
+          {[
+            { icon: <CalendarDays size={18} />, label: 'Ngày chơi', value: formatDate(booking.bookingDate) },
+            { icon: <Clock size={18} />, label: 'Khung giờ', value: `${shortTime(details.startTime)} - ${shortTime(details.endTime)}` },
+            { icon: <WalletCards size={18} />, label: 'Cọc hôm nay', value: formatMoney(details.deposit) },
+          ].map((item) => (
+            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--accent)] shadow-sm">
+                {item.icon}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
+                <span className="mt-1 block truncate text-sm font-black text-slate-950">{item.value}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
           <section className="space-y-5">
-            <div className="rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
+            <div className="rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-4 shadow-sm sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
                   <UserRound size={20} />
                 </div>
                 <div>
                   <h2 className="text-base font-black font-heading">Người đặt sân</h2>
-                  <p className="text-xs font-semibold text-slate-500">Thông tin này giúp chủ sân liên hệ khi cần.</p>
+                  <p className="text-xs font-semibold text-slate-500">Chủ sân dùng thông tin này để liên hệ khi cần.</p>
                 </div>
+                </div>
+                <ShieldCheck size={20} className="hidden text-emerald-500 sm:block" />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -321,7 +343,7 @@ const BookingReview: React.FC = () => {
                 </label>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 sm:grid-cols-2">
                 <div className="flex items-center gap-2">
                   <Mail size={16} className="text-slate-400" />
                   <span className="truncate">{booking.user?.email || 'Chưa cập nhật email'}</span>
@@ -446,53 +468,42 @@ const BookingReview: React.FC = () => {
 
               <div className="mt-5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chọn cổng thanh toán</p>
-                <div className="mt-3 grid gap-3">
+                <div className={`mt-3 grid gap-2 rounded-xl bg-slate-100 p-1 ${isZaloPayEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <button
                     type="button"
                     onClick={() => setPaymentProvider('VNPAY')}
-                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-3 text-center text-sm font-black transition ${
                       paymentProvider === 'VNPAY'
-                        ? 'border-blue-500 bg-blue-50 text-blue-900'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200'
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-slate-500 hover:text-blue-700'
                     }`}
                   >
-                    <span className="flex items-center gap-3">
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${paymentProvider === 'VNPAY' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                        <CreditCard size={18} />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-black">VNPay</span>
-                        <span className="block text-xs font-semibold text-slate-500">Thanh toán qua ngân hàng nội địa</span>
-                      </span>
-                    </span>
-                    {paymentProvider === 'VNPAY' && (
-                      <span className="rounded-full bg-blue-600 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white">Đang chọn</span>
-                    )}
+                    <CreditCard size={18} />
+                    VNPay
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setPaymentProvider('ZALOPAY')}
-                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                      paymentProvider === 'ZALOPAY'
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-200'
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${paymentProvider === 'ZALOPAY' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                        <WalletCards size={18} />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-black">ZaloPay</span>
-                        <span className="block text-xs font-semibold text-slate-500">Ví điện tử & QR</span>
-                      </span>
-                    </span>
-                    {paymentProvider === 'ZALOPAY' && (
-                      <span className="rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white">Đang chọn</span>
-                    )}
-                  </button>
+                  {isZaloPayEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentProvider('ZALOPAY')}
+                      className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-3 text-center text-sm font-black transition ${
+                        paymentProvider === 'ZALOPAY'
+                          ? 'bg-white text-emerald-700 shadow-sm'
+                          : 'text-slate-500 hover:text-emerald-700'
+                      }`}
+                    >
+                      <WalletCards size={18} />
+                      ZaloPay
+                    </button>
+                  )}
                 </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  {!isZaloPayEnabled
+                    ? 'ZaloPay chưa được cấu hình, hệ thống đang dùng VNPAY để thanh toán cọc.'
+                    : paymentProvider === 'VNPAY'
+                      ? 'Chuyển sang cổng ngân hàng nội địa.'
+                      : 'Quét QR hoặc mở ví ZaloPay để thanh toán.'}
+                </p>
               </div>
 
               <button

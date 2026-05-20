@@ -6,7 +6,7 @@ import {
   Camera, MapPin, Phone, Mail, ChevronRight,
   ShieldCheck, Clock, CalendarDays, CreditCard, Banknote, ReceiptText, Eye,
   AlertCircle, Save, Loader2, Edit3, X,
-  ExternalLink, MailCheck, CheckCircle2
+  ExternalLink, MailCheck, CheckCircle2, Star
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
@@ -27,11 +27,20 @@ type PaymentHistoryItem = {
   transactionDate: string;
 };
 
+type SystemNotificationItem = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
 const isProfileTab = (value: string | null): value is TabType =>
   value === 'profile' || value === 'bookings' || value === 'notifications' || value === 'security';
 
 const Profile: React.FC = () => {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, login, updateUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(isProfileTab(initialTab) ? initialTab : 'profile');
@@ -39,9 +48,14 @@ const Profile: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
+  const [systemNotifications, setSystemNotifications] = useState<SystemNotificationItem[]>([]);
   const [paymentHistoryByBooking, setPaymentHistoryByBooking] = useState<Record<string, PaymentHistoryItem>>({});
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [reviewingBookingId, setReviewingBookingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmittingId, setReviewSubmittingId] = useState<string | null>(null);
 
   // Location selection states
   const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
@@ -66,6 +80,9 @@ const Profile: React.FC = () => {
     fetchProfile();
     if (activeTab === 'bookings' || activeTab === 'notifications') {
       fetchBookings();
+    }
+    if (activeTab === 'notifications') {
+      fetchSystemNotifications();
     }
   }, [activeTab]);
 
@@ -140,6 +157,21 @@ const Profile: React.FC = () => {
       setNotification({ type: 'error', message: 'Không thể tải lịch sử đặt sân.' });
     } finally {
       setIsLoadingBookings(false);
+    }
+  };
+
+  const fetchSystemNotifications = async () => {
+    try {
+      const res = await api.get('/notifications') as any;
+      const items = Array.isArray(res) ? res : [];
+      setSystemNotifications(items);
+
+      if (items.some((item: SystemNotificationItem) => String(item.type).toLowerCase().includes('approved'))) {
+        const refreshed = await api.post('/auth/refresh-token', {}) as any;
+        login(refreshed);
+      }
+    } catch {
+      setSystemNotifications([]);
     }
   };
 
@@ -294,9 +326,73 @@ const Profile: React.FC = () => {
       };
     });
 
+  const getSystemNotificationClass = (type?: string) => {
+    const normalized = String(type || '').toLowerCase();
+    if (normalized.includes('approved')) return 'bg-emerald-50 text-emerald-600';
+    if (normalized.includes('rejected')) return 'bg-red-50 text-red-600';
+    return 'bg-blue-50 text-blue-600';
+  };
+
+  const getSystemNotificationIcon = (type?: string) => {
+    const normalized = String(type || '').toLowerCase();
+    if (normalized.includes('approved')) return <CheckCircle2 size={18} />;
+    if (normalized.includes('rejected')) return <X size={18} />;
+    return <Bell size={18} />;
+  };
+
+  const notificationItems = [
+    ...systemNotifications.map((item) => ({
+      id: item.id,
+      title: item.title,
+      message: item.message,
+      meta: item.type,
+      date: item.createdAt,
+      icon: getSystemNotificationIcon(item.type),
+      className: getSystemNotificationClass(item.type),
+      onClick: undefined as (() => void) | undefined,
+    })),
+    ...getBookingNotifications().map((item) => ({
+      id: item.booking.id,
+      title: item.title,
+      message: item.message,
+      meta: item.meta,
+      date: item.booking.bookingDate,
+      icon: item.icon,
+      className: item.className,
+      onClick: () => openBookingFromNotification(item.booking.id),
+    })),
+  ];
+
   const openBookingFromNotification = (bookingId: string) => {
     setExpandedBookingId(bookingId);
     handleTabChange('bookings');
+  };
+
+  const isCompletedBooking = (booking: BookingResponse) =>
+    String(booking.status || '').toLowerCase().includes('complete');
+
+  const openReviewForm = (bookingId: string) => {
+    setReviewingBookingId((current) => (current === bookingId ? null : bookingId));
+    setReviewRating(5);
+    setReviewComment('');
+  };
+
+  const submitReview = async (bookingId: string) => {
+    setReviewSubmittingId(bookingId);
+    try {
+      await api.post(`/reviews/bookings/${bookingId}/reviews`, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      setReviewingBookingId(null);
+      setReviewComment('');
+      setReviewRating(5);
+      setNotification({ type: 'success', message: 'Cảm ơn bạn, đánh giá đã được ghi nhận.' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err?.message || 'Không thể gửi đánh giá cho đơn này.' });
+    } finally {
+      setReviewSubmittingId(null);
+    }
   };
 
   const menuItems = [
@@ -660,6 +756,7 @@ const Profile: React.FC = () => {
                         const payment = paymentHistoryByBooking[item.id];
                         const paymentMeta = getPaymentStatusMeta(item);
                         const isExpanded = expandedBookingId === item.id;
+                        const isReviewing = reviewingBookingId === item.id;
 
                         return (
                           <div key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-200 hover:shadow-md">
@@ -695,17 +792,77 @@ const Profile: React.FC = () => {
                               <div className="grid grid-cols-2 gap-3 lg:block lg:space-y-1">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiền cọc</p>
                                 <p className="text-sm font-black text-slate-950">{formatMoney(getBookingDepositAmount(item))}</p>
+                              </div>                              <div className="flex flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
+                                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-black uppercase tracking-widest text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                >
+                                  <Eye size={16} />
+                                  {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
+                                </button>
+                                {isCompletedBooking(item) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openReviewForm(item.id)}
+                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100 transition hover:bg-amber-500 hover:text-white"
+                                  >
+                                    <Star size={16} />
+                                    Đánh giá
+                                  </button>
+                                )}
                               </div>
-
-                              <button
-                                type="button"
-                                onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-black uppercase tracking-widest text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                              >
-                                <Eye size={16} />
-                                {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
-                              </button>
                             </div>
+
+                            <AnimatePresence initial={false}>
+                              {isReviewing && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                                  className="overflow-hidden border-t border-amber-100 bg-amber-50/50"
+                                >
+                                  <div className="grid gap-4 p-5 lg:grid-cols-[220px_minmax(0,1fr)_120px] lg:items-end">
+                                    <div>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Đánh giá sân</p>
+                                      <div className="mt-3 flex gap-1">
+                                        {[1, 2, 3, 4, 5].map((rating) => (
+                                          <button
+                                            key={rating}
+                                            type="button"
+                                            onClick={() => setReviewRating(rating)}
+                                            className={`grid h-10 w-10 place-items-center rounded-xl transition ${
+                                              rating <= reviewRating ? 'bg-amber-400 text-white' : 'bg-white text-slate-300 ring-1 ring-slate-200'
+                                            }`}
+                                          >
+                                            <Star size={18} className={rating <= reviewRating ? 'fill-current' : ''} />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <label>
+                                      <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Nhận xét ngắn</span>
+                                      <input
+                                        value={reviewComment}
+                                        onChange={(event) => setReviewComment(event.target.value)}
+                                        placeholder="Sân sạch, đúng giờ, phục vụ tốt..."
+                                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => submitReview(item.id)}
+                                      disabled={reviewSubmittingId === item.id}
+                                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black uppercase tracking-widest text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {reviewSubmittingId === item.id ? <Loader2 size={16} className="animate-spin" /> : <Star size={16} />}
+                                      Gửi
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
 
                             <AnimatePresence initial={false}>
                               {isExpanded && (
@@ -821,14 +978,14 @@ const Profile: React.FC = () => {
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải thông báo...</p>
                       </div>
-                    ) : getBookingNotifications().length > 0 ? (
+                    ) : notificationItems.length > 0 ? (
                       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="divide-y divide-slate-100">
-                          {getBookingNotifications().map((item) => (
+                          {notificationItems.map((item) => (
                             <button
-                              key={item.booking.id}
+                              key={item.id}
                               type="button"
-                              onClick={() => openBookingFromNotification(item.booking.id)}
+                              onClick={item.onClick}
                               className="flex w-full items-start gap-4 p-5 text-left transition hover:bg-slate-50"
                             >
                               <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.className}`}>
@@ -837,19 +994,16 @@ const Profile: React.FC = () => {
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <h4 className="text-sm font-black text-slate-950">{item.title}</h4>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatBookingDate(item.booking.bookingDate)}</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatBookingDate(item.date)}</span>
                                 </div>
                                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{item.message}</p>
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${getBookingStatusClass(item.booking.status)}`}>
-                                    {getBookingStatusLabel(item.booking.status)}
-                                  </span>
                                   <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                     {item.meta}
                                   </span>
                                 </div>
                               </div>
-                              <ChevronRight size={16} className="mt-3 shrink-0 text-slate-300" />
+                              {item.onClick && <ChevronRight size={16} className="mt-3 shrink-0 text-slate-300" />}
                             </button>
                           ))}
                         </div>
@@ -988,3 +1142,4 @@ const Profile: React.FC = () => {
 };
 
 export default Profile;
+

@@ -29,6 +29,12 @@ artifacts/
 *.log
 logs/
 
+# Documentation files not meant for deployment
+docs/
+*.doc
+*.docx
+*.pdf
+
 # Node / frontend
 node_modules/
 dist/

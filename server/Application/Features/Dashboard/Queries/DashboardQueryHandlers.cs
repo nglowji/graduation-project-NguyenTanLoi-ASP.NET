@@ -15,12 +15,18 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
     private readonly IUserRepository _userRepository;
     private readonly IBookingRepository _bookingRepository;
     private readonly IPitchRepository _pitchRepository;
+    private readonly IApplicationDbContext _context;
 
-    public GetAdminDashboardStatsQueryHandler(IUserRepository userRepository, IBookingRepository bookingRepository, IPitchRepository pitchRepository)
+    public GetAdminDashboardStatsQueryHandler(
+        IUserRepository userRepository,
+        IBookingRepository bookingRepository,
+        IPitchRepository pitchRepository,
+        IApplicationDbContext context)
     {
         _userRepository = userRepository;
         _bookingRepository = bookingRepository;
         _pitchRepository = pitchRepository;
+        _context = context;
     }
 
     public async Task<Result<AdminDashboardStatsDto>> Handle(GetAdminDashboardStatsQuery request, CancellationToken cancellationToken)
@@ -34,6 +40,9 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
         var thisMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(thisMonthStart, today, cancellationToken);
         var lastMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(lastMonthStart, lastMonthEnd, cancellationToken);
         var pendingPitches = await _pitchRepository.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, cancellationToken);
+        var pendingOwnerCenters = await _context.SportCenters
+            .AsNoTracking()
+            .CountAsync(center => !center.IsActive && _context.Users.Any(user => user.Id == center.OwnerId && user.Role == UserRole.Customer), cancellationToken);
 
         const decimal commissionRate = 0.10m;
         var thisMonthRevenue = thisMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
@@ -53,7 +62,7 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
             users.Count,
             users.Count(u => u.Role == UserRole.PitchOwner && u.IsActive),
             thisMonthRevenue,
-            pendingPitches.TotalCount,
+            pendingPitches.TotalCount + pendingOwnerCenters,
             userGrowth,
             commissionGrowth
         ));
@@ -404,19 +413,53 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
 {
     private readonly IPitchRepository _pitchRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IApplicationDbContext _context;
 
-    public GetPitchApprovalsQueryHandler(IPitchRepository pitchRepository, IUserRepository userRepository)
+    public GetPitchApprovalsQueryHandler(
+        IPitchRepository pitchRepository,
+        IUserRepository userRepository,
+        IApplicationDbContext context)
     {
         _pitchRepository = pitchRepository;
         _userRepository = userRepository;
+        _context = context;
     }
 
     public async Task<Result<PagedResult<PitchApprovalDto>>> Handle(GetPitchApprovalsQuery request, CancellationToken cancellationToken)
     {
-        Enum.TryParse<PitchStatus>(request.Status, true, out var status);
+        var normalizedStatus = NormalizeApprovalStatus(request.Status);
+        Enum.TryParse<PitchStatus>(normalizedStatus, true, out var status);
         var paged = await _pitchRepository.GetPagedAsync(1, 50, null, status, cancellationToken);
 
         var dtos = new List<PitchApprovalDto>();
+        if (status == PitchStatus.PendingApproval || status == PitchStatus.Active || status == PitchStatus.Inactive)
+        {
+            var ownerRole = status == PitchStatus.PendingApproval ? UserRole.Customer : UserRole.PitchOwner;
+            var centerIsActive = status == PitchStatus.Active;
+            var centers = await _context.SportCenters
+                .AsNoTracking()
+                .Where(center => center.IsActive == centerIsActive)
+                .Join(
+                    _context.Users.AsNoTracking().Where(user => user.Role == ownerRole),
+                    center => center.OwnerId,
+                    user => user.Id,
+                    (center, user) => new { center, user })
+                .OrderByDescending(item => item.center.CreatedAt)
+                .Take(50)
+                .ToListAsync(cancellationToken);
+
+            dtos.AddRange(centers.Select(item => new PitchApprovalDto(
+                item.center.Id,
+                item.center.Name,
+                item.user.FullName,
+                item.user.Email,
+                item.center.CreatedAt.ToString("o"),
+                "OwnerRegistration",
+                item.center.Address.GetFullAddress(),
+                centerIsActive ? "approved" : "pending"
+            )));
+        }
+
         foreach (var pitch in paged.Items)
         {
             var owner = await _userRepository.GetByIdAsync(pitch.OwnerId, cancellationToken);
@@ -428,12 +471,24 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
                 pitch.CreatedAt.ToString("o"),
                 pitch.Type.ToString(),
                 pitch.SportCenter?.Address?.ToString() ?? "N/A",
-                pitch.Status.ToString()
+                pitch.Status == PitchStatus.PendingApproval ? "pending" : pitch.Status.ToString().ToLowerInvariant()
             ));
         }
 
         return Result<PagedResult<PitchApprovalDto>>.Success(
-            new PagedResult<PitchApprovalDto>(dtos, paged.TotalCount, 1, 50));
+            new PagedResult<PitchApprovalDto>(dtos, dtos.Count, 1, 50));
+    }
+
+    private static string NormalizeApprovalStatus(string status)
+    {
+        var normalized = status.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "pending" => nameof(PitchStatus.PendingApproval),
+            "approved" => nameof(PitchStatus.Active),
+            "rejected" => nameof(PitchStatus.Inactive),
+            _ => status
+        };
     }
 }
 
@@ -471,17 +526,38 @@ public class ApprovePitchCommandHandler : IRequestHandler<ApprovePitchCommand, R
 {
     private readonly IPitchRepository _pitchRepository;
     private readonly IApplicationDbContext _context;
+    private readonly IUserRepository _userRepository;
 
-    public ApprovePitchCommandHandler(IPitchRepository pitchRepository, IApplicationDbContext context)
+    public ApprovePitchCommandHandler(IPitchRepository pitchRepository, IApplicationDbContext context, IUserRepository userRepository)
     {
         _pitchRepository = pitchRepository;
         _context = context;
+        _userRepository = userRepository;
     }
 
     public async Task<Result<bool>> Handle(ApprovePitchCommand request, CancellationToken cancellationToken)
     {
         var pitch = await _pitchRepository.GetByIdAsync(request.PitchId, cancellationToken);
-        if (pitch == null) return Result<bool>.Failure("Không tìm thấy sân");
+        if (pitch == null)
+        {
+            var center = await _context.SportCenters.FirstOrDefaultAsync(item => item.Id == request.PitchId, cancellationToken);
+            if (center == null) return Result<bool>.Failure("Không tìm thấy hồ sơ cần duyệt");
+
+            var owner = await _userRepository.GetByIdAsync(center.OwnerId, cancellationToken);
+            if (owner == null) return Result<bool>.Failure("Không tìm thấy tài khoản đăng ký");
+
+            owner.PromoteToPitchOwner();
+            center.Activate();
+            _context.Notifications.Add(Notification.Create(
+                owner.Id,
+                NotificationType.PitchApproved,
+                "Hồ sơ chủ sân đã được duyệt",
+                "Hồ sơ đăng ký sân của bạn đã được phê duyệt. Bạn có thể vào trang quản lý sân ngay bây giờ."
+            ));
+
+            await _context.SaveChangesAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
 
         pitch.Approve();
         await _pitchRepository.UpdateAsync(pitch, cancellationToken);
@@ -495,17 +571,34 @@ public class RejectPitchCommandHandler : IRequestHandler<RejectPitchCommand, Res
 {
     private readonly IPitchRepository _pitchRepository;
     private readonly IApplicationDbContext _context;
+    private readonly IUserRepository _userRepository;
 
-    public RejectPitchCommandHandler(IPitchRepository pitchRepository, IApplicationDbContext context)
+    public RejectPitchCommandHandler(IPitchRepository pitchRepository, IApplicationDbContext context, IUserRepository userRepository)
     {
         _pitchRepository = pitchRepository;
         _context = context;
+        _userRepository = userRepository;
     }
 
     public async Task<Result<bool>> Handle(RejectPitchCommand request, CancellationToken cancellationToken)
     {
         var pitch = await _pitchRepository.GetByIdAsync(request.PitchId, cancellationToken);
-        if (pitch == null) return Result<bool>.Failure("Không tìm thấy sân");
+        if (pitch == null)
+        {
+            var center = await _context.SportCenters.FirstOrDefaultAsync(item => item.Id == request.PitchId, cancellationToken);
+            if (center == null) return Result<bool>.Failure("Không tìm thấy hồ sơ cần duyệt");
+
+            _context.Notifications.Add(Notification.Create(
+                center.OwnerId,
+                NotificationType.PitchRejected,
+                "Hồ sơ chủ sân chưa được duyệt",
+                "Hồ sơ đăng ký sân của bạn chưa được phê duyệt. Vui lòng kiểm tra lại thông tin và liên hệ hỗ trợ nếu cần."
+            ));
+
+            _context.SportCenters.Remove(center);
+            await _context.SaveChangesAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
 
         pitch.Deactivate(); // Or a specific Rejection status if added later
         await _pitchRepository.UpdateAsync(pitch, cancellationToken);

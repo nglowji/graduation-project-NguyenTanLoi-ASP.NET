@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
+      checks: {
+        pluginTimings: false,
+      },
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;

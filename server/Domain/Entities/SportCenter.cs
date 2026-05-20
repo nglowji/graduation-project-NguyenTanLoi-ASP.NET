@@ -25,6 +25,24 @@ public class SportCenter : BaseEntity, IAggregateRoot
         MarkAsUpdated();
     }
 
+    public void Activate()
+    {
+        if (IsActive)
+            return;
+
+        IsActive = true;
+        MarkAsUpdated();
+    }
+
+    public void Deactivate()
+    {
+        if (!IsActive)
+            return;
+
+        IsActive = false;
+        MarkAsUpdated();
+    }
+
     public string Name { get; private set; } = null!;
     public Guid OwnerId { get; private set; }
     public Address Address { get; private set; } = null!;

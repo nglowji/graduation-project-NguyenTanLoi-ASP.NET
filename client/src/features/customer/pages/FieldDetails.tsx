@@ -31,6 +31,15 @@ const FieldDetails: React.FC = () => {
 
   const fullAddress = pitch?.address?.fullAddress
     || [pitch?.address?.street, pitch?.address?.ward, pitch?.address?.district, pitch?.address?.city].filter(Boolean).join(', ');
+  const googleMapsEmbedKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const getServiceImageUrl = (service: any) =>
+    service?.imageUrl || service?.ImageUrl || service?.image || service?.Image || '';
+  const hasPreciseCoordinates = (latitude?: number, longitude?: number) => {
+    if (!latitude || !longitude) return false;
+    const isOldDefault = Math.abs(latitude - 10) < 0.0001 && Math.abs(longitude - 106) < 0.0001;
+    const isHcmFallback = Math.abs(latitude - 10.762622) < 0.0001 && Math.abs(longitude - 106.660172) < 0.0001;
+    return !isOldDefault && !isHcmFallback;
+  };
 
   useEffect(() => {
     if (pitchId) {
@@ -113,6 +122,25 @@ const FieldDetails: React.FC = () => {
     return slotPrice + servicesPrice;
   };
 
+  const selectedSlot = availableSlots.find((slot) => slot.id === selectedTime);
+  const parseSlotMinutes = (value?: string) => {
+    const [hour, minute] = String(value || '00:00').split(':').map(Number);
+    return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
+  };
+  const timelineSlots = availableSlots
+    .map((slot) => {
+      const start = parseSlotMinutes(slot.startTime);
+      const end = parseSlotMinutes(slot.endTime);
+      return {
+        ...slot,
+        start,
+        end,
+        left: `${Math.max(0, Math.min(100, (start / 1440) * 100))}%`,
+        width: `${Math.max(4, Math.min(100, ((Math.max(end, start + 30) - start) / 1440) * 100))}%`,
+      };
+    })
+    .sort((a, b) => a.start - b.start);
+
   const handleBooking = async () => {
     if (!selectedTime) return;
     setIsBooking(true);
@@ -173,10 +201,12 @@ const FieldDetails: React.FC = () => {
     ? pitch.images 
     : [{ imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1600" }];
 
-  const mapQuery = pitch.address.latitude && pitch.address.longitude 
+  const mapQuery = hasPreciseCoordinates(pitch.address.latitude, pitch.address.longitude)
     ? `${pitch.address.latitude},${pitch.address.longitude}`
-    : encodeURIComponent(fullAddress);
-  const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+    : fullAddress;
+  const mapUrl = googleMapsEmbedKey
+    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsEmbedKey)}&q=${encodeURIComponent(mapQuery)}&zoom=17`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=17&ie=UTF8&iwloc=&output=embed`;
 
   return (
     <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
@@ -280,11 +310,17 @@ const FieldDetails: React.FC = () => {
               <section className="space-y-4 pt-6 border-t border-slate-50">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dịch vụ bổ trợ</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {availableServices.map(svc => (
+                  {availableServices.map(svc => {
+                    const serviceImageUrl = getServiceImageUrl(svc);
+                    return (
                     <div key={svc.id} className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-500/20 transition-all">
                       <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-200/50 shrink-0 text-xl">
-                          {svc.icon || '📦'}
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200/50 bg-slate-50">
+                          {serviceImageUrl ? (
+                            <img src={serviceImageUrl} alt={svc.name || 'Dịch vụ'} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl">{svc.icon || '📦'}</div>
+                          )}
                         </div>
                         <div>
                           <p className="font-black text-slate-800 text-xs">{svc.name}</p>
@@ -297,7 +333,8 @@ const FieldDetails: React.FC = () => {
                         <button onClick={() => handleUpdateService(svc.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-md transition-all"><Plus size={10} /></button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -358,13 +395,54 @@ const FieldDetails: React.FC = () => {
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between">Ngày thi đấu <Calendar size={12} className="text-blue-500" /></label>
                     <input type="date" min={new Date().toISOString().split('T')[0]} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Giờ trống</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableSlots.length > 0 ? availableSlots.map((slot, idx) => (
-                        <button key={idx} disabled={!slot.isAvailable} onClick={() => setSelectedTime(slot.id)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${!slot.isAvailable ? 'bg-slate-50 text-slate-200 border-transparent cursor-not-allowed' : selectedTime === slot.id ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white border-slate-100 text-slate-600 hover:border-blue-500/30'}`}>{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</button>
-                      )) : <div className="col-span-2 py-5 text-center bg-slate-50 rounded-xl text-[9px] font-black text-slate-300 uppercase">Hết giờ</div>}
-                    </div>
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between px-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      Khung giờ trống
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">{timelineSlots.filter((slot) => slot.isAvailable).length} khung</span>
+                    </label>
+                    {timelineSlots.length > 0 ? (
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                        <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
+                          {timelineSlots.map((slot) => {
+                            const isSelected = selectedTime === slot.id;
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                disabled={!slot.isAvailable}
+                                onClick={() => setSelectedTime(slot.id)}
+                                className={`rounded-xl border p-3 text-left transition ${
+                                  !slot.isAvailable
+                                    ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300'
+                                    : isSelected
+                                      ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                      : 'border-slate-100 bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-sm font-black">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</span>
+                                  <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                                    isSelected ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-600'
+                                  }`}>
+                                    {slot.isAvailable ? 'Còn trống' : 'Đã kín'}
+                                  </span>
+                                </div>
+                                <p className={`mt-2 text-xs font-black ${isSelected ? 'text-white' : 'text-blue-600'}`}>
+                                  {formatMoney(slot.price)}đ
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-slate-50 py-5 text-center text-[9px] font-black uppercase text-slate-300">Hết giờ</div>
+                    )}
+                    {selectedSlot && (
+                      <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+                        Đã chọn {selectedSlot.startTime.substring(0, 5)} - {selectedSlot.endTime.substring(0, 5)}, {formatMoney(selectedSlot.price)}đ
+                      </div>
+                    )}
                   </div>
                 </div>
 

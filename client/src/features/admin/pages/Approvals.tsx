@@ -34,6 +34,7 @@ const Approvals: React.FC = () => {
   };
 
   const pitchTypeLabel = (t: string) => ({ 
+    OwnerRegistration: 'Hồ sơ chủ sân',
     Football5: 'Sân 5', Football7: 'Sân 7', Football11: 'Sân 11',
     Tennis: 'Tennis', Badminton: 'Cầu lông' 
   }[t] || t);

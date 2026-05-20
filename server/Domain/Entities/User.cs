@@ -101,6 +101,18 @@ public class User : BaseEntity, IAggregateRoot
         MarkAsUpdated();
     }
 
+    public void PromoteToPitchOwner()
+    {
+        if (Role == UserRole.PitchOwner)
+            return;
+
+        if (Role != UserRole.Customer)
+            throw new DomainException("Only customer accounts can register as pitch owners");
+
+        Role = UserRole.PitchOwner;
+        MarkAsUpdated();
+    }
+
     private static void ValidateCreationParameters(string email, string fullName, string phoneNumber, string passwordHash)
     {
         ValidateEmail(email);

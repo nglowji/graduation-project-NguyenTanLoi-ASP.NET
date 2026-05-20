@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { authService, UserRole } from '../../../services/authService';
+import { authService } from '../../../services/authService';
+import { useAuth } from '../../../contexts/AuthContext';
 import { 
   TrendingUp, 
   Users, 
@@ -14,12 +15,12 @@ import {
   CheckCircle2,
   FileText,
   UserPlus,
-  MapPin
 } from 'lucide-react';
 
 import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 const PartnerPortal: React.FC = () => {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -31,13 +32,9 @@ const PartnerPortal: React.FC = () => {
   const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
   const [formData, setFormData] = React.useState({
-    fullName: '',
     phone: '',
-    email: '',
     businessName: '',
-    address: '',
-    mapLink: '',
-    password: ''
+    address: ''
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,35 +60,27 @@ const PartnerPortal: React.FC = () => {
     setError('');
     
     try {
+      if (!auth.isAuthenticated) {
+        setError('Vui lòng đăng nhập trước khi đăng ký làm chủ sân.');
+        return;
+      }
+
       const selectedProvince = provinces.find((province) => province.code === provinceCode);
       const selectedDistrict = districts.find((district) => district.code === districtCode);
-      const fullAddress = [
-        formData.address.trim(),
-        selectedWard,
-        selectedDistrict?.name,
-        selectedProvince?.name
-      ].filter(Boolean).join(', ');
-
       if (!selectedProvince || !selectedDistrict || !selectedWard || !formData.address.trim()) {
         setError('Vui lòng nhập đầy đủ tỉnh/thành, quận/huyện, phường/xã và địa chỉ cụ thể.');
         return;
       }
 
-      const response = await authService.register({
-        email: formData.email.trim(),
-        password: formData.password,
-        fullName: formData.fullName.trim(),
-        phoneNumber: formData.phone.replace(/\s/g, ''),
-        address: fullAddress,
-        mapLink: formData.mapLink.trim() || null,
+      const response = await authService.registerOwnerCenter({
         businessName: formData.businessName.trim(),
+        phoneNumber: formData.phone.replace(/\s/g, ''),
+        street: formData.address.trim(),
         ward: selectedWard,
         district: selectedDistrict.name,
-        city: selectedProvince.name,
-        role: UserRole.PitchOwner
+        city: selectedProvince.name
       });
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response));
+      auth.login(response);
       setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Đăng ký đối tác thất bại. Vui lòng thử lại.');
@@ -441,14 +430,14 @@ const PartnerPortal: React.FC = () => {
                   <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
                     <CheckCircle2 size={40} />
                   </div>
-                  <h3 className="text-3xl font-black text-slate-900 mb-4">Gửi thông tin thành công!</h3>
+                  <h3 className="text-3xl font-black text-slate-900 mb-4">Hồ sơ đang chờ duyệt!</h3>
                   <p className="text-slate-600 text-lg mb-8">
-                    Cảm ơn bạn đã tin tưởng SmartSport. <br/>
-                    Đội ngũ của chúng tôi sẽ liên hệ với bạn qua số điện thoại <span className="font-bold text-slate-900">{formData.phone}</span> trong vòng 24h tới.
+                    SmartSport đã nhận thông tin sân của bạn. <br/>
+                    Bạn sẽ nhận thông báo sau khi admin phê duyệt, rồi mới vào được trang quản lý sân.
                   </p>
                   <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                    <button type="button" onClick={() => navigate('/dashboard/owner')} className="rounded-xl bg-primary px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark">Vào trang quản lý sân</button>
-                    <button type="button" onClick={() => setIsSuccess(false)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-primary transition hover:bg-slate-50">Gửi lại đơn khác</button>
+                    <button type="button" onClick={() => navigate('/')} className="rounded-xl bg-primary px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark">Về trang chủ</button>
+                    <button type="button" onClick={() => navigate('/profile?tab=notifications')} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-primary transition hover:bg-slate-50">Xem thông báo</button>
                   </div>
                 </div>
               ) : (
@@ -458,18 +447,6 @@ const PartnerPortal: React.FC = () => {
                       {error}
                     </div>
                   )}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700">Họ và tên chủ sân</label>
-                    <input 
-                      required
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      type="text" 
-                      placeholder="Nguyễn Văn A" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium" 
-                    />
-                  </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-bold text-slate-700">Số điện thoại</label>
                     <input 
@@ -483,30 +460,6 @@ const PartnerPortal: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700">Email tài khoản</label>
-                    <input 
-                      required
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      type="email" 
-                      placeholder="owner@example.com" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium" 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-slate-700">Mật khẩu</label>
-                    <input 
-                      required
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      type="password" 
-                      placeholder="••••••••" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium" 
-                    />
-                  </div>
-                  <div className="space-y-1.5 md:col-span-2">
                     <label className="text-sm font-bold text-slate-700">Tên cơ sở kinh doanh</label>
                     <input 
                       required
@@ -518,6 +471,11 @@ const PartnerPortal: React.FC = () => {
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium" 
                     />
                   </div>
+                  {auth.user && (
+                    <div className="md:col-span-2 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-700">
+                      Tài khoản đăng ký: {auth.user.fullName} · {auth.user.email}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-bold text-slate-700">Tỉnh / Thành phố</label>
@@ -573,27 +531,6 @@ const PartnerPortal: React.FC = () => {
                       type="text" 
                       placeholder="Ví dụ: 123 Đào Duy Từ, Phường 6..." 
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium" 
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-3 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                          <MapPin size={18} className="text-primary" /> Thiết lập vị trí Google Maps
-                        </h4>
-                        <p className="text-xs text-slate-500">Giúp người chơi tìm đường đến sân chính xác hơn.</p>
-                      </div>
-                      <button type="button" className="text-xs font-bold text-primary px-3 py-2 bg-white border border-primary/20 rounded-lg hover:bg-primary hover:text-white transition-all">
-                        Mở bản đồ chọn vị trí
-                      </button>
-                    </div>
-                    <input
-                      name="mapLink"
-                      value={formData.mapLink}
-                      onChange={handleInputChange}
-                      type="text"
-                      placeholder="Dán link Google Maps hoặc tọa độ (Lat, Long)"
-                      className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-primary transition-all font-medium text-sm"
                     />
                   </div>
                   <div className="md:col-span-2 pt-4">

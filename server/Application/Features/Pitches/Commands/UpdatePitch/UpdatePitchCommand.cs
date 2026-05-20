@@ -11,7 +11,7 @@ public record UpdatePitchCommand(
     string? Description,
     PitchType PitchType,
     bool IsIndoor,
-    List<string> Images,
-    List<PitchTimeSlotRequest> TimeSlots,
-    List<PitchServiceRequest> Services
+    List<string>? Images = null,
+    List<PitchTimeSlotRequest>? TimeSlots = null,
+    List<PitchServiceRequest>? Services = null
 ) : IRequest<Result<Unit>>;

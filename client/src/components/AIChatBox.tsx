@@ -5,7 +5,6 @@ import {
   Loader2,
   MapPin,
   Maximize2,
-  MessageCircle,
   Minimize2,
   Send,
   Sparkles,
@@ -142,8 +141,23 @@ const AIChatBox: React.FC = () => {
   const [sessionId, setSessionId] = useState<string>();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const frameRef = useRef<number | null>(null);
+  const previewPositionRef = useRef({ x: 0, y: 0 });
+  const dragRef = useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    originX: 0,
+    originY: 0,
+    moved: false,
+  });
+  const [position, setPosition] = useState(() => ({
+    x: typeof window === 'undefined' ? 24 : Math.max(16, window.innerWidth - 80),
+    y: typeof window === 'undefined' ? 24 : Math.max(88, window.innerHeight - 80),
+  }));
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -154,6 +168,17 @@ const AIChatBox: React.FC = () => {
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
   const panelWidth = isExpanded ? 'w-[min(720px,calc(100vw-32px))]' : 'w-[min(420px,calc(100vw-32px))]';
   const messageHeight = isExpanded ? 'max-h-[560px] min-h-[260px]' : 'max-h-[360px] min-h-[180px]';
+  const panelAlign = typeof window !== 'undefined' && position.x < window.innerWidth / 2 ? 'left-0' : 'right-0';
+  const panelVertical = typeof window !== 'undefined' && position.y < window.innerHeight * 0.45 ? 'top-[72px]' : 'bottom-[72px]';
+
+  const clampPosition = (x: number, y: number) => {
+    if (typeof window === 'undefined') return { x, y };
+
+    return {
+      x: Math.min(Math.max(12, x), window.innerWidth - 68),
+      y: Math.min(Math.max(88, y), window.innerHeight - 68),
+    };
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -164,6 +189,62 @@ const AIChatBox: React.FC = () => {
       window.setTimeout(() => inputRef.current?.focus(), 120);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((current) => clampPosition(current.x, current.y));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    };
+  }, []);
+
+  const handleBubblePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      moved: false,
+    };
+    previewPositionRef.current = position;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleBubblePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - dragRef.current.startX;
+    const deltaY = event.clientY - dragRef.current.startY;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 4) dragRef.current.moved = true;
+
+    const nextPosition = clampPosition(dragRef.current.originX + deltaX, dragRef.current.originY + deltaY);
+    previewPositionRef.current = nextPosition;
+
+    if (frameRef.current !== null) return;
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      if (!wrapperRef.current) return;
+      const preview = previewPositionRef.current;
+      wrapperRef.current.style.transform = `translate3d(${preview.x - position.x}px, ${preview.y - position.y}px, 0)`;
+    });
+  };
+
+  const handleBubblePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    dragRef.current.pointerId = -1;
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    if (wrapperRef.current) wrapperRef.current.style.transform = '';
+    setPosition(previewPositionRef.current);
+  };
 
   const appendAssistantMessage = (content: string, recommendations?: ChatResponse['recommendations']) => {
     setMessages((prev) => [...prev, { role: 'assistant', content, recommendations }]);
@@ -203,10 +284,14 @@ const AIChatBox: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-[120] font-sans">
+    <div
+      ref={wrapperRef}
+      className="fixed z-[120] font-sans"
+      style={{ left: position.x, top: position.y }}
+    >
       {isOpen && (
         <section
-          className={`mb-4 ${panelWidth} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 transition-all duration-200 dark:border-white/10 dark:bg-slate-950`}
+          className={`absolute ${panelVertical} ${panelAlign} ${panelWidth} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 transition-all duration-200 dark:border-white/10 dark:bg-slate-950`}
           aria-label="SmartSport AI chat"
         >
           <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-white/10">
@@ -350,11 +435,35 @@ const AIChatBox: React.FC = () => {
 
       <button
         type="button"
-        onClick={() => setIsOpen((value) => !value)}
-        className="grid h-[56px] w-[56px] place-items-center rounded-2xl bg-indigo-600 text-white shadow-2xl shadow-indigo-600/30 transition hover:-translate-y-0.5 hover:bg-indigo-700"
+        onPointerDown={handleBubblePointerDown}
+        onPointerMove={handleBubblePointerMove}
+        onPointerUp={handleBubblePointerUp}
+        onPointerCancel={handleBubblePointerUp}
+        onClick={() => {
+          if (dragRef.current.moved) {
+            dragRef.current.moved = false;
+            return;
+          }
+          setIsOpen((value) => !value);
+        }}
+        className="group relative grid h-[64px] w-[64px] touch-none place-items-center rounded-[22px] border border-white/30 bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-500 text-white shadow-2xl shadow-indigo-600/30 transition hover:-translate-y-0.5"
         aria-label={isOpen ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'}
+        title="Kéo để di chuyển"
       >
-        {isOpen ? <X size={23} /> : isSending ? <Sparkles size={23} /> : <MessageCircle size={23} />}
+        <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-emerald-400">
+          <span className="h-2 w-2 rounded-full bg-white" />
+        </span>
+        {isOpen ? (
+          <X size={24} />
+        ) : isSending ? (
+          <Sparkles size={25} className="animate-pulse" />
+        ) : (
+          <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/18 shadow-inner shadow-white/20">
+            <Bot size={27} />
+            <span className="absolute bottom-2 left-3 h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="absolute bottom-2 right-3 h-1.5 w-1.5 rounded-full bg-white" />
+          </span>
+        )}
       </button>
     </div>
   );

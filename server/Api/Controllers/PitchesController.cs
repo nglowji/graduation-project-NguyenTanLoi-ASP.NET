@@ -2,6 +2,7 @@ using Application.Common.DTOs;
 using Application.Features.Pitches.Commands.CreatePitch;
 using Application.Features.Pitches.Commands.UpdatePitch;
 using Application.Features.Pitches.Commands.DeletePitch;
+using Application.Features.Pitches.Commands.SetPitchStatus;
 using Application.Features.Pitches.DTOs;
 using Application.Features.Pitches.Queries.GetAvailableTimeSlots;
 using Application.Features.Pitches.Queries.GetPitchById;
@@ -157,6 +158,27 @@ public class PitchesController : ApiControllerBase
         return OkResponse<object?>(null, "Pitch deleted successfully");
     }
 
+    [HttpPatch("{id:guid}/status")]
+    [Authorize(Policy = "OwnerOrAdmin")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetStatus(
+        Guid id,
+        [FromBody] SetPitchStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var ownerId = GetCurrentUserId();
+        if (ownerId == Guid.Empty) return Unauthorized();
+
+        var command = new SetPitchStatusCommand(id, ownerId, request.IsActive);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to update pitch status");
+
+        return OkResponse<object?>(null, request.IsActive ? "Pitch activated successfully" : "Pitch paused successfully");
+    }
+
     [HttpGet("my")]
     [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
@@ -175,3 +197,5 @@ public class PitchesController : ApiControllerBase
         return OkResponse(result.Value);
     }
 }
+
+public record SetPitchStatusRequest(bool IsActive);
