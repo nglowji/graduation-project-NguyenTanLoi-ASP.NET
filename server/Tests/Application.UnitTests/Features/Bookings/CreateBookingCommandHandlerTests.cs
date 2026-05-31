@@ -27,6 +27,7 @@ public class CreateBookingCommandHandlerTests
     private readonly Mock<IBookingLockRepository> _lockRepoMock = new();
     private readonly Mock<IApplicationDbContext> _contextMock = new();
     private readonly Mock<ISystemConfigurationRepository> _systemConfigMock = new();
+    private readonly Mock<IEmailService> _emailServiceMock = new();
     private readonly Mock<IMediator> _mediatorMock = new();
     private readonly Mock<ILogger<CreateBookingCommandHandler>> _loggerMock = new();
     private readonly PricingDomainService _pricingService = new();
@@ -42,6 +43,7 @@ public class CreateBookingCommandHandlerTests
         _lockRepoMock.Object,
         _contextMock.Object,
         _systemConfigMock.Object,
+        _emailServiceMock.Object,
         _pricingService,
         _mediatorMock.Object,
         _loggerMock.Object
