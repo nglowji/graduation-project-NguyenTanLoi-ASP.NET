@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   CalendarDays,
+  BarChart3,
   CreditCard,
   Download,
   Loader2,
@@ -170,6 +171,33 @@ const DonutChart: React.FC<{ data: PitchTypeCommission[] }> = ({ data }) => {
   );
 };
 
+const OwnerBarChart: React.FC<{ data: OwnerCommission[] }> = ({ data }) => {
+  const owners = data.slice(0, 6);
+  const maxValue = Math.max(...owners.map((item) => item.commission), 1);
+  const colors = ['bg-indigo-600', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-600'];
+
+  if (owners.length === 0) {
+    return <div className="grid h-72 place-items-center rounded-2xl bg-slate-50 text-sm font-bold text-slate-400 dark:bg-slate-950">Chưa có dữ liệu chủ sân</div>;
+  }
+
+  return (
+    <div className="flex h-72 items-end gap-3 overflow-x-auto rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
+      {owners.map((owner, index) => (
+        <div key={owner.ownerId} className="flex h-full min-w-24 flex-1 flex-col justify-end gap-2">
+          <div className="text-center text-[10px] font-black text-slate-500">{formatMoney(owner.commission)}</div>
+          <div
+            className={`rounded-t-xl ${colors[index % colors.length]} shadow-lg`}
+            style={{ height: `${Math.max((owner.commission / maxValue) * 100, 8)}%` }}
+            title={`${owner.ownerName}: ${formatMoney(owner.commission)}`}
+          />
+          <p className="truncate text-center text-[10px] font-black text-slate-500">{owner.ownerName}</p>
+          <p className="text-center text-[10px] font-bold text-slate-400">{owner.bookings} đơn</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const PlatformRevenue: React.FC = () => {
   const [days, setDays] = useState(30);
   const [report, setReport] = useState<RevenueReport | null>(null);
@@ -287,6 +315,49 @@ const PlatformRevenue: React.FC = () => {
             <PieChart className="text-blue-600" size={24} />
           </div>
           <DonutChart data={report?.pitchTypes ?? []} />
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Cột hoa hồng theo chủ sân</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">Top 6 chủ sân, hiển thị số tiền và số booking cụ thể.</p>
+            </div>
+            <BarChart3 className="text-emerald-600" size={24} />
+          </div>
+          <OwnerBarChart data={report?.owners ?? []} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Cơ cấu tiền</h2>
+              <p className="mt-1 text-xs font-bold text-slate-400">So sánh tổng tiền, hoa hồng và phần chủ sân nhận.</p>
+            </div>
+            <Wallet className="text-amber-600" size={24} />
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: 'Tổng tiền đặt sân', value: report?.grossRevenue || 0, color: 'bg-blue-600' },
+              { label: 'Hoa hồng nền tảng', value: report?.platformCommission || 0, color: 'bg-indigo-600' },
+              { label: 'Chủ sân nhận', value: report?.ownerRevenue || 0, color: 'bg-emerald-600' },
+            ].map((item) => {
+              const maxValue = Math.max(report?.grossRevenue || 0, 1);
+              return (
+                <div key={item.label}>
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-black">
+                    <span className="text-slate-600 dark:text-slate-300">{item.label}</span>
+                    <span className="text-slate-950 dark:text-white">{formatMoney(item.value)}</span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className={`h-full rounded-full ${item.color}`} style={{ width: `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 4 : 0)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

@@ -77,6 +77,15 @@ const statusColor = (status: string) => {
   return 'bg-slate-400';
 };
 
+const statusColorValue = (status: string) => {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('complete')) return '#2563eb';
+  if (normalized.includes('confirm')) return '#10b981';
+  if (normalized.includes('pending')) return '#f59e0b';
+  if (normalized.includes('cancel') || normalized.includes('noshow')) return '#ef4444';
+  return '#94a3b8';
+};
+
 const Revenue: React.FC = () => {
   const [data, setData] = useState<OwnerRevenueResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,6 +216,25 @@ const Revenue: React.FC = () => {
       .join(' ');
   }, [cumulativePoints, maxCumulative]);
 
+  const areaPoints = useMemo(() => {
+    if (!linePoints) return '';
+    return `6,88 ${linePoints} 94,88`;
+  }, [linePoints]);
+
+  const donutGradient = useMemo(() => {
+    if (statusDistribution.length === 0) return 'conic-gradient(#e2e8f0 0% 100%)';
+    const total = Math.max(statusDistribution.reduce((sum, item) => sum + item.count, 0), 1);
+    let cursor = 0;
+    const segments = statusDistribution.map((segment) => {
+      const portion = (segment.count / total) * 100;
+      const start = cursor;
+      const end = cursor + portion;
+      cursor = end;
+      return `${statusColorValue(segment.status)} ${start}% ${end}%`;
+    });
+    return `conic-gradient(${segments.join(', ')})`;
+  }, [statusDistribution]);
+
   const topRecentPitches = useMemo(() => {
     const map = new Map<string, { name: string; revenue: number; count: number }>();
     recentBookings.forEach((booking) => {
@@ -335,12 +363,13 @@ const Revenue: React.FC = () => {
             <BarChart3 className="text-blue-600" size={24} />
           </div>
 
-          <div className="flex h-80 items-end gap-2 overflow-x-auto rounded-xl bg-slate-50 p-4 dark:bg-slate-950/40">
+          <div className="flex h-80 items-end gap-2 overflow-x-auto rounded-xl bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 p-4 dark:bg-slate-950/40">
             {chartPoints.map((point) => (
               <div key={point.date} className="flex h-full min-w-[30px] flex-1 flex-col justify-end gap-2">
+                <p className="truncate text-center text-[10px] font-black text-slate-500">{point.amount > 0 ? formatMoney(point.amount) : '0đ'}</p>
                 <div className="group relative flex flex-1 items-end">
                   <div
-                    className={`w-full rounded-t-lg transition ${point.amount > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-200 dark:bg-slate-800'}`}
+                    className={`w-full rounded-t-lg transition ${point.amount > 0 ? 'bg-gradient-to-t from-blue-700 via-blue-600 to-cyan-400 shadow-[0_-6px_14px_rgba(37,99,235,0.25)]' : 'bg-slate-200 dark:bg-slate-800'}`}
                     style={{ height: `${point.amount > 0 ? Math.max((point.amount / maxRevenue) * 100, 5) : 2}%` }}
                   />
                   <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 rounded-lg bg-slate-950 px-2 py-1 text-[10px] font-black text-white group-hover:block">
@@ -362,14 +391,21 @@ const Revenue: React.FC = () => {
             <TrendingUp className="text-indigo-600" size={24} />
           </div>
 
-          <div className="h-80 rounded-xl bg-slate-50 p-4 dark:bg-slate-950/40">
+          <div className="h-80 rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 p-4 dark:bg-slate-950/40">
             <div className="mb-3 flex items-center justify-between text-xs font-black text-slate-500">
               <span>0đ</span>
               <span>{formatMoney(maxCumulative)}</span>
             </div>
             <svg viewBox="0 0 100 100" className="h-[230px] w-full overflow-visible">
+              <defs>
+                <linearGradient id="revenueArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                </linearGradient>
+              </defs>
               <line x1="6" y1="88" x2="94" y2="88" stroke="#cbd5e1" strokeWidth="0.8" />
               <line x1="6" y1="16" x2="6" y2="88" stroke="#cbd5e1" strokeWidth="0.8" />
+              {areaPoints && <polygon points={areaPoints} fill="url(#revenueArea)" />}
               <polyline points={linePoints} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               {linePoints.split(' ').filter(Boolean).map((point, index) => {
                 const [x, y] = point.split(',');
@@ -396,6 +432,7 @@ const Revenue: React.FC = () => {
           <div className="flex h-64 items-end gap-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-950/40">
             {quarterlyRevenue.map((quarter) => (
               <div key={quarter.label} className="flex h-full flex-1 flex-col justify-end gap-2">
+                <p className="truncate text-center text-[10px] font-black text-slate-500">{formatMoney(quarter.amount)}</p>
                 <div className="rounded-t-xl bg-amber-500" style={{ height: `${quarter.amount > 0 ? Math.max((quarter.amount / maxQuarterRevenue) * 100, 5) : 2}%` }} />
                 <p className="text-center text-[10px] font-black text-slate-500">{quarter.label}</p>
               </div>
@@ -415,7 +452,7 @@ const Revenue: React.FC = () => {
             <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm font-bold text-slate-400">Chưa có trạng thái đơn</div>
           ) : (
             <div className="space-y-5">
-              <div className="mx-auto grid h-40 w-40 place-items-center rounded-full bg-[conic-gradient(#2563eb_0_35%,#10b981_35%_60%,#f59e0b_60%_82%,#ef4444_82%_100%)]">
+              <div className="mx-auto grid h-40 w-40 place-items-center rounded-full" style={{ background: donutGradient }}>
                 <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center dark:bg-slate-900">
                   <span className="text-2xl font-black text-slate-950 dark:text-white">{totalStatus}</span>
                 </div>

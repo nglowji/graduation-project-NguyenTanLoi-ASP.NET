@@ -44,6 +44,17 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
         if (existingPitch != null)
         {
             sportCenterId = existingPitch.SportCenterId;
+            var sportCenter = await _context.SportCenters
+                .FirstOrDefaultAsync(center => center.Id == sportCenterId, cancellationToken);
+
+            if (sportCenter != null && !string.IsNullOrWhiteSpace(request.Address))
+            {
+                sportCenter.UpdateAddress(BuildAddress(
+                    request.Address.Trim(),
+                    sportCenter.Address,
+                    request.Latitude,
+                    request.Longitude));
+            }
         }
         else
         {
@@ -74,7 +85,13 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
             var sportCenter = new SportCenter(
                 "Trung tâm " + owner.FullName,
                 owner.Id,
-                Address.Create(finalAddress, ward, district, city, 10.762622, 106.660172),
+                Address.Create(
+                    finalAddress,
+                    ward,
+                    district,
+                    city,
+                    request.Latitude ?? 10.762622,
+                    request.Longitude ?? 106.660172),
                 "Hệ thống tự động khởi tạo",
                 owner.PhoneNumber
             );
@@ -88,7 +105,8 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
             request.Name,
             request.PitchType,
             request.IsIndoor,
-            request.Description
+            request.Description,
+            request.MapLink?.Trim()
         );
 
         // Kích hoạt sân ngay để hiển thị trên trang khám phá
@@ -129,5 +147,40 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
         _logger.LogInformation("Pitch {PitchId} created by owner {OwnerId}", pitch.Id, request.OwnerId);
 
         return Result<Guid>.Success(pitch.Id);
+    }
+
+    private static Address BuildAddress(string fullAddress, Address currentAddress, double? latitude, double? longitude)
+    {
+        var parts = fullAddress
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        var city = currentAddress.City;
+        var district = currentAddress.District;
+        var ward = currentAddress.Ward;
+
+        if (parts.Count >= 3)
+        {
+            city = parts[^1];
+            district = parts[^2];
+            ward = parts[^3];
+        }
+        else if (parts.Count == 2)
+        {
+            city = parts[^1];
+            district = parts[0];
+        }
+        else if (parts.Count == 1)
+        {
+            city = parts[0];
+        }
+
+        return Address.Create(
+            fullAddress,
+            ward,
+            district,
+            city,
+            latitude ?? currentAddress.Latitude,
+            longitude ?? currentAddress.Longitude);
     }
 }

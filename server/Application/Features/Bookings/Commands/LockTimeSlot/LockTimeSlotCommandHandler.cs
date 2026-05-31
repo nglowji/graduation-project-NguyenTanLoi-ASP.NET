@@ -46,6 +46,9 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
             if (!timeSlot.IsActive)
                 return Result<Guid>.Failure("Time slot is not active");
 
+            if (IsPastSlot(request.BookingDate, timeSlot.TimeRange.StartTime))
+                return Result<Guid>.Failure("Khung giờ này đã quá thời gian đặt.");
+
             // 2. Check if already booked
             var isAvailable = await _bookingRepository.IsTimeSlotAvailableAsync(
                 request.TimeSlotId,
@@ -118,6 +121,27 @@ public class LockTimeSlotCommandHandler : IRequestHandler<LockTimeSlotCommand, R
         {
             _logger.LogError(ex, "Error creating booking lock");
             return Result<Guid>.Failure("Failed to lock time slot. Please try again.");
+        }
+    }
+
+    private static bool IsPastSlot(DateOnly bookingDate, TimeSpan startTime)
+    {
+        var vietnamNow = GetVietnamNow();
+        var today = DateOnly.FromDateTime(vietnamNow.DateTime);
+        var currentTime = TimeOnly.FromDateTime(vietnamNow.DateTime).ToTimeSpan();
+
+        return bookingDate < today || (bookingDate == today && startTime <= currentTime);
+    }
+
+    private static DateTimeOffset GetVietnamNow()
+    {
+        try
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"));
         }
     }
 }

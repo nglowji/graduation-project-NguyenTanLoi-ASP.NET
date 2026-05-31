@@ -1,9 +1,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, LayoutDashboard, LogIn, LogOut, Menu, User, X } from 'lucide-react';
+import { Bell, ChevronDown, LayoutDashboard, LogIn, LogOut, Menu, User, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 import logoMark from '../assets/logo-smartsport.svg';
+import { getReadNotificationIds, NOTIFICATION_READ_EVENT } from '../utils/notifications';
+
+type SystemNotificationItem = {
+  id: string;
+  isRead: boolean;
+};
+
+type BookingNotificationItem = {
+  id: string;
+  status?: string;
+};
 
 const publicLinks = [
   { to: '/', label: 'Trang chủ' },
@@ -15,8 +27,10 @@ const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout, isAdmin, isOwner } = useAuth();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
   const [isPublicMenuOpen, setIsPublicMenuOpen] = React.useState(false);
+  const [unreadNotifications, setUnreadNotifications] = React.useState(0);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const accountRoleLabel = isAdmin ? 'Quản trị' : isOwner ? 'Chủ sân' : 'Thành viên';
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -28,6 +42,56 @@ const Navbar: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      setUnreadNotifications(0);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchUnreadNotifications = async () => {
+      try {
+        const [notificationResult, bookingResult] = await Promise.allSettled([
+          api.get('/notifications') as Promise<SystemNotificationItem[]>,
+          api.get('/bookings/my-bookings') as Promise<{ items?: BookingNotificationItem[] } | BookingNotificationItem[]>,
+        ]);
+
+        const readIds = getReadNotificationIds();
+        const systemItems = notificationResult.status === 'fulfilled' && Array.isArray(notificationResult.value)
+          ? notificationResult.value
+          : [];
+        const bookingPayload = bookingResult.status === 'fulfilled' ? bookingResult.value : [];
+        const bookingItems = Array.isArray(bookingPayload)
+          ? bookingPayload
+          : Array.isArray(bookingPayload?.items)
+            ? bookingPayload.items
+            : [];
+
+        const unreadSystem = systemItems.filter((item) => !item.isRead && !readIds.includes(item.id)).length;
+        const unreadBookings = bookingItems.filter((booking) => {
+          const status = String(booking.status || '').toLowerCase();
+          const isRelevant = status.includes('pending') || status.includes('complete') || status === '1' || status === '4';
+          return isRelevant && !readIds.includes(booking.id);
+        }).length;
+
+        if (isMounted) setUnreadNotifications(unreadSystem + unreadBookings);
+      } catch {
+        if (isMounted) setUnreadNotifications(0);
+      }
+    };
+
+    fetchUnreadNotifications();
+    const timer = window.setInterval(fetchUnreadNotifications, 30000);
+    window.addEventListener(NOTIFICATION_READ_EVENT, fetchUnreadNotifications);
+    window.addEventListener('storage', fetchUnreadNotifications);
+    return () => {
+      isMounted = false;
+      window.clearInterval(timer);
+      window.removeEventListener(NOTIFICATION_READ_EVENT, fetchUnreadNotifications);
+      window.removeEventListener('storage', fetchUnreadNotifications);
+    };
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     logout();
@@ -66,6 +130,20 @@ const Navbar: React.FC = () => {
               </Link>
             </>
           ) : (
+            <>
+            <Link
+              to="/profile?tab=notifications"
+              className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-primary"
+              aria-label={unreadNotifications > 0 ? `${unreadNotifications} thông báo mới` : 'Thông báo'}
+            >
+              <Bell size={18} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black leading-none text-white ring-2 ring-white">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </Link>
+
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
@@ -86,44 +164,57 @@ const Navbar: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-64 overflow-hidden rounded-2xl border border-slate-100 bg-white p-2 shadow-2xl sm:w-64"
+                  className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
                 >
-                  <div className="mb-2 border-b border-slate-50 px-3 py-2 sm:hidden">
-                    <p className="text-xs text-slate-500">Đang đăng nhập với</p>
-                    <p className="truncate text-sm font-bold">{user?.email}</p>
+                  <div className="border-b border-slate-100 bg-slate-950 p-4 text-white">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-lg font-black text-white">
+                        {user?.fullName?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black">{user?.fullName || 'Tài khoản'}</p>
+                        <p className="truncate text-xs font-semibold text-slate-300">{user?.email || 'Chưa cập nhật email'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-100">
+                      {accountRoleLabel}
+                    </div>
                   </div>
 
-                  {(isAdmin || isOwner) && (
+                  <div className="p-3">
+                    {(isAdmin || isOwner) && (
+                      <Link
+                        to={isAdmin ? '/dashboard/admin' : '/dashboard/owner'}
+                        className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 px-3 py-3 text-sm font-black text-slate-700 transition-all hover:border-primary hover:bg-primary hover:text-white"
+                        onClick={() => setIsAccountMenuOpen(false)}
+                      >
+                        <LayoutDashboard size={18} />
+                        Trang quản trị
+                      </Link>
+                    )}
+
                     <Link
-                      to={isAdmin ? '/dashboard/admin' : '/dashboard/owner'}
-                      className="mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-primary hover:text-white"
+                      to="/profile"
+                      className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 px-3 py-3 text-sm font-black text-slate-700 transition-all hover:bg-slate-50"
                       onClick={() => setIsAccountMenuOpen(false)}
                     >
-                      <LayoutDashboard size={18} />
-                      Trang quản trị
+                      <User size={18} />
+                      Hồ sơ cá nhân
                     </Link>
-                  )}
 
-                  <Link
-                    to="/profile"
-                    className="mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50"
-                    onClick={() => setIsAccountMenuOpen(false)}
-                  >
-                    <User size={18} />
-                    Hồ sơ cá nhân
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition-all hover:bg-red-50"
-                  >
-                    <LogOut size={18} />
-                    Đăng xuất
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-black text-red-600 transition-all hover:bg-red-600 hover:text-white"
+                    >
+                      <LogOut size={18} />
+                      Đăng xuất
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </div>
+            </>
           )}
 
           <button
@@ -173,13 +264,28 @@ const Navbar: React.FC = () => {
                   </Link>
                 </>
               ) : (
-                <Link
-                  to={isAdmin ? '/dashboard/admin' : isOwner ? '/dashboard/owner' : '/profile'}
-                  onClick={() => setIsPublicMenuOpen(false)}
-                  className="col-span-2 inline-flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-black text-white"
-                >
-                  {isAdmin || isOwner ? 'Vào dashboard' : 'Hồ sơ cá nhân'}
-                </Link>
+                <>
+                  <Link
+                    to="/profile?tab=notifications"
+                    onClick={() => setIsPublicMenuOpen(false)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 text-sm font-black text-slate-700"
+                  >
+                    <Bell size={16} />
+                    Thông báo
+                    {unreadNotifications > 0 && (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] text-white">
+                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    to={isAdmin ? '/dashboard/admin' : isOwner ? '/dashboard/owner' : '/profile'}
+                    onClick={() => setIsPublicMenuOpen(false)}
+                    className="inline-flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-black text-white"
+                  >
+                    {isAdmin || isOwner ? 'Vào dashboard' : 'Hồ sơ cá nhân'}
+                  </Link>
+                </>
               )}
             </div>
           </div>

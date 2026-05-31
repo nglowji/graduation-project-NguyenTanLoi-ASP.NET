@@ -396,6 +396,10 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsIndoor")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("MapLink")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

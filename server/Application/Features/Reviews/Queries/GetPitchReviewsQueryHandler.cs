@@ -43,6 +43,7 @@ public class GetPitchReviewsQueryHandler : IRequestHandler<GetPitchReviewsQuery,
             BookingId = r.BookingId,
             Rating = r.Rating,
             Comment = r.Comment,
+            OwnerReply = r.OwnerReply,
             CreatedAt = r.CreatedAt
         }).ToList();
 

@@ -70,6 +70,13 @@ const toTimeInputValue = (value: unknown) => {
   return text.includes(':') ? text.substring(0, 5) : '';
 };
 
+const toAddressInputValue = (value: any) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value.fullAddress
+    || [value.street, value.ward, value.district, value.city].filter(Boolean).join(', ');
+};
+
 const toApiTimeValue = (value: string) => value.length === 5 ? `${value}:00` : value;
 
 const parseMoneyInput = (value: string | number) => {
@@ -112,7 +119,40 @@ const normalizeSlotTimeInput = (value: string) => {
   return formatTimeFromMinutes(hour * 60 + minute);
 };
 
-const extractAddressFromGoogleMapLink = (value: string) => {
+type MapCoordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+const extractCoordinatesFromGoogleMapLink = (value: string): MapCoordinates | null => {
+  const text = value.trim();
+  if (!text) return null;
+
+  try {
+    const decoded = decodeURIComponent(text.replace(/\+/g, ' '));
+    const patterns = [
+      /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+      /[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/i,
+      /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = decoded.match(pattern);
+      if (match) {
+        return {
+          latitude: Number(match[1]),
+          longitude: Number(match[2]),
+        };
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const extractSearchTextFromMapInput = (value: string) => {
   const text = value.trim();
   if (!text) return '';
 
@@ -124,13 +164,36 @@ const extractAddressFromGoogleMapLink = (value: string) => {
     const placeMatch = decoded.match(/\/place\/([^/@?]+)/i);
     if (placeMatch?.[1]) return placeMatch[1].replace(/\s+/g, ' ').trim();
 
-    const coordinateMatch = decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-    if (coordinateMatch) return `Tọa độ ${coordinateMatch[1]}, ${coordinateMatch[2]}`;
+    return decoded;
   } catch {
-    return '';
+    return text;
   }
+};
 
-  return '';
+const geocodeMapInput = async (mapInput: string, fallbackAddress: string): Promise<MapCoordinates | null> => {
+  const directCoordinates = extractCoordinatesFromGoogleMapLink(mapInput);
+  if (directCoordinates) return directCoordinates;
+
+  const query = extractSearchTextFromMapInput(mapInput) || fallbackAddress.trim();
+  if (!query || /^https?:\/\//i.test(query)) return null;
+
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('q', query);
+  url.searchParams.set('accept-language', 'vi');
+
+  const response = await fetch(url.toString());
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const first = Array.isArray(data) ? data[0] : null;
+  if (!first?.lat || !first?.lon) return null;
+
+  return {
+    latitude: Number(first.lat),
+    longitude: Number(first.lon),
+  };
 };
 
 const TIME_HOURS = Array.from({ length: 24 }, (_, index) => index);
@@ -279,11 +342,9 @@ const PitchEditor: React.FC = () => {
   }, [autoGen.startTime, autoGen.endTime, autoGen.duration, autoGen.price, isEditing, isLoading, autoGenTouched]);
 
   const handleMapLinkChange = (value: string) => {
-    const extractedAddress = extractAddressFromGoogleMapLink(value);
     setFormData((currentForm) => ({
       ...currentForm,
       mapLink: value,
-      address: extractedAddress || currentForm.address,
     }));
   };
 
@@ -324,7 +385,7 @@ const PitchEditor: React.FC = () => {
 
       setFormData({
         name: pitch.name || '',
-        address: pitch.address || '',
+        address: toAddressInputValue(pitch.address),
         mapLink: pitch.mapLink || '',
         description: pitch.description || '',
         sportCategory: category,
@@ -392,6 +453,7 @@ const PitchEditor: React.FC = () => {
         price: parseMoneyInput(slot.price),
       }));
 
+      const mapCoordinates = await geocodeMapInput(formData.mapLink, formData.address);
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -400,16 +462,16 @@ const PitchEditor: React.FC = () => {
         images: formData.images.map((image) => image.trim()).filter(Boolean),
         timeSlots,
         services: [],
+        address: formData.address.trim(),
+        mapLink: formData.mapLink.trim() || undefined,
+        latitude: mapCoordinates?.latitude,
+        longitude: mapCoordinates?.longitude,
       };
 
       if (isEditing) {
         await api.put(`/pitches/${id}`, payload);
       } else {
-        await api.post('/pitches', {
-          ...payload,
-          address: formData.address.trim(),
-          mapLink: formData.mapLink.trim() || undefined,
-        });
+        await api.post('/pitches', payload);
       }
 
       navigate('/dashboard/owner/pitches');
@@ -495,7 +557,6 @@ const PitchEditor: React.FC = () => {
                 />
               </div>
 
-              {!isEditing && (
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                   <div>
                     <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Link Google Maps nếu có</label>
@@ -509,7 +570,7 @@ const PitchEditor: React.FC = () => {
                       />
                     </div>
                     <p className="mt-2 text-xs font-semibold leading-5 text-slate-400">
-                      Nếu đọc được link, địa chỉ sẽ tự điền sang ô bên cạnh.
+                      Link này chỉ dùng để lấy đúng tọa độ marker trên bản đồ.
                     </p>
                   </div>
 
@@ -523,7 +584,6 @@ const PitchEditor: React.FC = () => {
                     />
                   </div>
                 </div>
-              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -789,7 +849,7 @@ const PitchEditor: React.FC = () => {
                 <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{formData.timeSlots.length}</span>
               </div>
             </div>
-            {!isEditing && formData.address && (
+            {formData.address && (
               <div className="mt-4 flex min-w-0 gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-500 dark:bg-slate-800">
                 <MapPin size={15} className="shrink-0 text-blue-600" />
                 <span className="min-w-0 break-words">{formData.address}</span>

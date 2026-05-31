@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle,
@@ -11,13 +12,16 @@ import {
   User,
   Filter,
   CheckCheck,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import api from '../../../services/api';
+import { slugify } from '../../../utils/slug';
 
 type OwnerReview = {
   id: string;
   userName: string;
+  pitchId: string;
   pitchName: string;
   rating: number;
   comment: string;
@@ -34,6 +38,7 @@ const isOwnerReview = (value: unknown): value is OwnerReview => {
   return (
     typeof review.id === 'string' &&
     typeof review.userName === 'string' &&
+    typeof review.pitchId === 'string' &&
     typeof review.pitchName === 'string' &&
     typeof review.rating === 'number' &&
     typeof review.comment === 'string' &&
@@ -107,6 +112,9 @@ const Reviews: React.FC = () => {
     total: reviews.length,
     replied: reviews.filter(r => r.reply).length
   };
+
+  const getPitchDetailUrl = (review: OwnerReview) =>
+    `/san/${review.pitchId}-${slugify(review.pitchName || 'san')}`;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-12">
@@ -189,10 +197,11 @@ const Reviews: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xl font-black text-slate-900 dark:text-white leading-none">{review.userName}</h4>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 dark:bg-slate-900/50 rounded-full border border-slate-100 dark:border-slate-700 w-fit">
+                    <Link to={getPitchDetailUrl(review)} className="flex w-fit items-center gap-1.5 rounded-full border border-slate-100 bg-slate-50 px-3 py-1 transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900/50">
                       <div className="w-1 h-1 rounded-full bg-blue-600" />
                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{review.pitchName}</span>
-                    </div>
+                      <ExternalLink size={11} className="text-slate-400" />
+                    </Link>
                     <div className="flex items-center gap-3 pt-1">
                       <div className="flex items-center gap-0.5">
                         {[...Array(5)].map((_, i) => (
@@ -233,7 +242,14 @@ const Reviews: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="pt-8 flex justify-end">
+                  <div className="pt-8 flex flex-wrap justify-end gap-3">
+                    <Link
+                      to={getPitchDetailUrl(review)}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      <ExternalLink size={16} />
+                      Xem trực tiếp
+                    </Link>
                     <button
                       onClick={() => openReplyModal(review)}
                       className="flex items-center gap-3 px-8 py-3.5 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all group/btn"

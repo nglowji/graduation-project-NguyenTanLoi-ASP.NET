@@ -36,7 +36,13 @@ public record Address
         return new Address(street, ward, district, city, latitude, longitude);
     }
 
-    public string GetFullAddress() => $"{Street}, {Ward}, {District}, {City}";
+    public string GetFullAddress()
+    {
+        if (Street.Contains(','))
+            return Street;
+
+        return $"{Street}, {Ward}, {District}, {City}";
+    }
 
     public double CalculateDistanceTo(Address other)
     {

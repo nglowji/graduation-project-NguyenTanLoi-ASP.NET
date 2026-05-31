@@ -107,6 +107,7 @@ public record OwnerPitchSummaryDto(
     decimal TodayRevenue,
     double AverageRating,
     string Address,
+    string? MapLink,
     bool IsIndoor,
     List<PitchImageDto> Images,
     List<TimeSlotDto> TimeSlots,

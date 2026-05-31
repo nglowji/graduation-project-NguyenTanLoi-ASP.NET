@@ -30,6 +30,7 @@ public class GetOwnerReviewsQueryHandler : IRequestHandler<GetOwnerReviewsQuery,
         var dtos = reviews.Select(r => new OwnerReviewDto(
             r.Id,
             r.User.FullName,
+            r.PitchId,
             r.Pitch.Name,
             r.Rating,
             r.Comment,

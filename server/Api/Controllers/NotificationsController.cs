@@ -43,4 +43,25 @@ public class NotificationsController : ApiControllerBase
 
         return OkResponse(notifications);
     }
+
+    [HttpPatch("{id:guid}/read")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var notification = await _context.Notifications
+            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
+
+        if (notification == null)
+            return NotFoundResponse("Notification not found");
+
+        notification.MarkAsRead();
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return OkResponse<object?>(null, "Notification marked as read");
+    }
 }

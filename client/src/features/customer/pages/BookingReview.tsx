@@ -22,6 +22,7 @@ import {
 import { motion } from 'framer-motion';
 import { bookingService, type BookingResponse } from '../../../services/bookingService';
 import { paymentService } from '../../../services/paymentService';
+import { formatCompactAddress } from '../../../utils/address';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -63,12 +64,10 @@ const pageStyle = {
 const BookingReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isZaloPayEnabled = import.meta.env.VITE_ENABLE_ZALOPAY === 'true';
 
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [paymentProvider, setPaymentProvider] = useState<'VNPAY' | 'ZALOPAY'>('VNPAY');
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +115,7 @@ const BookingReview: React.FC = () => {
     return {
       pitchName: booking?.pitchName || pitch?.name || 'Sân thể thao',
       pitchType: pitch?.type || 'Tiêu chuẩn',
-      pitchAddress: pitch?.address || (booking as any)?.pitchAddress || 'Chưa cập nhật địa chỉ',
+      pitchAddress: formatCompactAddress(pitch?.address || (booking as any)?.pitchAddress),
       startTime: booking?.startTime || booking?.timeSlot?.startTime,
       endTime: booking?.endTime || booking?.timeSlot?.endTime,
       services,
@@ -142,9 +141,9 @@ const BookingReview: React.FC = () => {
       const paymentResponse = await paymentService.createPayment({
         bookingId: booking.id,
         returnUrl: `${window.location.origin}/payment-result`,
-        provider: isZaloPayEnabled ? paymentProvider : 'VNPAY',
+        provider: 'ZALOPAY',
       });
-      if (paymentResponse.provider === 'ZALOPAY' && paymentResponse.qrCode) {
+      if (paymentResponse.provider === 'ZALOPAY') {
         setPaymentModal({
           isOpen: true,
           paymentUrl: paymentResponse.paymentUrl,
@@ -162,10 +161,13 @@ const BookingReview: React.FC = () => {
     }
   };
 
-  const buildQrSource = (qrCode?: string | null) => {
-    if (!qrCode) return '';
-    if (qrCode.startsWith('data:image') || qrCode.startsWith('http')) return qrCode;
-    return `data:image/png;base64,${qrCode}`;
+  const buildQrSource = (qrCode?: string | null, paymentUrl?: string) => {
+    const qrPayload = qrCode?.trim() || paymentUrl?.trim();
+    if (!qrPayload) return '';
+    if (qrPayload.startsWith('data:image')) return qrPayload;
+    if (/^https?:\/\/.+\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(qrPayload)) return qrPayload;
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrPayload)}`;
   };
 
   useEffect(() => {
@@ -274,10 +276,6 @@ const BookingReview: React.FC = () => {
             <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
               Xem nhanh lịch, cập nhật liên hệ nếu cần, rồi thanh toán cọc để giữ sân.
             </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-[var(--panel)] px-4 py-3 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mã đặt sân</p>
-            <p className="mt-1 font-mono text-lg font-black text-slate-900">{booking.checkInCode || booking.id.substring(0, 8).toUpperCase()}</p>
           </div>
         </div>
 
@@ -468,41 +466,12 @@ const BookingReview: React.FC = () => {
 
               <div className="mt-5">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chọn cổng thanh toán</p>
-                <div className={`mt-3 grid gap-2 rounded-xl bg-slate-100 p-1 ${isZaloPayEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentProvider('VNPAY')}
-                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-3 text-center text-sm font-black transition ${
-                      paymentProvider === 'VNPAY'
-                        ? 'bg-white text-blue-700 shadow-sm'
-                        : 'text-slate-500 hover:text-blue-700'
-                    }`}
-                  >
-                    <CreditCard size={18} />
-                    VNPay
-                  </button>
-
-                  {isZaloPayEnabled && (
-                    <button
-                      type="button"
-                      onClick={() => setPaymentProvider('ZALOPAY')}
-                      className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-3 text-center text-sm font-black transition ${
-                        paymentProvider === 'ZALOPAY'
-                          ? 'bg-white text-emerald-700 shadow-sm'
-                          : 'text-slate-500 hover:text-emerald-700'
-                      }`}
-                    >
-                      <WalletCards size={18} />
-                      ZaloPay
-                    </button>
-                  )}
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
+                  <WalletCards size={18} />
+                  Thanh toán online
                 </div>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                  {!isZaloPayEnabled
-                    ? 'ZaloPay chưa được cấu hình, hệ thống đang dùng VNPAY để thanh toán cọc.'
-                    : paymentProvider === 'VNPAY'
-                      ? 'Chuyển sang cổng ngân hàng nội địa.'
-                      : 'Quét QR hoặc mở ví ZaloPay để thanh toán.'}
+                  Quét QR hoặc mở ví ZaloPay để thanh toán.
                 </p>
               </div>
 
@@ -511,7 +480,7 @@ const BookingReview: React.FC = () => {
                 disabled={isProcessing}
                 className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-[var(--accent)] px-5 py-4 text-xs font-black uppercase tracking-widest text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>Thanh toán cọc <ArrowRight size={18} /></>}
+                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>Thanh toán online <ArrowRight size={18} /></>}
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -542,7 +511,7 @@ const BookingReview: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-slate-950">Quét mã QR để thanh toán</h3>
-                  <p className="text-xs font-semibold text-slate-500">ZaloPay Sandbox</p>
+                  <p className="text-xs font-semibold text-slate-500">Thanh toán online</p>
                 </div>
               </div>
             </div>
@@ -550,14 +519,14 @@ const BookingReview: React.FC = () => {
             <div className="px-6 py-6">
               <div className="flex items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4">
                 <img
-                  src={buildQrSource(paymentModal.qrCode)}
-                  alt="ZaloPay QR"
+                  src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
+                  alt="QR thanh toán"
                   className="h-52 w-52 rounded-xl bg-white p-2"
                 />
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-700">Mở ứng dụng ZaloPay và quét mã để thanh toán cọc.</p>
+                <p className="font-semibold text-slate-700">Quét mã để thanh toán cọc.</p>
                 <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
                   {paymentStatus === 'pending' && (
                     <>
@@ -575,9 +544,11 @@ const BookingReview: React.FC = () => {
                 {paymentModal.paymentUrl && (
                   <a
                     href={paymentModal.paymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
                     className="flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
                   >
-                    Mở ZaloPay
+                    Mở trang thanh toán
                   </a>
                 )}
                 <button

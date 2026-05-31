@@ -31,6 +31,7 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
         {
             // Load pitch WITH related data to ensure tracking
             var pitch = await _context.Pitches
+                .Include(p => p.SportCenter)
                 .Include(p => p.TimeSlots)
                 .Include(p => p.Images)
                 .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
@@ -42,7 +43,16 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
                 return Result<Unit>.Failure("Bạn không có quyền cập nhật sân này.");
 
             // ── 1. Cập nhật thông tin cơ bản ──────────────────────────────────────
-            pitch.UpdateInfo(request.Name, request.PitchType, request.IsIndoor, request.Description);
+            pitch.UpdateInfo(request.Name, request.PitchType, request.IsIndoor, request.Description, request.MapLink?.Trim());
+
+            if (!string.IsNullOrWhiteSpace(request.Address) && pitch.SportCenter != null)
+            {
+                pitch.SportCenter.UpdateAddress(BuildAddress(
+                    request.Address.Trim(),
+                    pitch.SportCenter.Address,
+                    request.Latitude,
+                    request.Longitude));
+            }
 
             // ── 2. Cập nhật khung giờ (TimeSlots) ─────────────────────────────────
             if (request.TimeSlots != null)
@@ -52,17 +62,9 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
                 // EF Core sẽ tự động quản lý state của các slot này.
                 
                 // Lấy các slot đang hoạt động
-                var activeSlots = pitch.TimeSlots.Where(ts => ts.IsActive).ToList();
-                foreach (var slot in activeSlots)
-                {
-                    slot.Deactivate();
-                }
+                SynchronizeTimeSlots(pitch, request.TimeSlots);
 
                 // Thêm slot mới từ request
-                foreach (var ts in request.TimeSlots)
-                {
-                    pitch.AddTimeSlot(TimeRange.Create(ts.StartTime, ts.EndTime), Money.Create(ts.Price));
-                }
             }
 
             // ── 3. Cập nhật hình ảnh (Images) ────────────────────────────────────
@@ -82,23 +84,36 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
                 {
                     // Xóa hẳn khỏi DB (hard delete) hoặc soft delete tùy bạn. 
                     // Ở đây ta dùng Remove để tránh lỗi tracking "another instance is tracked".
-                    _context.PitchImages.Remove(img);
+                    img.SoftDelete();
                 }
 
                 // Tìm các ảnh cần thêm (có trong request nhưng chưa có trong DB)
-                var currentUrls = currentImages.Select(i => i.ImageUrl).ToList();
+                var currentUrls = currentImages
+                    .Where(img => !img.IsDeleted)
+                    .Select(i => i.ImageUrl)
+                    .ToList();
                 var urlsToAdd = newUrls.Where(url => !currentUrls.Contains(url)).ToList();
 
                 foreach (var url in urlsToAdd)
                 {
-                    pitch.AddImage(url, pitch.Images.Count(img => !imagesToRemove.Contains(img)) == 0);
+                    var newImage = pitch.AddImage(url, pitch.Images.Count(img => !img.IsDeleted && !imagesToRemove.Contains(img)) == 0);
+                    _context.PitchImages.Add(newImage);
                 }
 
                 var remainingImages = pitch.Images
-                    .Where(img => !imagesToRemove.Contains(img))
+                    .Where(img => !img.IsDeleted && !imagesToRemove.Contains(img))
                     .ToList();
                 var primaryUrl = newUrls.FirstOrDefault();
                 var primaryImage = remainingImages.FirstOrDefault(img => img.ImageUrl == primaryUrl);
+
+                foreach (var img in remainingImages)
+                {
+                    var order = newUrls.IndexOf(img.ImageUrl);
+                    if (order >= 0)
+                    {
+                        img.UpdateDisplayOrder(order);
+                    }
+                }
 
                 if (primaryImage != null)
                 {
@@ -136,5 +151,75 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
             _logger.LogError(ex, "Unexpected error updating pitch {PitchId}", request.Id);
             return Result<Unit>.Failure($"Lỗi hệ thống: {ex.Message}");
         }
+    }
+
+    private void SynchronizeTimeSlots(Domain.Entities.Pitch pitch, List<PitchTimeSlotRequest> requestedSlots)
+    {
+        var normalizedRequests = requestedSlots
+            .GroupBy(slot => new { slot.StartTime, slot.EndTime })
+            .Select(group => group.Last())
+            .ToList();
+
+        var activeSlots = pitch.TimeSlots.Where(slot => slot.IsActive).ToList();
+        var matchedSlotIds = new HashSet<Guid>();
+
+        foreach (var requestedSlot in normalizedRequests)
+        {
+            var existingSlot = activeSlots.FirstOrDefault(slot =>
+                slot.TimeRange.StartTime == requestedSlot.StartTime &&
+                slot.TimeRange.EndTime == requestedSlot.EndTime);
+
+            if (existingSlot != null)
+            {
+                existingSlot.UpdatePrice(Money.Create(requestedSlot.Price));
+                matchedSlotIds.Add(existingSlot.Id);
+                continue;
+            }
+
+            var newSlot = pitch.AddTimeSlot(
+                TimeRange.Create(requestedSlot.StartTime, requestedSlot.EndTime),
+                Money.Create(requestedSlot.Price));
+            _context.TimeSlots.Add(newSlot);
+        }
+
+        foreach (var slot in activeSlots.Where(slot => !matchedSlotIds.Contains(slot.Id)))
+        {
+            slot.Deactivate();
+        }
+    }
+
+    private static Address BuildAddress(string fullAddress, Address currentAddress, double? latitude, double? longitude)
+    {
+        var parts = fullAddress
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        var city = currentAddress.City;
+        var district = currentAddress.District;
+        var ward = currentAddress.Ward;
+
+        if (parts.Count >= 3)
+        {
+            city = parts[^1];
+            district = parts[^2];
+            ward = parts[^3];
+        }
+        else if (parts.Count == 2)
+        {
+            city = parts[^1];
+            district = parts[0];
+        }
+        else if (parts.Count == 1)
+        {
+            city = parts[0];
+        }
+
+        return Address.Create(
+            fullAddress,
+            ward,
+            district,
+            city,
+            latitude ?? currentAddress.Latitude,
+            longitude ?? currentAddress.Longitude);
     }
 }

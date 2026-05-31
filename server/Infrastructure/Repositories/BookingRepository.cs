@@ -30,6 +30,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Take(pageSize)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
+                    .ThenInclude(p => p.SportCenter)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Booking>(items, totalCount, pageNumber, pageSize);
@@ -56,7 +57,9 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .AnyAsync(b =>
                 b.TimeSlotId == timeSlotId &&
                 b.BookingDate == date &&
-                (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.PendingDeposit),
+                (b.Status == BookingStatus.PendingDeposit ||
+                 b.Status == BookingStatus.Confirmed ||
+                 b.Status == BookingStatus.Completed),
                 cancellationToken);
 
         return !hasConflict;

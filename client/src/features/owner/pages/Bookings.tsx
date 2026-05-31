@@ -136,6 +136,21 @@ const Bookings: React.FC = () => {
   const getDeposit = (booking: BookingRow) =>
     Number(booking.depositAmount ?? 0);
 
+  const isPendingBooking = (booking: BookingRow) =>
+    String(booking.status || '').toLowerCase().includes('pending');
+
+  const isConfirmedBooking = (booking: BookingRow) =>
+    String(booking.status || '').toLowerCase().includes('confirm');
+
+  const isCompletedBooking = (booking: BookingRow) =>
+    String(booking.status || '').toLowerCase().includes('complete');
+
+  const isCancelledBooking = (booking: BookingRow) =>
+    String(booking.status || '').toLowerCase().includes('cancel');
+
+  const getRemaining = (booking: BookingRow) =>
+    isCompletedBooking(booking) ? 0 : Math.max(getTotal(booking) - getDeposit(booking), 0);
+
   const getStatusLabel = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
     if (normalized.includes('pending')) return 'Chờ cọc';
@@ -344,7 +359,11 @@ const Bookings: React.FC = () => {
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Còn lại</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(Math.max(getTotal(booking) - getDeposit(booking), 0))}</dd>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(getRemaining(booking))}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Ghi nhận</dt>
+                            <dd className="text-right text-slate-800 dark:text-slate-200">{isCompletedBooking(booking) ? 'Đã thanh toán đủ' : 'Còn thu tại sân'}</dd>
                           </div>
                         </dl>
                       </div>
@@ -354,21 +373,22 @@ const Bookings: React.FC = () => {
                         <select
                           value={booking.status || 'PendingDeposit'}
                           onChange={(event) => handleStatusUpdate(booking.id, event.target.value)}
-                          className={`mb-3 h-10 w-full rounded-xl border-0 px-3 text-xs font-black uppercase tracking-widest outline-none ${getStatusClass(booking.status)}`}
+                          disabled={isCompletedBooking(booking) || isCancelledBooking(booking)}
+                          className={`mb-3 h-10 w-full rounded-xl border-0 px-3 text-xs font-black uppercase tracking-widest outline-none disabled:cursor-not-allowed disabled:opacity-70 ${getStatusClass(booking.status)}`}
                         >
-                          <option value="PendingDeposit">Chờ cọc</option>
-                          <option value="Confirmed">Đã xác nhận</option>
-                          <option value="Completed">Hoàn thành</option>
-                          <option value="Cancelled">Đã hủy</option>
+                          <option value={booking.status || 'PendingDeposit'}>{getStatusLabel(booking.status)}</option>
+                          {isPendingBooking(booking) && <option value="Confirmed">Đã nhận cọc</option>}
+                          {isConfirmedBooking(booking) && <option value="Completed">Hoàn tất, đã thu đủ</option>}
+                          {(isPendingBooking(booking) || isConfirmedBooking(booking)) && <option value="Cancelled">Đã hủy</option>}
                         </select>
                         <div className="grid grid-cols-4 gap-2">
-                          <button type="button" title="Xác nhận" onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="flex h-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition hover:bg-emerald-600 hover:text-white">
+                          <button type="button" disabled={!isPendingBooking(booking)} title="Xác nhận đã nhận cọc" onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="flex h-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition hover:bg-emerald-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
                             <CheckCircle2 size={17} />
                           </button>
-                          <button type="button" title="Hoàn thành" onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="flex h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white">
+                          <button type="button" disabled={!isConfirmedBooking(booking)} title="Hoàn tất, đã thu đủ" onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="flex h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
                             <Flag size={17} />
                           </button>
-                          <button type="button" title="Hủy đơn" onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="flex h-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white">
+                          <button type="button" disabled={!isPendingBooking(booking) && !isConfirmedBooking(booking)} title="Hủy đơn" onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="flex h-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
                             <XCircle size={17} />
                           </button>
                           <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600">

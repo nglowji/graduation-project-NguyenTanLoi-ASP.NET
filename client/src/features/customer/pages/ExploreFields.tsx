@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown, 
-  Star, ArrowUpDown
+  Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown,
+  Star, ArrowUpDown, SlidersHorizontal, RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { pitchService } from '../../../services/pitchService';
@@ -101,10 +101,11 @@ const ExploreFields: React.FC = () => {
   const [pitches, setPitches] = useState<PitchResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [filterError, setFilterError] = useState('');
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 12;
+  const pageSize = 8;
 
   useEffect(() => {
     fetchPitches();
@@ -112,6 +113,7 @@ const ExploreFields: React.FC = () => {
 
   const fetchPitches = async () => {
     setIsLoading(true);
+    setFilterError('');
     try {
       const result = await pitchService.search({
         searchTerm: searchQuery || undefined,
@@ -134,14 +136,29 @@ const ExploreFields: React.FC = () => {
       const total = result?.totalCount ?? result?.TotalCount ?? items.length;
       const totalP = result?.totalPages ?? result?.TotalPages ?? Math.ceil(total / pageSize);
       
-      setPitches(items);
+      setPitches(sortPitches(items));
       setTotalCount(total);
       setTotalPages(totalP);
     } catch (error) {
       console.error("Failed to fetch pitches:", error);
+      setFilterError('Không thể tải danh sách sân. Hãy kiểm tra kết nối hoặc thử lại bộ lọc khác.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sortPitches = (items: PitchResponse[]) => {
+    const sorted = [...items];
+    if (sortBy === 'price_asc') {
+      return sorted.sort((a, b) => Number(a.minPrice || 0) - Number(b.minPrice || 0));
+    }
+    if (sortBy === 'price_desc') {
+      return sorted.sort((a, b) => Number(b.minPrice || 0) - Number(a.minPrice || 0));
+    }
+    if (sortBy === 'newest') {
+      return sorted.reverse();
+    }
+    return sorted.sort((a, b) => Number(b.averageRating || 0) - Number(a.averageRating || 0));
   };
 
   const toggleNearMe = () => {
@@ -261,6 +278,7 @@ const ExploreFields: React.FC = () => {
     setMinPrice(nextValue);
     if (nextValue && maxPrice && nextValue > maxPrice) {
       setMaxPrice(undefined);
+      setFilterError('Giá tối thiểu đang cao hơn giá tối đa nên hệ thống đã bỏ giá tối đa.');
     }
     setPage(1);
   };
@@ -270,6 +288,7 @@ const ExploreFields: React.FC = () => {
     setMaxPrice(nextValue);
     if (nextValue && minPrice && nextValue < minPrice) {
       setMinPrice(undefined);
+      setFilterError('Giá tối đa đang thấp hơn giá tối thiểu nên hệ thống đã bỏ giá tối thiểu.');
     }
     setPage(1);
   };
@@ -288,6 +307,7 @@ const ExploreFields: React.FC = () => {
     setIsNearMe(false);
     setCoords(null);
     setSortBy('rating_desc');
+    setFilterError('');
     setPage(1);
   };
 
@@ -302,6 +322,13 @@ const ExploreFields: React.FC = () => {
     minRating ? { key: 'rating', label: `Từ ${minRating.toFixed(1)} sao`, onClear: () => setMinRating(undefined) } : null,
     isNearMe ? { key: 'near', label: 'Gần tôi (10km)', onClear: () => { setIsNearMe(false); setCoords(null); } } : null
   ].filter(Boolean) as Array<{ key: string; label: string; onClear: () => void }>;
+
+  const sortLabel = {
+    rating_desc: 'Xếp hạng cao nhất',
+    price_asc: 'Giá thấp trước',
+    price_desc: 'Giá cao trước',
+    newest: 'Mới nhất',
+  }[sortBy] || 'Xếp hạng cao nhất';
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 pt-32">
@@ -363,8 +390,42 @@ const ExploreFields: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 md:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 shadow-sm md:p-6 space-y-5">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
+                  <SlidersHorizontal size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">Bộ lọc sân</p>
+                  <p className="text-xs font-bold text-slate-400">
+                    {activeFilters.length > 0 ? `${activeFilters.length} điều kiện đang áp dụng` : 'Chọn điều kiện để thu hẹp kết quả'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500">
+                <span className="rounded-full bg-white px-3 py-2 ring-1 ring-slate-200">{totalCount} sân phù hợp</span>
+                <span className="rounded-full bg-white px-3 py-2 ring-1 ring-slate-200">{sortLabel}</span>
+                {activeFilters.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-3 py-2 text-white transition hover:bg-blue-600"
+                  >
+                    <RotateCcw size={13} />
+                    Đặt lại
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filterError && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                {filterError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
               <FilterField label="Tỉnh / Thành">
                 <CompactDropdown 
                   label="Chọn tỉnh" icon={<Globe size={14} className="text-blue-500" />} value={provinceCode || ''}
@@ -467,7 +528,7 @@ const ExploreFields: React.FC = () => {
         </header>
 
         {/* Grid */}
-        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 pt-4">
+        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-12 pt-4">
           {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="space-y-6">

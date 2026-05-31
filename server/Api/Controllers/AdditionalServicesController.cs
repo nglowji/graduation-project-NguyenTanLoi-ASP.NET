@@ -46,7 +46,7 @@ public class AdditionalServicesController : ApiControllerBase
         
         var services = await _context.AdditionalServices
             .Where(s => s.SportCenterId == pitch.SportCenterId && s.IsActive)
-            .Select(s => new { s.Id, s.Name, Price = s.Price.Amount, s.Icon, s.ImageUrl })
+            .Select(s => new { s.Id, s.Name, Price = s.Price.Amount, s.Icon, s.ImageUrl, s.StockQuantity })
             .ToListAsync(ct);
 
         var normalized = services
@@ -56,6 +56,7 @@ public class AdditionalServicesController : ApiControllerBase
                 s.Name,
                 s.Price,
                 s.Icon,
+                s.StockQuantity,
                 ImageUrl = BuildAbsoluteUrl(s.ImageUrl, baseUrl)
             })
             .ToList();

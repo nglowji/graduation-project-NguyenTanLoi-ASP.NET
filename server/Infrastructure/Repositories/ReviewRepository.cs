@@ -16,6 +16,21 @@ public class ReviewRepository : BaseRepository<Review>, IReviewRepository
         return await _context.Reviews.AnyAsync(r => r.BookingId == bookingId, cancellationToken);
     }
 
+    public async Task<Review?> GetByBookingIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Reviews
+            .AsNoTracking()
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.BookingId == bookingId, cancellationToken);
+    }
+
+    public async Task<Review?> GetTrackedByBookingIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Reviews
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.BookingId == bookingId, cancellationToken);
+    }
+
     public async Task<List<Review>> GetByPitchIdAsync(Guid pitchId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         return await _context.Reviews

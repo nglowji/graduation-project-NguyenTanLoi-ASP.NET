@@ -13,6 +13,7 @@ public class GetAvailableTimeSlotsQueryHandler
 {
     private readonly ITimeSlotRepository _timeSlotRepository;
     private readonly IBookingRepository _bookingRepository;
+    private readonly IBookingLockRepository _bookingLockRepository;
     private readonly ICacheService _cacheService;
     private readonly IMapper _mapper;
     private readonly PricingDomainService _pricingService;
@@ -21,6 +22,7 @@ public class GetAvailableTimeSlotsQueryHandler
     public GetAvailableTimeSlotsQueryHandler(
         ITimeSlotRepository timeSlotRepository,
         IBookingRepository bookingRepository,
+        IBookingLockRepository bookingLockRepository,
         ICacheService cacheService,
         IMapper mapper,
         PricingDomainService pricingService,
@@ -28,6 +30,7 @@ public class GetAvailableTimeSlotsQueryHandler
     {
         _timeSlotRepository = timeSlotRepository;
         _bookingRepository = bookingRepository;
+        _bookingLockRepository = bookingLockRepository;
         _cacheService = cacheService;
         _mapper = mapper;
         _pricingService = pricingService;
@@ -38,34 +41,45 @@ public class GetAvailableTimeSlotsQueryHandler
         GetAvailableTimeSlotsQuery request,
         CancellationToken cancellationToken)
     {
-        var cacheKey = $"available_slots_{request.PitchId}_{request.Date:yyyyMMdd}";
-        var cachedSlots = await _cacheService.GetAsync<List<TimeSlotDto>>(cacheKey, cancellationToken);
-
-        if (cachedSlots != null)
-        {
-            return Result<List<TimeSlotDto>>.Success(cachedSlots);
-        }
-
         var timeSlots = await _timeSlotRepository.GetAvailableByPitchIdAsync(
             request.PitchId,
             request.Date,
             cancellationToken
         );
 
-        var timeSlotDtos = timeSlots.Select(ts =>
+        var vietnamNow = GetVietnamNow();
+        var today = DateOnly.FromDateTime(vietnamNow.DateTime);
+        var currentTime = TimeOnly.FromDateTime(vietnamNow.DateTime).ToTimeSpan();
+
+        var timeSlotDtos = new List<TimeSlotDto>();
+        foreach (var ts in timeSlots)
         {
             var dto = _mapper.Map<TimeSlotDto>(ts);
-            dto.IsAvailable = ts.IsAvailableOn(request.Date);
+            var isPastDate = request.Date < today;
+            var isPastTime = request.Date == today && ts.TimeRange.StartTime <= currentTime;
+            var isBooked = !await _bookingRepository.IsTimeSlotAvailableAsync(ts.Id, request.Date, cancellationToken);
+            var activeLock = await _bookingLockRepository.GetActiveLockAsync(ts.Id, request.Date, cancellationToken);
+            dto.IsAvailable = ts.IsActive && !isPastDate && !isPastTime && !isBooked && activeLock == null;
             
             // Apply dynamic pricing
             var effectivePrice = _pricingService.CalculateEffectivePrice(ts, request.Date);
             dto.Price = effectivePrice.Amount;
             
-            return dto;
-        }).ToList();
-
-        await _cacheService.SetAsync(cacheKey, timeSlotDtos, TimeSpan.FromMinutes(10), cancellationToken);
+            timeSlotDtos.Add(dto);
+        }
 
         return Result<List<TimeSlotDto>>.Success(timeSlotDtos);
+    }
+
+    private static DateTimeOffset GetVietnamNow()
+    {
+        try
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"));
+        }
     }
 }

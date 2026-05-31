@@ -12,6 +12,7 @@ using Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.RegularExpressions;
 
 namespace Api.Controllers;
 
@@ -95,6 +96,22 @@ public class PitchesController : ApiControllerBase
             return NotFoundResponse(result.ErrorMessage ?? "Pitch not found");
 
         return OkResponse(result.Value);
+    }
+
+    [HttpGet("resolve-map-link")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<MapLinkResolveResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResolveMapLink([FromQuery] string url, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return BadRequestResponse("Map link is required");
+
+        var resolved = await GoogleMapLinkResolver.ResolveAsync(url.Trim(), cancellationToken);
+        if (resolved == null)
+            return BadRequestResponse("Không thể xác định tọa độ từ link bản đồ.");
+
+        return OkResponse(resolved);
     }
 
     [HttpPost]
@@ -199,3 +216,63 @@ public class PitchesController : ApiControllerBase
 }
 
 public record SetPitchStatusRequest(bool IsActive);
+public record MapLinkResolveResponse(double Latitude, double Longitude, string ExpandedUrl);
+
+internal static class GoogleMapLinkResolver
+{
+    public static async Task<MapLinkResolveResponse?> ResolveAsync(string input, CancellationToken cancellationToken)
+    {
+        var direct = TryExtractCoordinates(input, input);
+        if (direct != null)
+            return direct;
+
+        if (!Uri.TryCreate(input, UriKind.Absolute, out var uri))
+            return null;
+
+        var allowedHosts = new[]
+        {
+            "maps.app.goo.gl",
+            "goo.gl",
+            "www.google.com",
+            "google.com",
+            "maps.google.com"
+        };
+
+        if (!allowedHosts.Any(host => uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        using var handler = new HttpClientHandler { AllowAutoRedirect = true, MaxAutomaticRedirections = 10 };
+        using var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 SmartSport/1.0");
+
+        using var response = await httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        var expandedUrl = response.RequestMessage?.RequestUri?.ToString() ?? input;
+        return TryExtractCoordinates(expandedUrl, expandedUrl);
+    }
+
+    private static MapLinkResolveResponse? TryExtractCoordinates(string value, string expandedUrl)
+    {
+        var decoded = Uri.UnescapeDataString(value.Replace("+", " "));
+        var patterns = new[]
+        {
+            @"@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)",
+            @"[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)",
+            @"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = Regex.Match(decoded, pattern, RegexOptions.IgnoreCase);
+            if (!match.Success)
+                continue;
+
+            if (double.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out var latitude)
+                && double.TryParse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture, out var longitude))
+            {
+                return new MapLinkResolveResponse(latitude, longitude, expandedUrl);
+            }
+        }
+
+        return null;
+    }
+}

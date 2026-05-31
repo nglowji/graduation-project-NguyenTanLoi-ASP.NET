@@ -1,5 +1,15 @@
 import api from './api';
 
+export interface ReviewResponse {
+  id: string;
+  userName: string;
+  userFullName?: string;
+  rating: number;
+  comment?: string;
+  ownerReply?: string | null;
+  createdAt: string;
+}
+
 export interface PitchResponse {
   id: string;
   ownerId?: string;
@@ -14,6 +24,7 @@ export interface PitchResponse {
     latitude?: number;
     longitude?: number;
   };
+  mapLink?: string | null;
   type?: number | string;
   typeDisplay: string;
   minPrice: number;
@@ -31,13 +42,7 @@ export interface PitchResponse {
     isActive: boolean;
     isAvailable?: boolean;
   }>;
-  reviews?: Array<{
-    id: string;
-    userName: string;
-    rating: number;
-    comment?: string;
-    createdAt: string;
-  }>;
+  reviews?: ReviewResponse[];
 }
 
 export interface PaginatedResult<T> {
@@ -54,6 +59,12 @@ export const pitchService = {
   
   getById: async (id: string): Promise<PitchResponse> => {
     return await api.get(`/pitches/${id}`);
+  },
+
+  getReviews: async (id: string): Promise<PaginatedResult<ReviewResponse>> => {
+    return await api.get(`/pitches/${id}/reviews`, {
+      params: { pageNumber: 1, pageSize: 10 },
+    });
   },
 
   create: async (payload: any): Promise<any> => {

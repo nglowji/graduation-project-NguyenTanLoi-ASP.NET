@@ -3,6 +3,7 @@ using Application.Common.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Features.Reviews.Commands.CreateReview;
@@ -58,6 +59,8 @@ public class CreateReviewCommandHandler : IRequestHandler<CreateReviewCommand, R
             );
 
             await _reviewRepository.AddAsync(review, cancellationToken);
+
+            await ReviewRatingService.RecalculatePitchRatingAsync(_context, booking.TimeSlot.PitchId, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Review {ReviewId} created for booking {BookingId}", review.Id, request.BookingId);

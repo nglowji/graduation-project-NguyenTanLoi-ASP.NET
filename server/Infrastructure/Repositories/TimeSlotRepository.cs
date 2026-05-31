@@ -45,7 +45,6 @@ public class TimeSlotRepository : ITimeSlotRepository
             .ToListAsync(cancellationToken);
 
         return timeSlots
-            .Where(ts => ts.IsAvailableOn(date))
             .OrderBy(ts => ts.TimeRange.StartTime)
             .ToList();
     }

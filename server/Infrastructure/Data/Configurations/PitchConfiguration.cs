@@ -34,6 +34,9 @@ public class PitchConfiguration : IEntityTypeConfiguration<Pitch>
         builder.Property(p => p.Description)
             .HasMaxLength(2000);
 
+        builder.Property(p => p.MapLink)
+            .HasMaxLength(1000);
+
         builder.Property(p => p.Status)
             .IsRequired()
             .HasConversion<string>();

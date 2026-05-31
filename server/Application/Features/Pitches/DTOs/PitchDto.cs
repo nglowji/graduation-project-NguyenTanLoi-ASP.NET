@@ -11,6 +11,7 @@ public class PitchDto
     public string TypeDisplay { get; set; } = string.Empty;
     public AddressDto Address { get; set; } = null!;
     public string? Description { get; set; }
+    public string? MapLink { get; set; }
     public PitchStatus Status { get; set; }
     public decimal AverageRating { get; set; }
     public int TotalReviews { get; set; }
@@ -64,5 +65,6 @@ public class ReviewDto
     public string UserName { get; set; } = string.Empty;
     public int Rating { get; set; }
     public string? Comment { get; set; }
+    public string? OwnerReply { get; set; }
     public DateTime CreatedAt { get; set; }
 }

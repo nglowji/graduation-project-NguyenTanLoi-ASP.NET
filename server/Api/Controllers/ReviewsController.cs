@@ -1,7 +1,10 @@
 using Application.Common.DTOs;
 using Application.Features.Reviews.Commands.CreateReview;
+using Application.Features.Reviews.Commands.DeleteReview;
 using Application.Features.Reviews.Commands.ReplyReview;
+using Application.Features.Reviews.Commands.UpdateReview;
 using Application.Features.Reviews.DTOs;
+using Application.Features.Reviews.Queries.GetBookingReview;
 using Application.Features.Reviews.Queries.GetPitchReviews;
 using Application.Features.Reviews.Queries.GetOwnerReviews;
 using Api.Contracts;
@@ -62,6 +65,64 @@ public class ReviewsController : ApiControllerBase
             return BadRequestResponse(result.ErrorMessage ?? "Failed to create review");
 
         return CreatedResponse(nameof(GetByPitch), new { pitchId = Guid.Empty }, result.Value!, "Review created successfully");
+    }
+
+    [HttpGet("bookings/{bookingId:guid}/reviews")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<ReviewDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var result = await _mediator.Send(new GetBookingReviewQuery(userId, bookingId), cancellationToken);
+        if (!result.IsSuccess)
+            return NotFoundResponse(result.ErrorMessage ?? "Review not found");
+
+        return OkResponse(result.Value);
+    }
+
+    [HttpPut("bookings/{bookingId:guid}/reviews")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update(
+        Guid bookingId,
+        [FromBody] CreateReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var result = await _mediator.Send(new UpdateReviewCommand(userId, bookingId, request.Rating, request.Comment), cancellationToken);
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to update review");
+
+        return OkResponse<object?>(null, "Review updated successfully");
+    }
+
+    [HttpDelete("bookings/{bookingId:guid}/reviews")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var result = await _mediator.Send(new DeleteReviewCommand(userId, bookingId), cancellationToken);
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to delete review");
+
+        return OkResponse<object?>(null, "Review deleted successfully");
     }
 
     [HttpGet("owner/reviews")]

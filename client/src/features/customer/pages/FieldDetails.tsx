@@ -1,14 +1,197 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, Star, CheckCircle2, ShieldCheck,
-  Loader2, Plus, Minus, Calendar, ArrowRight, ChevronLeft, ChevronRight, User, ArrowLeft, Map as MapIcon
+  Loader2, Plus, Minus, Calendar, ArrowRight, ChevronLeft, ChevronRight, User, ArrowLeft, Map as MapIcon, Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import { pitchService, type PitchResponse } from '../../../services/pitchService';
+import { pitchService, type PitchResponse, type ReviewResponse } from '../../../services/pitchService';
 import { bookingService } from '../../../services/bookingService';
 import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
+import { formatCompactAddress } from '../../../utils/address';
+
+declare global {
+  interface Window {
+    L?: any;
+  }
+}
+
+type Coordinates = {
+  lat: number;
+  lng: number;
+};
+
+type RouteInfo = {
+  distanceKm: number;
+  durationMin: number;
+  userAddress: string;
+  steps: RouteStep[];
+};
+
+type RouteStep = {
+  instruction: string;
+  distanceM: number;
+  durationMin: number;
+};
+
+const extractCoordinatesFromMapLink = (value?: string | null): Coordinates | null => {
+  const text = String(value || '').trim();
+  if (!text) return null;
+
+  try {
+    const decoded = decodeURIComponent(text.replace(/\+/g, ' '));
+    const patterns = [
+      /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+      /[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/i,
+      /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = decoded.match(pattern);
+      if (match) return { lat: Number(match[1]), lng: Number(match[2]) };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const extractSearchTextFromMapLink = (value?: string | null) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  try {
+    const decoded = decodeURIComponent(text.replace(/\+/g, ' '));
+    const queryMatch = decoded.match(/[?&]q=([^&]+)/i);
+    if (queryMatch?.[1]) return queryMatch[1].replace(/\s+/g, ' ').trim();
+
+    const placeMatch = decoded.match(/\/place\/([^/@?]+)/i);
+    if (placeMatch?.[1]) return placeMatch[1].replace(/\s+/g, ' ').trim();
+
+    if (!/^https?:\/\//i.test(decoded)) return decoded;
+  } catch {
+    if (!/^https?:\/\//i.test(text)) return text;
+  }
+
+  return '';
+};
+
+const getVietnamDateInputValue = () => {
+  const vietnamDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  return vietnamDate;
+};
+
+const loadLeaflet = () => {
+  if (window.L) return Promise.resolve(window.L);
+
+  return new Promise<any>((resolve, reject) => {
+    if (!document.querySelector('link[data-leaflet-css="true"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.dataset.leafletCss = 'true';
+      document.head.appendChild(link);
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-leaflet-js="true"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.L));
+      existingScript.addEventListener('error', reject);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.dataset.leafletJs = 'true';
+    script.onload = () => resolve(window.L);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+};
+
+const reverseGeocode = async (location: Coordinates) => {
+  const url = new URL('https://nominatim.openstreetmap.org/reverse');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('lat', String(location.lat));
+  url.searchParams.set('lon', String(location.lng));
+  url.searchParams.set('accept-language', 'vi');
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error('Không thể lấy địa chỉ hiện tại.');
+  const data = await response.json();
+  return data.display_name || `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+};
+
+const geocodeAddress = async (address: string): Promise<Coordinates | null> => {
+  if (!address.trim()) return null;
+
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('q', address);
+  url.searchParams.set('accept-language', 'vi');
+
+  const response = await fetch(url.toString());
+  if (!response.ok) return null;
+  const data = await response.json();
+  const first = Array.isArray(data) ? data[0] : null;
+  if (!first?.lat || !first?.lon) return null;
+
+  return { lat: Number(first.lat), lng: Number(first.lon) };
+};
+
+const formatOsrmInstruction = (step: any) => {
+  const maneuver = step?.maneuver || {};
+  const type = String(maneuver.type || '');
+  const modifier = String(maneuver.modifier || '');
+  const road = step?.name ? ` vào ${step.name}` : '';
+
+  if (type === 'depart') return `Bắt đầu${road}`;
+  if (type === 'arrive') return 'Đến sân';
+  if (type === 'roundabout') return `Vào vòng xoay${road}`;
+  if (type === 'merge') return `Nhập làn${road}`;
+  if (type === 'fork') return `${modifier.includes('left') ? 'Rẽ nhánh trái' : 'Rẽ nhánh phải'}${road}`;
+
+  if (modifier.includes('left')) return `${modifier.includes('slight') ? 'Chếch trái' : 'Rẽ trái'}${road}`;
+  if (modifier.includes('right')) return `${modifier.includes('slight') ? 'Chếch phải' : 'Rẽ phải'}${road}`;
+  if (modifier.includes('straight')) return `Đi thẳng${road}`;
+  if (modifier.includes('uturn')) return `Quay đầu${road}`;
+
+  return road ? `Tiếp tục${road}` : 'Tiếp tục đi thẳng';
+};
+
+const mapOsrmSteps = (route: any): RouteStep[] =>
+  (route?.legs || [])
+    .flatMap((leg: any) => leg?.steps || [])
+    .map((step: any) => ({
+      instruction: formatOsrmInstruction(step),
+      distanceM: Number(step.distance || 0),
+      durationMin: Number(step.duration || 0) / 60,
+    }))
+    .filter((step: RouteStep) => step.instruction && step.distanceM >= 1);
+
+const resolveMapLink = async (mapLink?: string | null): Promise<Coordinates | null> => {
+  const text = String(mapLink || '').trim();
+  if (!text || !/^https?:\/\//i.test(text)) return null;
+
+  const response = await api.get('/pitches/resolve-map-link', { params: { url: text } });
+  const data = response?.data || response;
+  if (!data?.latitude || !data?.longitude) return null;
+
+  return {
+    lat: Number(data.latitude),
+    lng: Number(data.longitude),
+  };
+};
 
 const FieldDetails: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -20,18 +203,27 @@ const FieldDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getVietnamDateInputValue());
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({});
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const mapLayerGroupRef = useRef<any>(null);
+  const [pitchLocation, setPitchLocation] = useState<Coordinates | null>(null);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  const [routeLine, setRouteLine] = useState<Coordinates[]>([]);
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [routeError, setRouteError] = useState('');
+  const [isRouting, setIsRouting] = useState(false);
 
   const formatMoney = (value?: number | null) =>
     new Intl.NumberFormat('vi-VN').format(Number(value || 0));
 
-  const fullAddress = pitch?.address?.fullAddress
-    || [pitch?.address?.street, pitch?.address?.ward, pitch?.address?.district, pitch?.address?.city].filter(Boolean).join(', ');
-  const googleMapsEmbedKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const fullAddress = pitch?.address?.fullAddress?.trim()
+    || (typeof pitch?.address === 'string' ? pitch.address : '')
+    || formatCompactAddress(pitch?.address);
   const getServiceImageUrl = (service: any) =>
     service?.imageUrl || service?.ImageUrl || service?.image || service?.Image || '';
   const hasPreciseCoordinates = (latitude?: number, longitude?: number) => {
@@ -40,6 +232,140 @@ const FieldDetails: React.FC = () => {
     const isHcmFallback = Math.abs(latitude - 10.762622) < 0.0001 && Math.abs(longitude - 106.660172) < 0.0001;
     return !isOldDefault && !isHcmFallback;
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolvePitchLocation = async () => {
+      if (!pitch?.address) {
+        setPitchLocation(null);
+        return;
+      }
+
+      const { latitude, longitude } = pitch.address;
+      if (hasPreciseCoordinates(latitude, longitude)) {
+        setPitchLocation({ lat: Number(latitude), lng: Number(longitude) });
+        return;
+      }
+
+      const mapLinkLocation = extractCoordinatesFromMapLink(pitch.mapLink);
+      if (mapLinkLocation) {
+        setPitchLocation(mapLinkLocation);
+        return;
+      }
+
+      const resolvedMapLinkLocation = await resolveMapLink(pitch.mapLink).catch(() => null);
+      if (!isMounted) return;
+
+      if (resolvedMapLinkLocation) {
+        setPitchLocation(resolvedMapLinkLocation);
+        setRouteError('');
+        return;
+      }
+
+      const mapSearchText = extractSearchTextFromMapLink(pitch.mapLink);
+      const resolved = await geocodeAddress(mapSearchText || fullAddress);
+      if (!isMounted) return;
+
+      if (resolved) {
+        setPitchLocation(resolved);
+        setRouteError('');
+      } else {
+        setPitchLocation(null);
+        setRouteError('Chưa xác định được tọa độ sân từ địa chỉ map.');
+      }
+    };
+
+    resolvePitchLocation().catch(() => {
+      if (isMounted) setRouteError('Không thể định vị sân trên OpenStreetMap.');
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pitch, fullAddress]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const renderMap = async () => {
+      if (!mapContainerRef.current || !pitchLocation) return;
+      const L = await loadLeaflet();
+      if (isCancelled || !mapContainerRef.current) return;
+
+      if (!mapInstanceRef.current) {
+        mapInstanceRef.current = L.map(mapContainerRef.current, {
+          scrollWheelZoom: false,
+          zoomControl: false,
+        }).setView(
+          [pitchLocation.lat, pitchLocation.lng],
+          17
+        );
+        L.control.zoom({ position: 'bottomright' }).addTo(mapInstanceRef.current);
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors, Tiles style by HOT',
+          maxZoom: 20,
+        }).addTo(mapInstanceRef.current);
+        mapLayerGroupRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+      }
+
+      const map = mapInstanceRef.current;
+      const layers = mapLayerGroupRef.current;
+      layers.clearLayers();
+
+      L.circleMarker([pitchLocation.lat, pitchLocation.lng], {
+        radius: 9,
+        color: '#ffffff',
+        weight: 4,
+        fillColor: '#2563eb',
+        fillOpacity: 1,
+      })
+        .addTo(layers)
+        .bindPopup(pitch?.name || 'Sân');
+
+      if (userLocation) {
+        L.circleMarker([userLocation.lat, userLocation.lng], {
+          radius: 8,
+          color: '#ffffff',
+          weight: 4,
+          fillColor: '#10b981',
+          fillOpacity: 1,
+        })
+          .addTo(layers)
+          .bindPopup('Vị trí của bạn');
+      }
+
+      if (routeLine.length > 1) {
+        const points = routeLine.map((point) => [point.lat, point.lng]);
+        L.polyline(points, { color: '#0f172a', weight: 8, opacity: 0.16 }).addTo(layers);
+        L.polyline(points, { color: '#2563eb', weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(layers);
+        map.fitBounds(L.latLngBounds(points).pad(0.18));
+      } else if (userLocation) {
+        map.fitBounds(L.latLngBounds([
+          [userLocation.lat, userLocation.lng],
+          [pitchLocation.lat, pitchLocation.lng],
+        ]).pad(0.22));
+      } else {
+        map.setView([pitchLocation.lat, pitchLocation.lng], 17);
+      }
+    };
+
+    renderMap().catch(() => setRouteError('Không thể tải bản đồ OpenStreetMap.'));
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [pitchLocation, userLocation, routeLine, pitch?.name]);
+
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        mapLayerGroupRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (pitchId) {
@@ -58,6 +384,13 @@ const FieldDetails: React.FC = () => {
               ));
             }
           });
+          signalRService.onBookingCreated((_pitchId, timeSlotId, date) => {
+            if (date === selectedDate) {
+              setAvailableSlots(prev => prev.map(slot =>
+                slot.id === timeSlotId ? { ...slot, isAvailable: false } : slot
+              ));
+            }
+          });
         } catch (err) {
           console.error("SignalR connection error:", err);
         }
@@ -66,6 +399,7 @@ const FieldDetails: React.FC = () => {
       return () => {
         signalRService.leavePitchGroup(pitchId);
         signalRService.off('TimeSlotStatusChanged');
+        signalRService.off('BookingCreated');
       };
     }
   }, [pitchId, selectedDate]);
@@ -74,13 +408,20 @@ const FieldDetails: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await pitchService.getById(currentPitchId);
-      setPitch(data);
+      const reviewResult = await pitchService.getReviews(currentPitchId).catch(() => null);
+      const reviews = reviewResult?.items?.map(normalizeReview) ?? data.reviews ?? [];
+      setPitch({ ...data, reviews });
     } catch (error) {
       console.error("Error fetching pitch:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const normalizeReview = (review: ReviewResponse): ReviewResponse => ({
+    ...review,
+    userName: review.userName || review.userFullName || 'Người dùng SmartSport',
+  });
 
   const fetchSlots = async (currentPitchId: string) => {
     try {
@@ -94,7 +435,16 @@ const FieldDetails: React.FC = () => {
   const fetchServices = async (currentPitchId: string) => {
     try {
       const response = await api.get(`/additional-services/pitch/${currentPitchId}`);
-      setAvailableServices(response.data || []);
+      const items = Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];
+      const normalized = items.map((service: any) => ({
+        ...service,
+        id: service.id || service.Id,
+        name: service.name || service.Name,
+        price: service.price ?? service.Price ?? 0,
+        stockQuantity: service.stockQuantity ?? service.StockQuantity ?? 0,
+        imageUrl: service.imageUrl || service.ImageUrl || null,
+      }));
+      setAvailableServices(normalized);
     } catch (error) {
       console.error("Error fetching services:", error);
     }
@@ -103,7 +453,9 @@ const FieldDetails: React.FC = () => {
   const handleUpdateService = (serviceId: string, delta: number) => {
     setSelectedServices(prev => {
       const current = prev[serviceId] || 0;
-      const next = Math.max(0, current + delta);
+      const service = availableServices.find((item) => item.id === serviceId);
+      const stock = Number(service?.stockQuantity ?? service?.StockQuantity ?? 0);
+      const next = Math.max(0, Math.min(stock, current + delta));
       if (next === 0) {
         const rest = { ...prev };
         delete rest[serviceId];
@@ -123,6 +475,12 @@ const FieldDetails: React.FC = () => {
   };
 
   const selectedSlot = availableSlots.find((slot) => slot.id === selectedTime);
+  useEffect(() => {
+    if (selectedTime && selectedSlot && !selectedSlot.isAvailable) {
+      setSelectedTime(null);
+    }
+  }, [selectedTime, selectedSlot]);
+
   const parseSlotMinutes = (value?: string) => {
     const [hour, minute] = String(value || '00:00').split(':').map(Number);
     return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
@@ -182,7 +540,7 @@ const FieldDetails: React.FC = () => {
   if (!pitch) {
     return (
       <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
-        <div className="max-w-[1200px] mx-auto px-6">
+        <div className="max-w-300 mx-auto px-6">
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-8 text-center">
             <p className="text-sm font-bold text-slate-600">Không tìm thấy sân phù hợp.</p>
             <button
@@ -198,19 +556,86 @@ const FieldDetails: React.FC = () => {
   }
 
   const pitchImages = pitch.images && pitch.images.length > 0 
-    ? pitch.images 
+    ? pitch.images.map((image, index) => ({ ...image, displayOrder: image.displayOrder ?? index }))
     : [{ imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1600" }];
 
-  const mapQuery = hasPreciseCoordinates(pitch.address.latitude, pitch.address.longitude)
-    ? `${pitch.address.latitude},${pitch.address.longitude}`
-    : fullAddress;
-  const mapUrl = googleMapsEmbedKey
-    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsEmbedKey)}&q=${encodeURIComponent(mapQuery)}&zoom=17`
-    : `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=17&ie=UTF8&iwloc=&output=embed`;
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setRouteError('Trình duyệt không hỗ trợ lấy vị trí hiện tại.');
+      return;
+    }
+
+    if (!pitchLocation) {
+      setRouteError('Chưa xác định được vị trí sân để tính đường đi.');
+      return;
+    }
+
+    setIsRouting(true);
+    setRouteError('');
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000,
+        });
+      });
+      const nextUserLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+      setUserLocation(nextUserLocation);
+
+      const [address, routeResponse] = await Promise.all([
+        reverseGeocode(nextUserLocation).catch(() => `${nextUserLocation.lat.toFixed(6)}, ${nextUserLocation.lng.toFixed(6)}`),
+        fetch(
+          `https://router.project-osrm.org/route/v1/driving/${nextUserLocation.lng},${nextUserLocation.lat};${pitchLocation.lng},${pitchLocation.lat}?overview=full&geometries=geojson&steps=true&annotations=true`
+        ),
+      ]);
+
+      if (!routeResponse.ok) throw new Error('Không thể tính đường đi.');
+      const routeData = await routeResponse.json();
+      const route = routeData?.routes?.[0];
+      if (!route) throw new Error('Không tìm thấy tuyến đường phù hợp.');
+
+      const geometry = route.geometry?.coordinates || [];
+      setRouteLine(geometry.map(([lng, lat]: [number, number]) => ({ lat, lng })));
+      setRouteInfo({
+        distanceKm: Number(route.distance || 0) / 1000,
+        durationMin: Number(route.duration || 0) / 60,
+        userAddress: address,
+        steps: mapOsrmSteps(route),
+      });
+    } catch (error: any) {
+      setRouteError(error?.message || 'Không thể lấy vị trí hiện tại.');
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
+  const openOpenStreetMapDirections = () => {
+    if (!pitchLocation) return;
+
+    if (userLocation) {
+      const route = `${userLocation.lat},${userLocation.lng};${pitchLocation.lat},${pitchLocation.lng}`;
+      window.open(
+        `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${encodeURIComponent(route)}`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      return;
+    }
+
+    window.open(
+      `https://www.openstreetmap.org/?mlat=${pitchLocation.lat}&mlon=${pitchLocation.lng}#map=17/${pitchLocation.lat}/${pitchLocation.lng}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className="max-w-300 mx-auto px-6">
         {/* Header Section */}
         <div className="mb-8 space-y-4">
           <button 
@@ -246,7 +671,7 @@ const FieldDetails: React.FC = () => {
           <div className="flex-1 space-y-8">
             {/* ULTRA COMPACT GALLERY */}
             <div className="space-y-3 max-w-3xl">
-              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 group">
+              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 group">
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={activeImageIndex}
@@ -294,15 +719,93 @@ const FieldDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Google Map */}
+            {/* OpenStreetMap */}
             <section className="space-y-3">
-              <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
-                <MapIcon size={12} className="text-blue-600" />
-                <span>Bản đồ</span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                  <MapIcon size={12} className="text-blue-600" />
+                  <span>Bản đồ & đường đi</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isRouting}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl bg-blue-50 px-3 text-[10px] font-black uppercase tracking-widest text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isRouting ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
+                  Lấy vị trí của tôi
+                </button>
               </div>
-              <div className="w-full max-w-xl h-[160px] rounded-2xl overflow-hidden border border-slate-100">
-                <iframe width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight={0} marginWidth={0} src={mapUrl} className="transition-all duration-700" />
+              <div className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-blue-100 bg-white shadow-lg">
+                <div className="relative">
+                  <div ref={mapContainerRef} className="h-[320px] w-full bg-slate-100" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-white/50" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-white/60" />
+                  {pitchLocation && (
+                    <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-slate-950/88 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-950/15">
+                      Vị trí sân
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-50 bg-white px-5 py-4">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="truncate text-xs font-bold text-slate-600">{fullAddress}</p>
+                    {pitch.mapLink && (
+                      <p className="truncate text-[11px] font-semibold text-blue-600">
+                        {extractSearchTextFromMapLink(pitch.mapLink) || pitch.mapLink}
+                      </p>
+                    )}
+                    {routeInfo && (
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">
+                          {routeInfo.distanceKm.toFixed(1)} km
+                        </span>
+                        <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">
+                          {Math.max(1, Math.round(routeInfo.durationMin))} phút
+                        </span>
+                        <span className="max-w-full truncate normal-case tracking-normal text-slate-500">
+                          {routeInfo.userAddress}
+                        </span>
+                      </div>
+                    )}
+                    {routeError && <p className="text-xs font-bold text-red-500">{routeError}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openOpenStreetMapDirections}
+                    disabled={!pitchLocation}
+                    className="rounded-xl bg-slate-950 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-950/10 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Mở OpenStreetMap
+                  </button>
+                </div>
               </div>
+              {routeInfo && routeInfo.steps.length > 0 && (
+                <div className="max-w-2xl rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chi tiết dẫn đường</h3>
+                    <span className="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
+                      {routeInfo.steps.length} bước
+                    </span>
+                  </div>
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {routeInfo.steps.slice(0, 12).map((step, index) => (
+                      <div key={`${step.instruction}-${index}`} className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-blue-600 shadow-sm">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-black text-slate-700">{step.instruction}</p>
+                          <p className="mt-0.5 text-[10px] font-bold text-slate-400">
+                            {step.distanceM >= 1000 ? `${(step.distanceM / 1000).toFixed(1)} km` : `${Math.round(step.distanceM)} m`}
+                            {' '}· {Math.max(1, Math.round(step.durationMin))} phút
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Services (Corrected Image Display - No Icon) */}
@@ -312,8 +815,12 @@ const FieldDetails: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {availableServices.map(svc => {
                     const serviceImageUrl = getServiceImageUrl(svc);
+                    const stock = Number(svc.stockQuantity ?? svc.StockQuantity ?? 0);
+                    const selectedQuantity = selectedServices[svc.id] || 0;
+                    const isOutOfStock = stock <= 0;
+                    const cannotAddMore = isOutOfStock || selectedQuantity >= stock;
                     return (
-                    <div key={svc.id} className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-500/20 transition-all">
+                    <div key={svc.id} className={`p-3 bg-white rounded-2xl border flex items-center justify-between group transition-all ${isOutOfStock ? 'border-slate-100 opacity-60' : 'border-slate-100 hover:border-blue-500/20'}`}>
                       <div className="flex items-center gap-3">
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200/50 bg-slate-50">
                           {serviceImageUrl ? (
@@ -325,12 +832,15 @@ const FieldDetails: React.FC = () => {
                         <div>
                           <p className="font-black text-slate-800 text-xs">{svc.name}</p>
                           <p className="text-[10px] font-bold text-blue-500">{formatMoney(svc.price)}đ</p>
+                          <p className={`mt-1 text-[9px] font-black uppercase tracking-widest ${isOutOfStock ? 'text-red-500' : 'text-slate-400'}`}>
+                            {isOutOfStock ? 'Hết hàng' : `Còn ${stock}`}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 bg-slate-50 px-1.5 py-1 rounded-lg">
-                        <button onClick={() => handleUpdateService(svc.id, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-red-500 rounded-md transition-all"><Minus size={10} /></button>
-                        <span className="w-3 text-center font-black text-[10px] text-slate-900">{selectedServices[svc.id] || 0}</span>
-                        <button onClick={() => handleUpdateService(svc.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-md transition-all"><Plus size={10} /></button>
+                        <button disabled={selectedQuantity <= 0} onClick={() => handleUpdateService(svc.id, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-red-500 rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-30"><Minus size={10} /></button>
+                        <span className="w-3 text-center font-black text-[10px] text-slate-900">{selectedQuantity}</span>
+                        <button disabled={cannotAddMore} onClick={() => handleUpdateService(svc.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-30"><Plus size={10} /></button>
                       </div>
                     </div>
                     );
@@ -365,6 +875,12 @@ const FieldDetails: React.FC = () => {
                       </div>
                     </div>
                     <p className="text-sm font-medium text-slate-600">{rev.comment || "Khách hàng hài lòng về dịch vụ."}</p>
+                    {rev.ownerReply && (
+                      <div className="ml-11 rounded-xl border border-blue-100 bg-white p-3">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Phản hồi từ chủ sân</p>
+                        <p className="mt-2 text-sm font-medium leading-6 text-slate-600">{rev.ownerReply}</p>
+                      </div>
+                    )}
                   </div>
                 )) : (
                   <div className="py-8 text-center bg-slate-50/30 rounded-2xl border border-dashed border-slate-100">
@@ -376,7 +892,7 @@ const FieldDetails: React.FC = () => {
           </div>
 
           {/* RIGHT COLUMN (Sticky) */}
-          <aside className="w-full lg:w-[340px]">
+          <aside className="w-full lg:w-85">
             <div className="sticky top-32 space-y-6">
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-6">
                 <div className="flex items-end justify-between">
@@ -393,7 +909,7 @@ const FieldDetails: React.FC = () => {
                 <div className="space-y-5">
                   <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between">Ngày thi đấu <Calendar size={12} className="text-blue-500" /></label>
-                    <input type="date" min={new Date().toISOString().split('T')[0]} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
+                    <input type="date" min={getVietnamDateInputValue()} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="flex items-center justify-between px-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -401,8 +917,8 @@ const FieldDetails: React.FC = () => {
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">{timelineSlots.filter((slot) => slot.isAvailable).length} khung</span>
                     </label>
                     {timelineSlots.length > 0 ? (
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                        <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-2">
+                        <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
                           {timelineSlots.map((slot) => {
                             const isSelected = selectedTime === slot.id;
                             return (
@@ -411,22 +927,23 @@ const FieldDetails: React.FC = () => {
                                 type="button"
                                 disabled={!slot.isAvailable}
                                 onClick={() => setSelectedTime(slot.id)}
-                                className={`rounded-xl border p-3 text-left transition ${
+                                className={`min-h-20 rounded-xl border px-3 py-2 text-left transition ${
                                   !slot.isAvailable
                                     ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300'
                                     : isSelected
-                                      ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                      : 'border-slate-100 bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50'
+                                      ? 'border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                                      : 'border-white bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50'
                                 }`}
                               >
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="text-sm font-black">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</span>
-                                  <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
-                                    isSelected ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-600'
-                                  }`}>
-                                    {slot.isAvailable ? 'Còn trống' : 'Đã kín'}
-                                  </span>
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-sm font-black leading-tight">{slot.startTime.substring(0, 5)}</span>
+                                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                                    isSelected ? 'bg-white' : slot.isAvailable ? 'bg-emerald-400' : 'bg-slate-300'
+                                  }`} />
                                 </div>
+                                <p className={`mt-0.5 text-[10px] font-black ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                                  đến {slot.endTime.substring(0, 5)}
+                                </p>
                                 <p className={`mt-2 text-xs font-black ${isSelected ? 'text-white' : 'text-blue-600'}`}>
                                   {formatMoney(slot.price)}đ
                                 </p>
@@ -439,8 +956,9 @@ const FieldDetails: React.FC = () => {
                       <div className="rounded-xl bg-slate-50 py-5 text-center text-[9px] font-black uppercase text-slate-300">Hết giờ</div>
                     )}
                     {selectedSlot && (
-                      <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
-                        Đã chọn {selectedSlot.startTime.substring(0, 5)} - {selectedSlot.endTime.substring(0, 5)}, {formatMoney(selectedSlot.price)}đ
+                      <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+                        <span>{selectedSlot.startTime.substring(0, 5)} - {selectedSlot.endTime.substring(0, 5)}</span>
+                        <span>{formatMoney(selectedSlot.price)}đ</span>
                       </div>
                     )}
                   </div>
@@ -464,3 +982,4 @@ const FieldDetails: React.FC = () => {
 };
 
 export default FieldDetails;
+

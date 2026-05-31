@@ -15,10 +15,11 @@ public class Pitch : BaseEntity, IAggregateRoot
 
     private readonly List<TimeSlot> _timeSlots = new();
     private readonly List<PitchImage> _images = new();
+    private readonly List<Review> _reviews = new();
 
     private Pitch() { } // EF Core constructor
 
-    private Pitch(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description)
+    private Pitch(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description, string? mapLink)
     {
         OwnerId = ownerId;
         SportCenterId = sportCenterId;
@@ -26,6 +27,7 @@ public class Pitch : BaseEntity, IAggregateRoot
         Type = type;
         IsIndoor = isIndoor;
         Description = description;
+        MapLink = mapLink;
         Status = PitchStatus.PendingApproval;
         AverageRating = 0;
         TotalReviews = 0;
@@ -38,20 +40,22 @@ public class Pitch : BaseEntity, IAggregateRoot
     public PitchType Type { get; private set; }
     public bool IsIndoor { get; private set; }
     public string? Description { get; private set; }
+    public string? MapLink { get; private set; }
     public PitchStatus Status { get; private set; }
     public decimal AverageRating { get; private set; }
     public int TotalReviews { get; private set; }
 
     public IReadOnlyCollection<TimeSlot> TimeSlots => _timeSlots.AsReadOnly();
     public IReadOnlyCollection<PitchImage> Images => _images.AsReadOnly();
+    public IReadOnlyCollection<Review> Reviews => _reviews.AsReadOnly();
 
-    public static Pitch Create(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description = null)
+    public static Pitch Create(Guid ownerId, Guid sportCenterId, string name, PitchType type, bool isIndoor, string? description = null, string? mapLink = null)
     {
         ValidateCreationParameters(ownerId, name, description);
-        return new Pitch(ownerId, sportCenterId, name, type, isIndoor, description);
+        return new Pitch(ownerId, sportCenterId, name, type, isIndoor, description, mapLink);
     }
 
-    public void UpdateInfo(string name, PitchType type, bool isIndoor, string? description)
+    public void UpdateInfo(string name, PitchType type, bool isIndoor, string? description, string? mapLink = null)
     {
         ValidateName(name);
         ValidateDescription(description);
@@ -60,6 +64,7 @@ public class Pitch : BaseEntity, IAggregateRoot
         Type = type;
         IsIndoor = isIndoor;
         Description = description;
+        MapLink = mapLink;
         MarkAsUpdated();
     }
 
@@ -87,16 +92,17 @@ public class Pitch : BaseEntity, IAggregateRoot
 
     public void MarkUnderMaintenance() => TransitionToStatus(PitchStatus.UnderMaintenance);
 
-    public void AddTimeSlot(TimeRange timeRange, Money price)
+    public TimeSlot AddTimeSlot(TimeRange timeRange, Money price)
     {
         EnsureNoTimeSlotOverlap(timeRange);
 
         var timeSlot = TimeSlot.Create(Id, timeRange, price);
         _timeSlots.Add(timeSlot);
         MarkAsUpdated();
+        return timeSlot;
     }
 
-    public void AddImage(string imageUrl, bool isPrimary = false)
+    public PitchImage AddImage(string imageUrl, bool isPrimary = false)
     {
         ValidateImageUrl(imageUrl);
 
@@ -106,12 +112,24 @@ public class Pitch : BaseEntity, IAggregateRoot
         var image = PitchImage.Create(Id, imageUrl, isPrimary);
         _images.Add(image);
         MarkAsUpdated();
+        return image;
     }
 
     public void UpdateRating(decimal newRating)
     {
         ValidateRating(newRating);
         RecalculateAverageRating(newRating);
+        MarkAsUpdated();
+    }
+
+    public void SetRatingSnapshot(decimal averageRating, int totalReviews)
+    {
+        ValidateRating(averageRating);
+        if (totalReviews < 0)
+            throw new DomainException("Total reviews cannot be negative");
+
+        AverageRating = Math.Round(averageRating, RatingDecimalPlaces);
+        TotalReviews = totalReviews;
         MarkAsUpdated();
     }
 

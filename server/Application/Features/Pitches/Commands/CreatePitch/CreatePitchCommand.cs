@@ -9,6 +9,9 @@ public record CreatePitchCommand : IRequest<Result<Guid>>
     public Guid OwnerId { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Address { get; init; }
+    public string? MapLink { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
     public string? Description { get; init; }
     public PitchType PitchType { get; init; }
     public bool IsIndoor { get; init; }

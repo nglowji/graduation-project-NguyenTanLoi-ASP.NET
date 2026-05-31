@@ -31,7 +31,7 @@ public class ReviewConfiguration : IEntityTypeConfiguration<Review>
 
         // Relationship: One pitch has many reviews
         builder.HasOne(r => r.Pitch)
-            .WithMany()
+            .WithMany("Reviews")
             .HasForeignKey(r => r.PitchId)
             .OnDelete(DeleteBehavior.Cascade);
 

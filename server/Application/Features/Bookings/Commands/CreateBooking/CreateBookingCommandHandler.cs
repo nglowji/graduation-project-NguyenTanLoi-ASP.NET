@@ -26,12 +26,18 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly IBookingLockRepository _lockRepository;
     private readonly IApplicationDbContext _context;
     private readonly ISystemConfigurationRepository _systemConfigRepository;
+    private readonly IEmailService _emailService;
     private readonly PricingDomainService _pricingService;
     private readonly IMediator _mediator;
     private readonly ILogger<CreateBookingCommandHandler> _logger;
 
     private sealed record BookingPreconditions(TimeSlot TimeSlot, BookingLock UserLock);
-    private sealed record SelectedAdditionalService(Guid Id, string Name, Money Price, int Quantity);
+    private sealed record SelectedAdditionalService(AdditionalService Service, int Quantity)
+    {
+        public Guid Id => Service.Id;
+        public string Name => Service.Name;
+        public Money Price => Service.Price;
+    }
 
     public CreateBookingCommandHandler(
         IBookingRepository bookingRepository,
@@ -40,6 +46,7 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         IBookingLockRepository lockRepository,
         IApplicationDbContext context,
         ISystemConfigurationRepository systemConfigRepository,
+        IEmailService emailService,
         PricingDomainService pricingService,
         IMediator mediator,
         ILogger<CreateBookingCommandHandler> logger)
@@ -50,6 +57,7 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         _lockRepository = lockRepository;
         _context = context;
         _systemConfigRepository = systemConfigRepository;
+        _emailService = emailService;
         _pricingService = pricingService;
         _mediator = mediator;
         _logger = logger;
@@ -83,6 +91,8 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
             // 4. Release lock and persist
             userLock.Release();
             await _context.SaveChangesAsync(cancellationToken);
+
+            await SendBookingCreatedEmailAsync(booking, cancellationToken);
 
             // 5. Publish side effects (email, cache, real-time) — non-blocking
             await _mediator.Publish(new BookingCreatedNotification(
@@ -122,6 +132,9 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         if (!timeSlot.IsActive)
             return Result<BookingPreconditions>.Failure("Time slot is not active");
 
+        if (IsPastSlot(request.BookingDate, timeSlot.TimeRange.StartTime))
+            return Result<BookingPreconditions>.Failure("Khung giờ này đã quá thời gian đặt.");
+
         var userLock = await _lockRepository.GetUserLockAsync(
             request.TimeSlotId, request.BookingDate, request.UserId, cancellationToken);
 
@@ -129,6 +142,27 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
             return Result<BookingPreconditions>.Failure("No active lock found. Please lock the time slot first.");
 
         return Result<BookingPreconditions>.Success(new BookingPreconditions(timeSlot, userLock));
+    }
+
+    private static bool IsPastSlot(DateOnly bookingDate, TimeSpan startTime)
+    {
+        var vietnamNow = GetVietnamNow();
+        var today = DateOnly.FromDateTime(vietnamNow.DateTime);
+        var currentTime = TimeOnly.FromDateTime(vietnamNow.DateTime).ToTimeSpan();
+
+        return bookingDate < today || (bookingDate == today && startTime <= currentTime);
+    }
+
+    private static DateTimeOffset GetVietnamNow()
+    {
+        try
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"));
+        }
     }
 
     private async Task<Booking> CreateBookingAsync(
@@ -169,19 +203,19 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 
         var serviceIds = requestedQuantities.Keys.ToList();
         var additionalServices = await _context.AdditionalServices
-            .AsNoTracking()
             .Where(service => serviceIds.Contains(service.Id) && service.IsActive)
             .ToListAsync(cancellationToken);
 
         if (additionalServices.Count != requestedQuantities.Count)
             throw new DomainException("One or more selected services are unavailable");
 
+        foreach (var service in additionalServices)
+        {
+            service.DecreaseStock(requestedQuantities[service.Id]);
+        }
+
         return additionalServices
-            .Select(service => new SelectedAdditionalService(
-                service.Id,
-                service.Name,
-                service.Price,
-                requestedQuantities[service.Id]))
+            .Select(service => new SelectedAdditionalService(service, requestedQuantities[service.Id]))
             .ToList();
     }
 
@@ -200,5 +234,48 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         }
 
         return depositPercent;
+    }
+
+    private async Task SendBookingCreatedEmailAsync(Booking booking, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == booking.UserId, cancellationToken);
+            var timeSlot = await _context.TimeSlots
+                .AsNoTracking()
+                .Include(item => item.Pitch)
+                .FirstOrDefaultAsync(item => item.Id == booking.TimeSlotId, cancellationToken);
+
+            if (user == null || timeSlot?.Pitch == null || string.IsNullOrWhiteSpace(user.Email))
+                return;
+
+            var subject = $"[SmartSport] Dat san thanh cong - {timeSlot.Pitch.Name}";
+            var body = $"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+              <div style="background-color: #2563eb; color: white; padding: 24px; text-align: center;">
+                <h1 style="margin: 0; font-size: 24px;">SmartSport</h1>
+                <p style="margin: 8px 0 0; opacity: 0.9;">Don dat san cua ban da duoc tao thanh cong</p>
+              </div>
+              <div style="padding: 32px;">
+                <h2 style="margin: 0 0 16px; color: #1e293b;">Chao {user.FullName},</h2>
+                <p style="color: #475569; line-height: 1.6;">SmartSport da ghi nhan don dat san cua ban. Vui long thanh toan coc de chu san xac nhan lich.</p>
+                <div style="background-color: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0;">
+                  <p style="margin: 0 0 8px; color: #64748b;">San: <strong style="color: #0f172a;">{timeSlot.Pitch.Name}</strong></p>
+                  <p style="margin: 0 0 8px; color: #64748b;">Ngay: <strong style="color: #0f172a;">{booking.BookingDate:dd/MM/yyyy}</strong></p>
+                  <p style="margin: 0 0 8px; color: #64748b;">Khung gio: <strong style="color: #0f172a;">{timeSlot.TimeRange.StartTime:hh\\:mm} - {timeSlot.TimeRange.EndTime:hh\\:mm}</strong></p>
+                  <p style="margin: 0; color: #64748b;">Tong tien: <strong style="color: #2563eb;">{booking.TotalPrice.Amount:N0} VND</strong></p>
+                </div>
+              </div>
+            </div>
+            """;
+
+            await _emailService.SendEmailAsync(user.Email, subject, body, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send booking created email for booking {BookingId}", booking.Id);
+        }
     }
 }

@@ -187,6 +187,7 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
                 confirmed.Sum(b => b.TotalPrice.Amount),
                 (double)pitch.AverageRating,
                 pitch.SportCenter?.Address?.GetFullAddress() ?? "",
+                pitch.MapLink,
                 pitch.IsIndoor,
                 pitch.Images
                     .OrderByDescending(img => img.IsPrimary)

@@ -58,6 +58,18 @@ public class AdditionalService : BaseEntity
         MarkAsUpdated();
     }
 
+    public void DecreaseStock(int quantity)
+    {
+        if (quantity <= 0)
+            throw new DomainException("Quantity must be greater than zero");
+
+        if (StockQuantity < quantity)
+            throw new DomainException($"Service {Name} only has {StockQuantity} item(s) left");
+
+        StockQuantity -= quantity;
+        MarkAsUpdated();
+    }
+
     private static void ValidateCreationParameters(Guid sportCenterId, string name, Money price, string icon, int stockQuantity)
     {
         if (sportCenterId == Guid.Empty)

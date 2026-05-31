@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, ShoppingBag, Bell, Lock, LogOut, 
@@ -12,6 +12,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
 import { bookingService, type BookingResponse } from '../../../services/bookingService';
 import { paymentService } from '../../../services/paymentService';
+import { formatCompactAddress } from '../../../utils/address';
+import { getReadNotificationIds, saveReadNotificationIds } from '../../../utils/notifications';
+import { slugify } from '../../../utils/slug';
 import { useVietnamLocations, type Province, type District, type Ward } from '../../../hooks/useVietnamLocations';
 
 type TabType = 'profile' | 'bookings' | 'notifications' | 'security';
@@ -36,11 +39,20 @@ type SystemNotificationItem = {
   createdAt: string;
 };
 
+type UserReviewItem = {
+  id: string;
+  bookingId: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+};
+
 const isProfileTab = (value: string | null): value is TabType =>
   value === 'profile' || value === 'bookings' || value === 'notifications' || value === 'security';
 
 const Profile: React.FC = () => {
   const { user, logout, login, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<TabType>(isProfileTab(initialTab) ? initialTab : 'profile');
@@ -56,6 +68,11 @@ const Profile: React.FC = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmittingId, setReviewSubmittingId] = useState<string | null>(null);
+  const [reviewsByBooking, setReviewsByBooking] = useState<Record<string, UserReviewItem>>({});
+  const [bookingFilter, setBookingFilter] = useState('all');
+  const [notificationFilter, setNotificationFilter] = useState('all');
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => getReadNotificationIds());
+  const previousBookingStatusRef = useRef<Record<string, string>>({});
 
   // Location selection states
   const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
@@ -84,6 +101,16 @@ const Profile: React.FC = () => {
     if (activeTab === 'notifications') {
       fetchSystemNotifications();
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'bookings' && activeTab !== 'notifications') return;
+
+    const timer = window.setInterval(() => {
+      fetchBookings(true);
+    }, 20000);
+
+    return () => window.clearInterval(timer);
   }, [activeTab]);
 
   useEffect(() => {
@@ -127,8 +154,8 @@ const Profile: React.FC = () => {
     }
   }, [notification]);
 
-  const fetchBookings = async () => {
-    setIsLoadingBookings(true);
+  const fetchBookings = async (silent = false) => {
+    if (!silent) setIsLoadingBookings(true);
     try {
       const [bookingResult, paymentResult] = await Promise.allSettled([
         bookingService.getMyBookings(),
@@ -143,20 +170,45 @@ const Profile: React.FC = () => {
       const paymentRes = paymentResult.status === 'fulfilled' ? paymentResult.value : null;
       const paymentItems = Array.isArray(paymentRes?.items) ? paymentRes.items as PaymentHistoryItem[] : [];
       const latestPaymentByBooking = paymentItems.reduce<Record<string, PaymentHistoryItem>>((acc, payment) => {
-        if (!acc[payment.bookingId]) {
+        const current = acc[payment.bookingId];
+        const currentTime = current ? new Date(current.transactionDate || 0).getTime() : 0;
+        const nextTime = new Date(payment.transactionDate || 0).getTime();
+        if (!current || nextTime >= currentTime) {
           acc[payment.bookingId] = payment;
         }
         return acc;
       }, {});
       const items = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
 
+      const previousStatuses = previousBookingStatusRef.current;
+      const nextStatuses: Record<string, string> = {};
+
+      items.forEach((booking: BookingResponse) => {
+        const nextStatus = String(booking.status || '').toLowerCase();
+        nextStatuses[booking.id] = nextStatus;
+
+        const prevStatus = previousStatuses[booking.id];
+        const isCompletedNow = nextStatus.includes('complete') || nextStatus === '4';
+        const wasCompleted = prevStatus ? (prevStatus.includes('complete') || prevStatus === '4') : false;
+        const becameCompleted = isCompletedNow && prevStatus && !wasCompleted;
+
+        if (becameCompleted) {
+          setNotification({
+            type: 'success',
+            message: `Đơn ${getBookingPitchName(booking)} đã hoàn thành. Hãy để lại đánh giá trải nghiệm nhé!`,
+          });
+        }
+      });
+
+      previousBookingStatusRef.current = nextStatuses;
       setBookings(items);
       setPaymentHistoryByBooking(latestPaymentByBooking);
+      fetchBookingReviews(items);
     } catch (err) {
       console.error('Error fetching bookings:', err);
       setNotification({ type: 'error', message: 'Không thể tải lịch sử đặt sân.' });
     } finally {
-      setIsLoadingBookings(false);
+      if (!silent) setIsLoadingBookings(false);
     }
   };
 
@@ -179,7 +231,7 @@ const Profile: React.FC = () => {
     booking.pitchName || booking.timeSlot?.pitch?.name || 'Sân thể thao';
 
   const getBookingAddress = (booking: BookingResponse) =>
-    booking.timeSlot?.pitch?.address || 'Chưa cập nhật địa chỉ';
+    formatCompactAddress(booking.timeSlot?.pitch?.address);
 
   const getBookingStartTime = (booking: BookingResponse) =>
     booking.startTime || booking.timeSlot?.startTime || '--:--';
@@ -201,14 +253,18 @@ const Profile: React.FC = () => {
     const bookingStatus = String(booking.status || '').toLowerCase();
     const paymentStatus = String(payment?.status || '').toLowerCase();
 
-    return paymentStatus === 'success' || bookingStatus.includes('confirm') || bookingStatus.includes('complete');
+    return paymentStatus === 'success'
+      || bookingStatus.includes('confirm')
+      || bookingStatus.includes('complete')
+      || bookingStatus === '2'
+      || bookingStatus === '4';
   };
 
   const getPaidDepositAmount = (booking: BookingResponse) =>
     isBookingDepositPaid(booking) ? Number(paymentHistoryByBooking[booking.id]?.amount || booking.depositAmount || 0) : 0;
 
   const getRemainingAmount = (booking: BookingResponse) =>
-    Math.max(getBookingAmount(booking) - getPaidDepositAmount(booking), 0);
+    isCompletedBooking(booking) ? 0 : Math.max(getBookingAmount(booking) - getPaidDepositAmount(booking), 0);
 
   const formatMoney = (value?: number) =>
     `${Number(value || 0).toLocaleString('vi-VN')}đ`;
@@ -222,6 +278,14 @@ const Profile: React.FC = () => {
   const getPaymentStatusMeta = (booking: BookingResponse) => {
     const payment = paymentHistoryByBooking[booking.id];
     const paymentStatus = String(payment?.status || '').toLowerCase();
+
+    if (isCompletedBooking(booking)) {
+      return {
+        label: 'Đã thanh toán đủ',
+        className: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
+        dotClassName: 'bg-emerald-500',
+      };
+    }
 
     if (isBookingDepositPaid(booking)) {
       return {
@@ -256,21 +320,21 @@ const Profile: React.FC = () => {
 
   const getBookingStatusLabel = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
-    if (normalized.includes('confirm')) return 'Đã xác nhận';
-    if (normalized.includes('pending')) return 'Chờ thanh toán';
-    if (normalized.includes('cancel')) return 'Đã hủy';
-    if (normalized.includes('complete')) return 'Hoàn tất';
-    if (normalized.includes('noshow')) return 'Không đến';
-    return status || 'Đang xử lý';
+    if (normalized === '1' || normalized.includes('pending')) return 'Chờ thanh toán';
+    if (normalized === '2' || normalized.includes('confirm')) return 'Đã xác nhận';
+    if (normalized === '3' || normalized.includes('cancel')) return 'Đã hủy';
+    if (normalized === '4' || normalized.includes('complete')) return 'Hoàn tất';
+    if (normalized === '5' || normalized.includes('noshow')) return 'Không đến';
+    return 'Đang xử lý';
   };
 
   const getBookingStatusClass = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
-    if (normalized.includes('confirm') || normalized.includes('complete')) {
+    if (normalized === '2' || normalized === '4' || normalized.includes('confirm') || normalized.includes('complete')) {
       return 'bg-emerald-500/10 text-emerald-500';
     }
-    if (normalized.includes('pending')) return 'bg-amber-500/10 text-amber-500';
-    if (normalized.includes('cancel') || normalized.includes('noshow')) return 'bg-red-500/10 text-red-500';
+    if (normalized === '1' || normalized.includes('pending')) return 'bg-amber-500/10 text-amber-500';
+    if (normalized === '3' || normalized === '5' || normalized.includes('cancel') || normalized.includes('noshow')) return 'bg-red-500/10 text-red-500';
     return 'bg-slate-100 text-slate-400';
   };
 
@@ -281,7 +345,18 @@ const Profile: React.FC = () => {
       const bookingStatus = String(booking.status || '').toLowerCase();
       const isPaid = isBookingDepositPaid(booking);
       const isFailed = paymentStatus === 'failed';
-      const isCancelled = bookingStatus.includes('cancel');
+      const isCancelled = bookingStatus.includes('cancel') || bookingStatus === '3';
+
+      if (bookingStatus.includes('complete') || bookingStatus === '4') {
+        return {
+          booking,
+          title: 'Đơn đặt sân đã hoàn thành',
+          message: `${getBookingPitchName(booking)} đã hoàn thành. Hãy đánh giá trải nghiệm của bạn nhé!`,
+          meta: getBookingStatusLabel(booking.status),
+          icon: <Star size={18} />,
+          className: 'bg-amber-50 text-amber-600',
+        };
+      }
 
       if (isCancelled) {
         return {
@@ -340,54 +415,218 @@ const Profile: React.FC = () => {
     return <Bell size={18} />;
   };
 
+  const persistReadNotification = (id: string) => {
+    setReadNotificationIds((current) => {
+      if (current.includes(id)) return current;
+      return saveReadNotificationIds([...current, id]);
+    });
+  };
+
+  const fetchBookingReviews = async (items: BookingResponse[]) => {
+    const completedBookings = items.filter(isCompletedBooking);
+    if (completedBookings.length === 0) {
+      setReviewsByBooking({});
+      return;
+    }
+
+    const reviewResults = await Promise.allSettled(
+      completedBookings.map((booking) => api.get(`/bookings/${booking.id}/reviews`) as Promise<UserReviewItem>)
+    );
+
+    const nextReviews = reviewResults.reduce<Record<string, UserReviewItem>>((acc, result) => {
+      if (result.status === 'fulfilled' && result.value?.bookingId) {
+        acc[result.value.bookingId] = result.value;
+      }
+      return acc;
+    }, {});
+
+    setReviewsByBooking(nextReviews);
+  };
+
+  const persistReadNotifications = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setReadNotificationIds((current) => saveReadNotificationIds([...current, ...ids]));
+  };
+
+  const markSystemNotificationAsRead = async (id: string) => {
+    setSystemNotifications((current) =>
+      current.map((item) => item.id === id ? { ...item, isRead: true } : item)
+    );
+    persistReadNotification(id);
+    try {
+      await api.patch(`/notifications/${id}/read`);
+    } catch {
+      // Local read state keeps the UI calm even if the server has already marked it read.
+    }
+  };
+
+  const bookingFilterOptions = [
+    { id: 'all', label: 'Tất cả' },
+    { id: 'pending', label: 'Chờ thanh toán' },
+    { id: 'confirmed', label: 'Đã xác nhận' },
+    { id: 'completed', label: 'Hoàn tất' },
+    { id: 'cancelled', label: 'Đã hủy' },
+  ];
+
+  const notificationFilterOptions = [
+    { id: 'all', label: 'Tất cả' },
+    { id: 'new', label: 'Mới' },
+    { id: 'booking', label: 'Đơn đặt sân' },
+    { id: 'system', label: 'Hệ thống' },
+  ];
+
+  const sortedBookings = [...bookings].sort((a, b) =>
+    new Date(b.createdAt || b.bookingDate || 0).getTime() - new Date(a.createdAt || a.bookingDate || 0).getTime()
+  );
+
+  const filteredBookings = sortedBookings.filter((booking) => {
+    const normalized = String(booking.status || '').toLowerCase();
+    if (bookingFilter === 'all') return true;
+    if (bookingFilter === 'pending') return normalized.includes('pending') || normalized === '1';
+    if (bookingFilter === 'confirmed') return normalized.includes('confirm') || normalized === '2';
+    if (bookingFilter === 'completed') return normalized.includes('complete') || normalized === '4';
+    if (bookingFilter === 'cancelled') return normalized.includes('cancel') || normalized === '3';
+    return true;
+  });
+
   const notificationItems = [
     ...systemNotifications.map((item) => ({
       id: item.id,
+      source: 'system',
       title: item.title,
       message: item.message,
       meta: item.type,
       date: item.createdAt,
+      isRead: item.isRead || readNotificationIds.includes(item.id),
       icon: getSystemNotificationIcon(item.type),
       className: getSystemNotificationClass(item.type),
-      onClick: undefined as (() => void) | undefined,
+      onClick: () => markSystemNotificationAsRead(item.id),
     })),
     ...getBookingNotifications().map((item) => ({
       id: item.booking.id,
+      source: 'booking',
       title: item.title,
       message: item.message,
       meta: item.meta,
-      date: item.booking.bookingDate,
+      date: item.booking.createdAt || item.booking.bookingDate,
+      isRead: readNotificationIds.includes(item.booking.id),
       icon: item.icon,
       className: item.className,
       onClick: () => openBookingFromNotification(item.booking.id),
     })),
-  ];
+  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+  const filteredNotificationItems = notificationItems.filter((item) => {
+    if (notificationFilter === 'all') return true;
+    if (notificationFilter === 'new') return !item.isRead;
+    return item.source === notificationFilter;
+  });
+
+  useEffect(() => {
+    if (activeTab !== 'notifications' || notificationItems.length === 0) return;
+
+    const unreadIds = notificationItems
+      .filter((item) => !item.isRead)
+      .map((item) => item.id);
+
+    if (unreadIds.length === 0) return;
+    persistReadNotifications(unreadIds);
+
+    systemNotifications
+      .filter((item) => unreadIds.includes(item.id) && !item.isRead)
+      .forEach((item) => {
+        api.patch(`/notifications/${item.id}/read`).catch(() => undefined);
+      });
+  }, [activeTab, notificationItems.length, systemNotifications.length]);
 
   const openBookingFromNotification = (bookingId: string) => {
+    persistReadNotification(bookingId);
     setExpandedBookingId(bookingId);
     handleTabChange('bookings');
   };
 
-  const isCompletedBooking = (booking: BookingResponse) =>
-    String(booking.status || '').toLowerCase().includes('complete');
+  const isCompletedBooking = (booking: BookingResponse) => {
+    const normalized = String(booking.status || '').toLowerCase();
+    return normalized.includes('complete') || normalized === '4';
+  };
+
+  const isCancelledBooking = (booking: BookingResponse) => {
+    const normalized = String(booking.status || '').toLowerCase();
+    return normalized.includes('cancel') || normalized === '3';
+  };
+
+  const isPendingDepositBooking = (booking: BookingResponse) => {
+    const normalized = String(booking.status || '').toLowerCase();
+    return normalized === '1'
+      || normalized.includes('pending')
+      || normalized.includes('deposit')
+      || normalized.includes('chờ');
+  };
+
+  const canCancelBooking = (booking: BookingResponse) => {
+    const normalized = String(booking.status || '').toLowerCase();
+    if (isCompletedBooking(booking) || isCancelledBooking(booking)) return false;
+    return normalized.includes('pending') || normalized.includes('confirm') || normalized === '1' || normalized === '2';
+  };
+
+  const canOpenPaymentPage = (booking: BookingResponse) =>
+    isPendingDepositBooking(booking) && !isCompletedBooking(booking) && !isCancelledBooking(booking);
+
+  const handleCancelBooking = async (booking: BookingResponse) => {
+    const defaultReason = 'Khách hàng thay đổi kế hoạch';
+    const reason = window.prompt('Nhập lý do hủy đặt sân', defaultReason);
+    if (reason === null) return;
+
+    try {
+      await bookingService.cancel(booking.id, reason.trim() || defaultReason);
+      setNotification({ type: 'success', message: 'Đã gửi yêu cầu hủy đặt sân.' });
+      fetchBookings(true);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err?.message || 'Không thể hủy đơn đặt sân.' });
+    }
+  };
 
   const openReviewForm = (bookingId: string) => {
-    setReviewingBookingId((current) => (current === bookingId ? null : bookingId));
-    setReviewRating(5);
-    setReviewComment('');
+    if (reviewsByBooking[bookingId]) {
+      return;
+    }
+
+    setReviewingBookingId((current) => {
+      const next = current === bookingId ? null : bookingId;
+      const existingReview = reviewsByBooking[bookingId];
+      setReviewRating(existingReview?.rating || 5);
+      setReviewComment(existingReview?.comment || '');
+      return next;
+    });
+  };
+
+  const getPitchDetailUrl = (booking: BookingResponse) => {
+    const pitchId = booking.timeSlot?.pitch?.id;
+    const pitchName = getBookingPitchName(booking);
+    return pitchId ? `/san/${pitchId}-${slugify(pitchName)}` : '/explore';
   };
 
   const submitReview = async (bookingId: string) => {
     setReviewSubmittingId(bookingId);
     try {
-      await api.post(`/reviews/bookings/${bookingId}/reviews`, {
+      const payload = {
         rating: reviewRating,
         comment: reviewComment.trim(),
-      });
+      };
+
+      if (reviewsByBooking[bookingId]) {
+        await api.put(`/bookings/${bookingId}/reviews`, payload);
+      } else {
+        await api.post(`/bookings/${bookingId}/reviews`, payload);
+      }
+
+      const savedReview = await api.get(`/bookings/${bookingId}/reviews`) as UserReviewItem;
+      setReviewsByBooking((current) => ({ ...current, [bookingId]: savedReview }));
       setReviewingBookingId(null);
       setReviewComment('');
       setReviewRating(5);
-      setNotification({ type: 'success', message: 'Cảm ơn bạn, đánh giá đã được ghi nhận.' });
+      setNotification({ type: 'success', message: reviewsByBooking[bookingId] ? 'Đánh giá đã được cập nhật.' : 'Cảm ơn bạn, đánh giá đã được ghi nhận.' });
+      fetchBookings(true);
     } catch (err: any) {
       setNotification({ type: 'error', message: err?.message || 'Không thể gửi đánh giá cho đơn này.' });
     } finally {
@@ -746,17 +985,32 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
+                    <div className="mb-6 flex flex-wrap gap-2">
+                      {bookingFilterOptions.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setBookingFilter(item.id)}
+                          className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
+                            bookingFilter === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
                     {isLoadingBookings ? (
                       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-slate-100">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải lịch sử đặt sân...</p>
                       </div>
-                    ) : bookings.length > 0 ? (
-                      bookings.map((item) => {
+                    ) : filteredBookings.length > 0 ? (
+                      filteredBookings.map((item) => {
                         const payment = paymentHistoryByBooking[item.id];
                         const paymentMeta = getPaymentStatusMeta(item);
                         const isExpanded = expandedBookingId === item.id;
                         const isReviewing = reviewingBookingId === item.id;
+                        const existingReview = reviewsByBooking[item.id];
 
                         return (
                           <div key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-200 hover:shadow-md">
@@ -792,7 +1046,8 @@ const Profile: React.FC = () => {
                               <div className="grid grid-cols-2 gap-3 lg:block lg:space-y-1">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiền cọc</p>
                                 <p className="text-sm font-black text-slate-950">{formatMoney(getBookingDepositAmount(item))}</p>
-                              </div>                              <div className="flex flex-col gap-2">
+                              </div>
+                              <div className="flex flex-col gap-2">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
@@ -801,7 +1056,27 @@ const Profile: React.FC = () => {
                                   <Eye size={16} />
                                   {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
                                 </button>
-                                {isCompletedBooking(item) && (
+                                {canOpenPaymentPage(item) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/booking-review/${item.id}`)}
+                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 text-xs font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white"
+                                  >
+                                    <CreditCard size={16} />
+                                    Thanh toán cọc
+                                  </button>
+                                )}
+                                {canCancelBooking(item) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelBooking(item)}
+                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-xs font-black uppercase tracking-widest text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white"
+                                  >
+                                    <X size={16} />
+                                    Hủy đơn
+                                  </button>
+                                )}
+                                {isCompletedBooking(item) && !existingReview && (
                                   <button
                                     type="button"
                                     onClick={() => openReviewForm(item.id)}
@@ -813,6 +1088,30 @@ const Profile: React.FC = () => {
                                 )}
                               </div>
                             </div>
+
+                            {existingReview && !isReviewing && (
+                              <div className="border-t border-amber-100 bg-amber-50/40 px-5 py-4">
+                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="mb-2 flex items-center gap-2">
+                                      {Array.from({ length: 5 }).map((_, index) => (
+                                        <Star key={index} size={14} className={index < existingReview.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} />
+                                      ))}
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Đã đánh giá ngày {formatBookingDate(existingReview.createdAt)}
+                                      </span>
+                                    </div>
+                                    <p className="truncate text-sm font-bold text-slate-700">{existingReview.comment || 'Không có nhận xét kèm theo.'}</p>
+                                  </div>
+                                  <a
+                                    href={getPitchDetailUrl(item)}
+                                    className="shrink-0 rounded-xl bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white"
+                                  >
+                                    Xem trên chi tiết sân
+                                  </a>
+                                </div>
+                              </div>
+                            )}
 
                             <AnimatePresence initial={false}>
                               {isReviewing && (
@@ -881,10 +1180,6 @@ const Profile: React.FC = () => {
                                       </div>
                                       <dl className="space-y-2 text-xs font-bold">
                                         <div className="flex justify-between gap-4">
-                                          <dt className="text-slate-400">Mã đơn</dt>
-                                          <dd className="text-right text-slate-800">{item.checkInCode || item.id.substring(0, 8).toUpperCase()}</dd>
-                                        </div>
-                                        <div className="flex justify-between gap-4">
                                           <dt className="text-slate-400">Loại sân</dt>
                                           <dd className="text-right text-slate-800">{getBookingPitchType(item)}</dd>
                                         </div>
@@ -936,7 +1231,7 @@ const Profile: React.FC = () => {
                                         </div>
                                         <div className="flex justify-between gap-4">
                                           <dt className="text-slate-400">Mã GD</dt>
-                                          <dd className="max-w-[150px] truncate text-right text-slate-800">{payment?.providerTxnId || payment?.transactionId || 'Chưa có'}</dd>
+                                          <dd className="max-w-37.5 truncate text-right text-slate-800">{payment?.providerTxnId || payment?.transactionId || 'Chưa có'}</dd>
                                         </div>
                                       </dl>
                                     </div>
@@ -973,15 +1268,30 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
+                    <div className="mb-6 flex flex-wrap gap-2">
+                      {notificationFilterOptions.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setNotificationFilter(item.id)}
+                          className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
+                            notificationFilter === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
                     {isLoadingBookings ? (
                       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-slate-100">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải thông báo...</p>
                       </div>
-                    ) : notificationItems.length > 0 ? (
+                    ) : filteredNotificationItems.length > 0 ? (
                       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="divide-y divide-slate-100">
-                          {notificationItems.map((item) => (
+                          {filteredNotificationItems.map((item) => (
                             <button
                               key={item.id}
                               type="button"
@@ -993,7 +1303,14 @@ const Profile: React.FC = () => {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <h4 className="text-sm font-black text-slate-950">{item.title}</h4>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="text-sm font-black text-slate-950">{item.title}</h4>
+                                    {!item.isRead && (
+                                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                                        New
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatBookingDate(item.date)}</span>
                                 </div>
                                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{item.message}</p>
@@ -1003,7 +1320,7 @@ const Profile: React.FC = () => {
                                   </span>
                                 </div>
                               </div>
-                              {item.onClick && <ChevronRight size={16} className="mt-3 shrink-0 text-slate-300" />}
+                              {item.source === 'booking' && <ChevronRight size={16} className="mt-3 shrink-0 text-slate-300" />}
                             </button>
                           ))}
                         </div>

@@ -9,5 +9,6 @@ public record ReviewDto
     public Guid BookingId { get; init; }
     public int Rating { get; init; }
     public string? Comment { get; init; }
+    public string? OwnerReply { get; init; }
     public DateTime CreatedAt { get; init; }
 }

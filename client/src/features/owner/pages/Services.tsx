@@ -36,6 +36,8 @@ const Services: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -86,11 +88,29 @@ const Services: React.FC = () => {
     setError('');
 
     try {
+      const trimmedName = formData.name.trim();
+      if (!trimmedName) {
+        setError('Vui lòng nhập tên dịch vụ.');
+        return;
+      }
+
+      const priceValue = Number(formData.price);
+      if (!Number.isFinite(priceValue) || priceValue < 0) {
+        setError('Giá bán phải là số hợp lệ.');
+        return;
+      }
+
+      const stockValue = Number(formData.stockQuantity);
+      if (!Number.isFinite(stockValue) || stockValue < 0) {
+        setError('Tồn kho không được âm.');
+        return;
+      }
+
       const payload = {
-        name: formData.name.trim(),
-        price: Number(formData.price) || 0,
+        name: trimmedName,
+        price: priceValue || 0,
         icon: 'service',
-        stockQuantity: Number(formData.stockQuantity) || 0,
+        stockQuantity: stockValue || 0,
         imageUrl: formData.imageUrl.trim() || null,
         isActive: formData.isActive,
       };
@@ -124,9 +144,15 @@ const Services: React.FC = () => {
 
   const filteredServices = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return services;
-    return services.filter((service) => String(service.name || '').toLowerCase().includes(keyword));
-  }, [services, search]);
+    return services.filter((service) => {
+      const nameMatch = !keyword || String(service.name || '').toLowerCase().includes(keyword);
+      const isActive = service.isActive !== false;
+      const statusMatch = statusFilter === 'all' || (statusFilter === 'active' ? isActive : !isActive);
+      const stock = Number(service.stockQuantity || 0);
+      const stockMatch = stockFilter === 'all' || (stockFilter === 'in' ? stock > 0 : stock <= 0);
+      return nameMatch && statusMatch && stockMatch;
+    });
+  }, [services, search, statusFilter, stockFilter]);
 
   const stats = useMemo(() => {
     const active = services.filter((service) => service.isActive !== false).length;
@@ -139,7 +165,7 @@ const Services: React.FC = () => {
   }, [services]);
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+    <div className="mx-auto max-w-375 space-y-6 pb-16">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Service inventory</p>
@@ -182,16 +208,62 @@ const Services: React.FC = () => {
             className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
           />
         </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+          <span className="text-slate-400">Trạng thái</span>
+          {(
+            [
+              { id: 'all', label: 'Tất cả' },
+              { id: 'active', label: 'Đang bán' },
+              { id: 'inactive', label: 'Tạm ẩn' },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setStatusFilter(item.id)}
+              className={`rounded-full px-3 py-1 transition ${
+                statusFilter === item.id
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          <span className="ml-1 text-slate-400">Tồn kho</span>
+          {(
+            [
+              { id: 'all', label: 'Tất cả' },
+              { id: 'in', label: 'Còn hàng' },
+              { id: 'out', label: 'Hết hàng' },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setStockFilter(item.id)}
+              className={`rounded-full px-3 py-1 transition ${
+                stockFilter === item.id
+                  ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {isLoading ? (
-          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
+          <div className="flex min-h-90 flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={38} />
             <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải dịch vụ</p>
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
+          <div className="flex min-h-90 flex-col items-center justify-center text-center">
             <Package size={54} className="mb-4 text-slate-200" />
             <h3 className="text-lg font-black text-slate-800 dark:text-white">Chưa có dịch vụ phù hợp</h3>
             <p className="mt-2 text-sm font-semibold text-slate-400">Thêm dịch vụ mới để bán kèm khi đặt sân.</p>
@@ -299,7 +371,7 @@ const Services: React.FC = () => {
 
       <AnimatePresence>
         {isDrawerOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDrawerOpen(false)} className="absolute inset-0 bg-slate-950/50" />
 
             <motion.div
@@ -315,7 +387,7 @@ const Services: React.FC = () => {
                       <Package size={24} />
                     </div>
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200">Service setup</p>
-                    <h3 className="mt-3 text-2xl font-black">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
+                    <h3 className="mt-3 text-2xl font-black text-white">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
                     <p className="mt-3 text-sm font-semibold text-slate-300">Thiết lập tên, giá bán, tồn kho và ảnh hiển thị cho dịch vụ bán kèm.</p>
                   </div>
 
@@ -433,7 +505,7 @@ const Services: React.FC = () => {
                     <button type="button" onClick={() => setIsDrawerOpen(false)} className="h-12 flex-1 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-widest text-slate-500 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
                       Hủy
                     </button>
-                    <button type="submit" disabled={isSubmitting} className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-60">
+                    <button type="submit" disabled={isSubmitting} className="flex h-12 flex-2 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-60">
                       {isSubmitting ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
                       {editingService ? 'Lưu thay đổi' : 'Thêm dịch vụ'}
                     </button>

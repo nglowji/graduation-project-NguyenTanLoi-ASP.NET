@@ -15,7 +15,6 @@ import {
   Menu,
   Moon,
   Search,
-  Settings,
   ShieldCheck,
   Star,
   Sun,
@@ -110,13 +109,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   }, [isAdmin, location.pathname]);
 
   const notificationItems = useMemo(() => {
-    return bookingNotifications
-      .filter((booking) => {
-        const status = String(booking.status || '').toLowerCase();
-        return status.includes('pending') || status.includes('confirm');
-      })
-      .slice(0, 5);
+    return bookingNotifications.slice(0, 8);
   }, [bookingNotifications]);
+
+  const notificationSummary = useMemo(() => {
+    const pending = notificationItems.filter((item) => String(item.status || '').toLowerCase().includes('pending')).length;
+    const confirmed = notificationItems.filter((item) => String(item.status || '').toLowerCase().includes('confirm')).length;
+    const completed = notificationItems.filter((item) => String(item.status || '').toLowerCase().includes('complete')).length;
+    const cancelled = notificationItems.filter((item) => String(item.status || '').toLowerCase().includes('cancel')).length;
+    return { pending, confirmed, completed, cancelled, total: notificationItems.length };
+  }, [notificationItems]);
 
   const notificationStatusLabel = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
@@ -132,6 +134,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
     if (normalized.includes('pending')) return 'bg-amber-50 text-amber-700 ring-amber-100';
     if (normalized.includes('confirm')) return 'bg-emerald-50 text-emerald-700 ring-emerald-100';
     return 'bg-blue-50 text-blue-700 ring-blue-100';
+  };
+
+  const formatTime = (value?: string) => String(value || '--:--').substring(0, 5);
+  const formatMoney = (value?: number) => new Intl.NumberFormat('vi-VN').format(Number(value || 0));
+  const formatDateLabel = (value?: string) => {
+    if (!value) return '--/--/----';
+    if (value.toLowerCase().includes('invalid')) return '--/--/----';
+    if (value.includes('/')) return value;
+    const normalized = value.includes('T') ? value : `${value}T00:00:00`;
+    const parsed = new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('vi-VN');
   };
 
   const handleLogout = () => {
@@ -152,7 +166,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         />
       )}
 
-      <aside className={`${collapsed ? 'lg:w-[88px]' : 'lg:w-[280px]'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-[#1E293B] lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`${collapsed ? 'lg:w-22' : 'lg:w-70'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-[#1E293B] lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex h-20 shrink-0 items-center overflow-hidden border-b border-slate-50 px-6 dark:border-slate-800/50">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 shadow-sm dark:bg-white">
@@ -255,7 +269,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
               <span className="hidden lg:inline-flex">{collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}</span>
             </button>
 
-            <div className="group hidden min-w-[240px] items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 transition-all focus-within:border-slate-300 dark:border-slate-800 dark:bg-slate-800/50 dark:focus-within:border-slate-600 md:flex">
+            <div className="group hidden min-w-60 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 transition-all focus-within:border-slate-300 dark:border-slate-800 dark:bg-slate-800/50 dark:focus-within:border-slate-600 md:flex">
               <Search size={18} className="text-slate-400 transition-colors group-focus-within:text-slate-600 dark:group-focus-within:text-slate-300" />
               <input type="text" placeholder="Tìm kiếm..." className="w-full border-none bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white" />
             </div>
@@ -279,21 +293,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                 </button>
 
                 {showNotifications && (
-                  <div className="fixed left-3 right-3 top-20 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[390px]">
-                    <div className="bg-slate-950 p-4 text-white dark:bg-slate-800">
-                      <div className="flex items-center justify-between gap-3">
+                  <div className="fixed left-3 right-3 top-20 z-50 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 dark:border-slate-800 dark:bg-slate-900 sm:absolute sm:left-auto sm:-right-6 sm:top-12 sm:w-144 lg:w-160">
+                    <div className="border-b border-slate-100 bg-slate-950 p-5 text-white dark:border-slate-800 dark:bg-slate-900">
+                      <div className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="text-sm font-black">Thông báo đơn đặt sân</p>
-                          <p className="mt-1 text-xs font-bold text-slate-300">Các đơn mới hoặc đang cần xử lý.</p>
+                          <p className="text-base font-black">Thông báo đơn đặt sân</p>
+                          <p className="mt-1 text-xs font-bold text-slate-300">Tổng hợp các đơn mới, đang chờ cọc, hoặc vừa xác nhận.</p>
                         </div>
-                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/10">
-                          <Bell size={18} />
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
+                          <Bell size={20} />
                         </div>
                       </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-slate-100">Tổng {notificationSummary.total}</span>
+                        <span className="rounded-full bg-amber-500/20 px-3 py-1 text-amber-200">Chờ cọc {notificationSummary.pending}</span>
+                        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-200">Xác nhận {notificationSummary.confirmed}</span>
+                        <span className="rounded-full bg-blue-500/20 px-3 py-1 text-blue-200">Hoàn thành {notificationSummary.completed}</span>
+                        <span className="rounded-full bg-rose-500/20 px-3 py-1 text-rose-200">Đã hủy {notificationSummary.cancelled}</span>
+                      </div>
                     </div>
-                    <div className="max-h-[340px] overflow-y-auto">
+                    <div className="max-h-128 overflow-y-auto bg-slate-50/70 p-3 dark:bg-slate-950/40">
                       {notificationItems.length === 0 ? (
-                        <div className="p-8 text-center">
+                        <div className="rounded-2xl bg-white p-8 text-center shadow-sm dark:bg-slate-900">
                           <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
                             <Calendar size={20} />
                           </div>
@@ -303,28 +324,39 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                       ) : notificationItems.map((booking) => {
                         const pitchName = booking.pitchName || booking.timeSlot?.pitch?.name || 'Sân thể thao';
                         const customerName = booking.customerName || booking.user?.fullName || 'Khách hàng';
-                        const date = booking.bookingDate ? new Date(`${booking.bookingDate}T00:00:00`).toLocaleDateString('vi-VN') : '--/--/----';
+                        const customerPhone = booking.customerPhone || booking.user?.phoneNumber || 'Chưa có SĐT';
+                        const date = formatDateLabel(booking.bookingDate);
+                        const startTime = formatTime(booking.startTime || booking.timeSlot?.startTime);
+                        const endTime = formatTime(booking.endTime || booking.timeSlot?.endTime);
+                        const totalAmount = Number(booking.totalAmount ?? booking.totalPrice ?? 0);
 
                         return (
                           <Link
                             key={booking.id}
                             to="/dashboard/owner/bookings"
                             onClick={() => setShowNotifications(false)}
-                            className="block border-b border-slate-100 p-4 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/70"
+                            className="block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="flex min-w-0 gap-3">
-                                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600">
                                   <Calendar size={18} />
                                 </div>
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-black text-slate-900 dark:text-white">{pitchName}</p>
-                                  <p className="mt-1 truncate text-xs font-bold text-slate-500">{customerName} · {date}</p>
+                                  <p className="mt-1 text-xs font-bold text-slate-500">{customerName} · {customerPhone}</p>
+                                  <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    {date} · {startTime} - {endTime}
+                                  </p>
                                 </div>
                               </div>
                               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ring-1 ${notificationStatusClass(booking.status)}`}>
                                 {notificationStatusLabel(booking.status)}
                               </span>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                              <span>Tổng tiền</span>
+                              <span className="text-slate-900 dark:text-white">{formatMoney(totalAmount)}đ</span>
                             </div>
                           </Link>
                         );
@@ -333,9 +365,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                   </div>
                 )}
               </div>
-              <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-all hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
-                <Settings size={20} />
-              </button>
             </div>
 
             <div className="mx-1 hidden h-10 w-px bg-slate-200 dark:bg-slate-800 sm:block" />
@@ -363,7 +392,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         </header>
 
         <main className="custom-scrollbar relative flex-1 overflow-y-auto bg-[#F8FAFC] dark:bg-[#0F172A]">
-          <div className="mx-auto min-h-full max-w-[1600px] p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
+          <div className="mx-auto min-h-full max-w-400 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

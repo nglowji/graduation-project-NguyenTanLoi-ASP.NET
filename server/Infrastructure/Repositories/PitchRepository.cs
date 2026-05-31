@@ -116,6 +116,8 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .Include(p => p.TimeSlots)
             .Include(p => p.Images)
             .Include(p => p.SportCenter)
+            .Include(p => p.Reviews)
+                .ThenInclude(r => r.User)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 

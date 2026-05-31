@@ -27,6 +27,7 @@ export interface BookingResponse {
   depositAmount?: number;
   currency?: string;
   status: string;
+  createdAt?: string;
   checkInCode?: string;
   services?: Array<{
     id: string;

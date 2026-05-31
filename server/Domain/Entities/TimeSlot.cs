@@ -115,6 +115,6 @@ public class TimeSlot : BaseEntity
     private bool HasActiveBookingOn(DateOnly date) =>
         _bookings.Any(b =>
             b.BookingDate == date &&
-            b.Status is BookingStatus.Confirmed or BookingStatus.PendingDeposit
+            b.Status is BookingStatus.PendingDeposit or BookingStatus.Confirmed or BookingStatus.Completed
         );
 }
