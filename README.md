@@ -1,6 +1,6 @@
 # SmartSport
 
-Sports Booking and Facility Management Platform built with ASP.NET Core (.NET 8), Clean Architecture, Domain-Driven Design (DDD), and CQRS.
+Sports Booking and Facility Management Platform built with ASP.NET Core (.NET 8), Clean Architecture, and CQRS.
 
 ## Overview
 
