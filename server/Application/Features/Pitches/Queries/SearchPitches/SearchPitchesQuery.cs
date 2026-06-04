@@ -18,6 +18,7 @@ public record SearchPitchesQuery(
     double? Latitude,
     double? Longitude,
     double? RadiusKm,
+    string? SortBy,
     int PageNumber = 1,
     int PageSize = 20
 ) : IRequest<Result<PagedResult<PitchDto>>>;

@@ -43,7 +43,7 @@ const OwnerBenefitsSection: React.FC = () => {
               <h3 className="text-3xl font-black mb-4 text-primary">Tự động hóa 100%</h3>
               <p className="text-slate-400">Không còn phải gọi điện kiểm tra, xếp lịch thủ công hay lo sợ trùng giờ.</p>
             </div>
-            <div className="absolute top-0 right-0 w-full h-full bg-linear-to-b from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-blue-700/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           </motion.div>
 
           {/* Benefit 3 */}

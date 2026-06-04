@@ -43,7 +43,13 @@ public class Booking : BaseEntity, IAggregateRoot
     public void AddService(Guid serviceId, string name, Money price, int quantity = 1)
     {
         _services.Add(BookingService.Create(Id, serviceId, name, price, quantity));
-        // We might want to update TotalPrice here too, but usually it's calculated at creation
+    }
+
+    public void AddPurchasedService(Guid serviceId, string name, Money price, int quantity = 1)
+    {
+        AddService(serviceId, name, price, quantity);
+        TotalPrice = TotalPrice.Add(price.Multiply(quantity));
+        MarkAsUpdated();
     }
 
     public static Booking Create(Guid userId, Guid timeSlotId, DateOnly bookingDate, Money totalPrice, Money depositAmount)

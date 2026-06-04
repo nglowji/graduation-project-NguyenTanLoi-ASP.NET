@@ -691,9 +691,9 @@ const Profile: React.FC = () => {
             <aside className="w-full lg:w-80 shrink-0">
               <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden sticky top-32">
                 {/* User Brief */}
-                <div className="p-8 text-center border-b border-slate-50 bg-linear-to-b from-slate-50/50 to-transparent">
+                <div className="border-b border-slate-50 bg-slate-50/50 p-8 text-center">
                   <div className="relative inline-block mb-4 group">
-                    <div className="w-24 h-24 rounded-4xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-blue-500/20">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-4xl bg-blue-700 text-3xl font-black text-white shadow-2xl shadow-blue-500/20">
                       {user?.fullName?.charAt(0) || 'U'}
                     </div>
                     <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-primary transition-all group-hover:scale-110 active:scale-90">
@@ -955,7 +955,7 @@ const Profile: React.FC = () => {
                       </form>
                     </div>
 
-                    <div className="bg-linear-to-r from-blue-600 to-indigo-700 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-600/20">
+                    <div className="relative overflow-hidden rounded-[2.5rem] bg-blue-700 p-10 text-white shadow-2xl shadow-blue-600/20">
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                           <ShieldCheck size={20} />

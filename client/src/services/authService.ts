@@ -43,6 +43,18 @@ export const authService = {
   registerOwnerCenter: async (command: any): Promise<AuthResponse> => {
     return await api.post('/auth/register-owner-center', command);
   },
+
+  forgotPassword: async (email: string): Promise<void> => {
+    await api.post('/auth/forgot-password', { email });
+  },
+
+  verifyResetOtp: async (email: string, otp: string): Promise<{ resetToken: string }> => {
+    return await api.post('/auth/verify-reset-otp', { email, otp });
+  },
+
+  resetPassword: async (email: string, resetToken: string, newPassword: string): Promise<void> => {
+    await api.post('/auth/reset-password', { email, resetToken, newPassword });
+  },
   
   logout: () => {
     localStorage.removeItem('token');

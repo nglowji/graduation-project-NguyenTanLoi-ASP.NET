@@ -292,24 +292,24 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                   )}
                 </button>
 
+                <AnimatePresence>
                 {showNotifications && (
-                  <div className="fixed left-3 right-3 top-20 z-50 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 dark:border-slate-800 dark:bg-slate-900 sm:absolute sm:left-auto sm:-right-6 sm:top-12 sm:w-144 lg:w-160">
-                    <div className="border-b border-slate-100 bg-slate-950 p-5 text-white dark:border-slate-800 dark:bg-slate-900">
+                  <motion.div initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} transition={{ duration: 0.2 }} className="fixed left-3 right-3 top-20 z-50 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl shadow-slate-900/15 dark:border-slate-800 dark:bg-slate-900 sm:absolute sm:left-auto sm:-right-6 sm:top-12 sm:w-144 lg:w-160">
+                    <div className="border-b border-blue-100 bg-blue-50 p-5 dark:border-slate-800 dark:bg-slate-900">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="text-base font-black">Thông báo đơn đặt sân</p>
-                          <p className="mt-1 text-xs font-bold text-slate-300">Tổng hợp các đơn mới, đang chờ cọc, hoặc vừa xác nhận.</p>
+                          <p className="text-base font-black text-slate-950 dark:text-white">Thông báo vận hành</p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">Theo dõi đơn mới và trạng thái cần xử lý.</p>
                         </div>
-                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
+                        <div className="grid h-12 w-12 place-items-center rounded-xl bg-white text-blue-600 shadow-sm">
                           <Bell size={20} />
                         </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-slate-100">Tổng {notificationSummary.total}</span>
-                        <span className="rounded-full bg-amber-500/20 px-3 py-1 text-amber-200">Chờ cọc {notificationSummary.pending}</span>
-                        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-200">Xác nhận {notificationSummary.confirmed}</span>
-                        <span className="rounded-full bg-blue-500/20 px-3 py-1 text-blue-200">Hoàn thành {notificationSummary.completed}</span>
-                        <span className="rounded-full bg-rose-500/20 px-3 py-1 text-rose-200">Đã hủy {notificationSummary.cancelled}</span>
+                      <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[9px] font-black uppercase tracking-wider">
+                        <span className="rounded-lg bg-white px-2 py-2 text-amber-700 shadow-sm">Chờ cọc<br/><b className="text-base">{notificationSummary.pending}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 text-emerald-700 shadow-sm">Xác nhận<br/><b className="text-base">{notificationSummary.confirmed}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 text-blue-700 shadow-sm">Hoàn thành<br/><b className="text-base">{notificationSummary.completed}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 text-rose-700 shadow-sm">Đã hủy<br/><b className="text-base">{notificationSummary.cancelled}</b></span>
                       </div>
                     </div>
                     <div className="max-h-128 overflow-y-auto bg-slate-50/70 p-3 dark:bg-slate-950/40">
@@ -362,8 +362,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                         );
                       })}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
             </div>
 

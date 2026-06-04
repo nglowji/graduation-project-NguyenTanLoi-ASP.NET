@@ -5,6 +5,7 @@ public record OwnerReviewDto(
     string UserName,
     Guid PitchId,
     string PitchName,
+    string PitchType,
     int Rating,
     string? Comment,
     string? Reply,

@@ -1,66 +1,98 @@
-# Visual Studio / VS Code
+# -----------------------------------------------------------------------------
+# SmartSport repository ignore rules
+# Keep source, migrations, docs, CI/CD config, and production-safe config tracked.
+# Ignore local machines, secrets, dependency folders, build outputs, logs, caches.
+# -----------------------------------------------------------------------------
+
+# Editors / IDEs
 .vs/
 .vscode/
-*.user
+.idea/
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+*.rsuser
 
-# Build results
-[Bb]in/
-[Oo]bj/
-out/
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-# Test results
-[Tt]est[Rr]esult*/
-*.trx
-*.coverage
-*.coveragexml
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!client/.env.production
+*.local
+*.secret
+*.key
+*.pem
+appsettings.Local.json
+appsettings.*.Local.json
 
-# .NET
-*.nupkg
-*.snupkg
-*.lscache
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# Logs
+# Logs and diagnostics
 *.log
 logs/
-
-# Documentation files not meant for deployment
-docs/
-*.doc
-*.docx
-*.pdf
-
-# Node / frontend
-node_modules/
-dist/
-build/
-coverage/
-*.tsbuildinfo
+LogFiles/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Environment files
-.env
-.env.*
-!.env.example
-!client/.env.production
+# Node / React / Vite
+node_modules/
+dist/
+build/
+.vite/
+.vercel/
+.netlify/
+coverage/
+*.tsbuildinfo
 
-# OS files
-.DS_Store
-Thumbs.db
+# .NET build output
+[Bb]in/
+[Oo]bj/
+out/
+artifacts/
+publish/
+*.nupkg
+*.snupkg
+*.lscache
+project.lock.json
+project.fragment.lock.json
 
-# AI Agent & Internal Logs
+# Test output
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+
+# Local databases / generated runtime files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+*.tmp
+*.temp
+
+# Generated documents and large local exports
+*.doc
+*.docx
+*.pdf
+*.zip
+*.rar
+*.7z
+
+# AI agent / scratch workspace
 .agents/
 .gemini/
 brain/
+scratch/
 implementation_plan.md
 task.md
 walkthrough.md
-scratch/

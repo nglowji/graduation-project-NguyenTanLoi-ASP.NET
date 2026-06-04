@@ -302,9 +302,9 @@ const FieldDetails: React.FC = () => {
           17
         );
         L.control.zoom({ position: 'bottomright' }).addTo(mapInstanceRef.current);
-        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors, Tiles style by HOT',
-          maxZoom: 20,
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19,
         }).addTo(mapInstanceRef.current);
         mapLayerGroupRef.current = L.layerGroup().addTo(mapInstanceRef.current);
       }
@@ -313,13 +313,13 @@ const FieldDetails: React.FC = () => {
       const layers = mapLayerGroupRef.current;
       layers.clearLayers();
 
-      L.circleMarker([pitchLocation.lat, pitchLocation.lng], {
-        radius: 9,
-        color: '#ffffff',
-        weight: 4,
-        fillColor: '#2563eb',
-        fillOpacity: 1,
-      })
+      const pitchIcon = L.divIcon({
+        className: '',
+        html: '<div style="display:grid;height:42px;width:42px;place-items:center;border:4px solid #fff;border-radius:50% 50% 50% 8px;background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.35);transform:rotate(-45deg)"><span style="display:block;height:12px;width:12px;border-radius:50%;background:#67e8f9;transform:rotate(45deg)"></span></div>',
+        iconSize: [42, 42],
+        iconAnchor: [12, 38],
+      });
+      L.marker([pitchLocation.lat, pitchLocation.lng], { icon: pitchIcon })
         .addTo(layers)
         .bindPopup(pitch?.name || 'Sân');
 
@@ -337,8 +337,9 @@ const FieldDetails: React.FC = () => {
 
       if (routeLine.length > 1) {
         const points = routeLine.map((point) => [point.lat, point.lng]);
-        L.polyline(points, { color: '#0f172a', weight: 8, opacity: 0.16 }).addTo(layers);
-        L.polyline(points, { color: '#2563eb', weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(layers);
+        L.polyline(points, { color: '#0f172a', weight: 10, opacity: 0.2 }).addTo(layers);
+        L.polyline(points, { color: '#2563eb', weight: 6, opacity: 0.96, lineCap: 'round', lineJoin: 'round' }).addTo(layers);
+        L.polyline(points, { color: '#67e8f9', weight: 2, opacity: 0.95, dashArray: '10 12', lineCap: 'round' }).addTo(layers);
         map.fitBounds(L.latLngBounds(points).pad(0.18));
       } else if (userLocation) {
         map.fitBounds(L.latLngBounds([
@@ -531,17 +532,17 @@ const FieldDetails: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-        <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600" size={36} />
       </div>
     );
   }
 
   if (!pitch) {
     return (
-      <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
-        <div className="max-w-300 mx-auto px-6">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-8 text-center">
+      <div className="min-h-screen bg-slate-50 pb-16 pt-28 font-sans text-slate-900">
+        <div className="mx-auto max-w-[1480px] px-4 sm:px-6">
+          <div className="rounded-2xl border border-blue-100 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-bold text-slate-600">Không tìm thấy sân phù hợp.</p>
             <button
               onClick={() => navigate('/explore')}
@@ -634,10 +635,10 @@ const FieldDetails: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 pb-16 pt-28 font-sans">
-      <div className="max-w-300 mx-auto px-6">
+    <div className="min-h-screen bg-slate-50 pb-16 pt-24 font-sans text-slate-900">
+      <div className="mx-auto max-w-[1480px] px-4 sm:px-6">
         {/* Header Section */}
-        <div className="mb-8 space-y-4">
+        <div className="mb-6 rounded-2xl border border-blue-100 bg-cyan-50 p-5 sm:p-7">
           <button 
             onClick={() => navigate('/explore')}
             className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group"
@@ -648,7 +649,7 @@ const FieldDetails: React.FC = () => {
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Quay lại danh sách</span>
           </button>
 
-          <div className="space-y-3">
+          <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100">{pitch.typeDisplay}</span>
               <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100">
@@ -658,7 +659,7 @@ const FieldDetails: React.FC = () => {
                 Từ {formatMoney(pitch.minPrice)}đ/giờ
               </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">{pitch.name}</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{pitch.name}</h1>
             <div className="flex items-center gap-2 text-slate-500 font-semibold text-sm">
               <MapPin size={14} className="text-red-500 shrink-0" />
               <span>{fullAddress}</span>
@@ -666,12 +667,12 @@ const FieldDetails: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-12 items-start">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
           {/* LEFT COLUMN */}
-          <div className="flex-1 space-y-8">
+          <div className="min-w-0 space-y-6">
             {/* ULTRA COMPACT GALLERY */}
-            <div className="space-y-3 max-w-3xl">
-              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 group">
+            <div className="space-y-3">
+              <div className="group relative aspect-[16/8] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={activeImageIndex}
@@ -705,12 +706,12 @@ const FieldDetails: React.FC = () => {
             </div>
 
             {/* Overview */}
-            <div className="space-y-4">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mô tả</div>
-              <p className="text-sm font-medium text-slate-600 leading-relaxed max-w-2xl">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="text-[10px] font-black uppercase tracking-widest text-blue-600">Về sân này</div>
+              <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-600">
                 {pitch.description || 'Nơi những đam mê được đánh thức và những trận cầu rực lửa bắt đầu.'}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {['Bãi đỗ', 'Wifi', 'Giải khát', 'An ninh'].map((label) => (
                   <span key={label} className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
                     {label}
@@ -720,7 +721,7 @@ const FieldDetails: React.FC = () => {
             </div>
 
             {/* OpenStreetMap */}
-            <section className="space-y-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
                   <MapIcon size={12} className="text-blue-600" />
@@ -736,14 +737,20 @@ const FieldDetails: React.FC = () => {
                   Lấy vị trí của tôi
                 </button>
               </div>
-              <div className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-blue-100 bg-white shadow-lg">
+              <div className="mt-4 w-full overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg shadow-blue-950/10">
                 <div className="relative">
-                  <div ref={mapContainerRef} className="h-[320px] w-full bg-slate-100" />
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-white/50" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-white/60" />
+                  <div ref={mapContainerRef} className="h-[380px] w-full bg-blue-50" />
+                  <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700 shadow-lg">
+                      <i className="h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-blue-100" /> Sân thể thao
+                    </span>
+                    {userLocation && <span className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 shadow-lg">
+                      <i className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" /> Vị trí của bạn
+                    </span>}
+                  </div>
                   {pitchLocation && (
-                    <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-slate-950/88 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-950/15">
-                      Vị trí sân
+                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-blue-950/20">
+                      Điểm đến đã xác định
                     </div>
                   )}
                 </div>
@@ -781,7 +788,7 @@ const FieldDetails: React.FC = () => {
                 </div>
               </div>
               {routeInfo && routeInfo.steps.length > 0 && (
-                <div className="max-w-2xl rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chi tiết dẫn đường</h3>
                     <span className="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
@@ -810,9 +817,10 @@ const FieldDetails: React.FC = () => {
 
             {/* Services (Corrected Image Display - No Icon) */}
             {availableServices.length > 0 && (
-              <section className="space-y-4 pt-6 border-t border-slate-50">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dịch vụ bổ trợ</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-base font-black tracking-tight text-slate-900">Dịch vụ bổ trợ</h3>
+                <p className="mt-1 text-xs font-bold text-slate-400">Chọn thêm dịch vụ cần dùng khi đến sân</p>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                   {availableServices.map(svc => {
                     const serviceImageUrl = getServiceImageUrl(svc);
                     const stock = Number(svc.stockQuantity ?? svc.StockQuantity ?? 0);
@@ -850,7 +858,7 @@ const FieldDetails: React.FC = () => {
             )}
 
             {/* Reviews */}
-            <section className="space-y-4 pt-6 border-t border-slate-50">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-slate-900 tracking-tight">Đánh giá</h3>
                 <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black border border-amber-100">
@@ -892,9 +900,9 @@ const FieldDetails: React.FC = () => {
           </div>
 
           {/* RIGHT COLUMN (Sticky) */}
-          <aside className="w-full lg:w-85">
+          <aside className="w-full">
             <div className="sticky top-32 space-y-6">
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-6">
+              <div className="space-y-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-lg shadow-blue-950/5">
                 <div className="flex items-end justify-between">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Giá thuê</p>
@@ -917,8 +925,8 @@ const FieldDetails: React.FC = () => {
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">{timelineSlots.filter((slot) => slot.isAvailable).length} khung</span>
                     </label>
                     {timelineSlots.length > 0 ? (
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-2">
-                        <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-2">
+                        <div className="grid max-h-[360px] grid-cols-2 gap-2 overflow-y-auto pr-1">
                           {timelineSlots.map((slot) => {
                             const isSelected = selectedTime === slot.id;
                             return (

@@ -12,6 +12,7 @@ using Application.Features.Dashboard.DTOs;
 using Application.Features.Dashboard.Queries;
 using Api.Contracts;
 using Application.Common.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,11 +25,15 @@ public class BookingsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IUserRepository _userRepository;
+    private readonly IBookingRepository _bookingRepository;
+    private readonly IApplicationDbContext _context;
 
-    public BookingsController(IMediator mediator, IUserRepository userRepository)
+    public BookingsController(IMediator mediator, IUserRepository userRepository, IBookingRepository bookingRepository, IApplicationDbContext context)
     {
         _mediator = mediator;
         _userRepository = userRepository;
+        _bookingRepository = bookingRepository;
+        _context = context;
     }
 
     [HttpPost("lock")]
@@ -153,6 +158,44 @@ public class BookingsController : ApiControllerBase
             return BadRequestResponse(result.ErrorMessage ?? "Failed to confirm booking");
 
         return OkResponse<object?>(null, "Booking confirmed successfully");
+    }
+
+    [HttpPost("{id:guid}/services")]
+    [Authorize(Roles = "PitchOwner,PitchStaff")]
+    public async Task<IActionResult> AddServices(Guid id, [FromBody] List<BookingServiceRequest> services, CancellationToken cancellationToken)
+    {
+        var requesterId = GetCurrentUserId();
+        var booking = await _bookingRepository.GetTrackedWithDetailsAsync(id, cancellationToken);
+        if (booking?.TimeSlot?.Pitch == null) return NotFoundResponse("Booking not found");
+
+        var ownerId = requesterId;
+        if (User.IsInRole("PitchStaff"))
+        {
+            var staff = await _userRepository.GetByIdAsync(requesterId, cancellationToken);
+            if (staff?.OwnerId == null) return BadRequestResponse("Staff account is not linked to an owner");
+            ownerId = staff.OwnerId.Value;
+        }
+
+        if (booking.TimeSlot.Pitch.OwnerId != ownerId) return Forbid();
+        if (services.Count == 0) return BadRequestResponse("Select at least one service");
+
+        var quantities = services.GroupBy(item => item.ServiceId).ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+        if (quantities.Values.Any(quantity => quantity <= 0)) return BadRequestResponse("Service quantity must be greater than zero");
+
+        var availableServices = await _context.AdditionalServices
+            .Where(service => quantities.Keys.Contains(service.Id) && service.IsActive)
+            .ToListAsync(cancellationToken);
+        if (availableServices.Count != quantities.Count) return BadRequestResponse("One or more services are unavailable");
+
+        foreach (var service in availableServices)
+        {
+            var quantity = quantities[service.Id];
+            service.DecreaseStock(quantity);
+            booking.AddPurchasedService(service.Id, service.Name, service.Price, quantity);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return OkResponse<object?>(null, "Services added successfully");
     }
 
     [HttpPatch("{id:guid}/complete")]

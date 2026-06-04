@@ -291,18 +291,19 @@ const AIChatBox: React.FC = () => {
     >
       {isOpen && (
         <section
-          className={`absolute ${panelVertical} ${panelAlign} ${panelWidth} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 transition-all duration-200 dark:border-white/10 dark:bg-slate-950`}
+          className={`absolute ${panelVertical} ${panelAlign} ${panelWidth} overflow-hidden rounded-3xl border border-cyan-200 bg-white shadow-2xl shadow-blue-950/20 transition-all duration-200`}
           aria-label="SmartSport AI chat"
         >
-          <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-white/10">
+          <header className="relative flex items-center justify-between gap-4 overflow-hidden border-b border-blue-600 bg-blue-700 px-4 py-4 text-white">
+            <span className="absolute -right-5 -top-8 h-24 w-24 rounded-full border-[16px] border-cyan-400" />
             <div className="flex min-w-0 items-center gap-3">
-              <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white">
+              <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-300 text-blue-950">
                 <Bot size={20} />
-                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-950" />
+                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-blue-700 bg-emerald-400" />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-black text-slate-950 dark:text-white">SmartSport AI</h2>
-                <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <h2 className="truncate text-sm font-black text-white">SmartSport AI</h2>
+                <p className="truncate text-xs font-semibold text-blue-200">
                   Tư vấn sân và hỗ trợ nhanh
                 </p>
               </div>
@@ -312,7 +313,7 @@ const AIChatBox: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsExpanded((value) => !value)}
-                className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                className="relative grid h-9 w-9 place-items-center rounded-xl text-blue-100 transition hover:bg-blue-600 hover:text-white"
                 aria-label={isExpanded ? 'Thu nhỏ trợ lý AI' : 'Mở rộng trợ lý AI'}
               >
                 {isExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
@@ -320,7 +321,7 @@ const AIChatBox: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                className="relative grid h-9 w-9 place-items-center rounded-xl text-blue-100 transition hover:bg-blue-600 hover:text-white"
                 aria-label="Đóng trợ lý AI"
               >
                 <X size={18} />
@@ -328,12 +329,12 @@ const AIChatBox: React.FC = () => {
             </div>
           </header>
 
-          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-slate-50 px-4 py-4 dark:bg-slate-900/70`}>
+          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-cyan-50 px-4 py-4`}>
             {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                 <div className={`flex max-w-[92%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   {message.role === 'assistant' && (
-                    <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                    <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-blue-700 text-amber-300">
                       <Sparkles size={15} />
                     </div>
                   )}
@@ -342,8 +343,8 @@ const AIChatBox: React.FC = () => {
                     <div
                       className={`space-y-2 rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${
                         message.role === 'user'
-                          ? 'bg-indigo-600 text-white'
-                          : 'border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-100'
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-cyan-100 bg-white text-slate-700 shadow-sm'
                       }`}
                     >
                       {renderMessageText(message.content)}
@@ -356,25 +357,25 @@ const AIChatBox: React.FC = () => {
                             key={item.pitchId}
                             to={`/san/${item.pitchId}${item.pitchName ? `-${slugify(item.pitchName)}` : ''}`}
                             onClick={() => setIsOpen(false)}
-                            className="group block rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-indigo-300 hover:shadow-sm dark:border-white/10 dark:bg-slate-950"
+                            className="group block rounded-xl border border-cyan-100 bg-white p-3 text-left transition hover:border-blue-400 hover:shadow-sm"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <span className="block truncate text-sm font-black text-slate-950 dark:text-white">{item.pitchName}</span>
-                                <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                                <span className="block truncate text-sm font-black text-slate-950">{item.pitchName}</span>
+                                <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
                                   {item.reasons?.[0] || `Độ phù hợp ${Math.round(item.score)}%`}
                                 </span>
                               </div>
-                              <ChevronRight size={18} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-600" />
+                              <ChevronRight size={18} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-700" />
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {formatMoney(item.estimatedPrice) && (
-                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-200">
+                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">
                                   Từ {formatMoney(item.estimatedPrice)}
                                 </span>
                               )}
                               {item.distanceKm && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-200">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
                                   <MapPin size={11} />
                                   {item.distanceKm.toFixed(1)} km
                                 </span>
@@ -390,22 +391,23 @@ const AIChatBox: React.FC = () => {
             ))}
 
             {isSending && (
-              <div className="flex items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-400">
-                <Loader2 className="animate-spin text-indigo-600" size={15} />
+              <div className="flex items-center gap-2 text-xs font-black text-blue-700">
+                <Loader2 className="animate-spin text-blue-700" size={15} />
                 Đang trả lời...
               </div>
             )}
           </div>
 
-          <div className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
+          <div className="border-t border-cyan-100 bg-white p-4">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Hỏi nhanh SmartSport AI</p>
             <div className="mb-3 flex flex-wrap gap-2">
-              {quickPrompts.map((prompt) => (
+              {quickPrompts.map((prompt, index) => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => sendMessage(undefined, prompt)}
                   disabled={isSending}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-black text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] font-black transition disabled:opacity-50 ${index % 3 === 0 ? 'border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100' : index % 3 === 1 ? 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
                 >
                   {prompt}
                 </button>
@@ -418,12 +420,12 @@ const AIChatBox: React.FC = () => {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Hỏi về sân, thanh toán hoặc luật thể thao..."
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-indigo-400"
+                className="min-w-0 flex-1 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
               />
               <button
                 type="submit"
                 disabled={!canSend}
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Gửi tin nhắn"
               >
                 {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
@@ -446,7 +448,7 @@ const AIChatBox: React.FC = () => {
           }
           setIsOpen((value) => !value);
         }}
-        className="group relative grid h-[64px] w-[64px] touch-none place-items-center rounded-[22px] border border-white/30 bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-500 text-white shadow-2xl shadow-indigo-600/30 transition hover:-translate-y-0.5"
+        className="group relative grid h-[64px] w-[64px] touch-none place-items-center rounded-2xl border border-cyan-300 bg-blue-600 text-white shadow-2xl shadow-blue-600/30 transition hover:-translate-y-0.5 hover:bg-blue-700"
         aria-label={isOpen ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'}
         title="Kéo để di chuyển"
       >

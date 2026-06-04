@@ -10,6 +10,7 @@ import ExploreFields from './features/customer/pages/ExploreFields';
 import FieldDetails from './features/customer/pages/FieldDetails';
 import Login from './features/auth/pages/Login';
 import Register from './features/auth/pages/Register';
+import PasswordReset from './features/auth/pages/PasswordReset';
 import PartnerPortal from './features/owner/pages/PartnerPortal';
 import OwnerDashboard from './features/owner/pages/OwnerDashboard';
 import AdminDashboard from './features/admin/pages/AdminDashboard';
@@ -49,6 +50,7 @@ function App() {
               <Route path="/field/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><FieldDetails /><Footer /></div>} />
               <Route path="/login" element={<div className="flex flex-col min-h-screen"><Navbar /><Login /><Footer /></div>} />
               <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
+              <Route path="/forgot-password" element={<div className="flex flex-col min-h-screen"><Navbar /><PasswordReset /><Footer /></div>} />
               <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
               <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
               <Route path="/booking-review/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><BookingReview /><Footer /></div>} />

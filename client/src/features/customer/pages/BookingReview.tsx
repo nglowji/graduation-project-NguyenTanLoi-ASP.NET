@@ -211,8 +211,6 @@ const BookingReview: React.FC = () => {
         style={pageStyle}
       >
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_10%_-10%,var(--accent-soft)_0%,transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_90%_0%,oklch(96%_0.02_250)_0%,transparent_55%)]" />
         </div>
         <div className="mx-auto max-w-6xl space-y-6">
           <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-200" />
@@ -232,8 +230,6 @@ const BookingReview: React.FC = () => {
         style={pageStyle}
       >
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_10%_-10%,var(--accent-soft)_0%,transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_90%_0%,oklch(96%_0.02_250)_0%,transparent_55%)]" />
         </div>
         <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-red-100 bg-[var(--panel)] p-8 text-center shadow-sm">
           <AlertCircle className="mb-4 text-red-500" size={36} />
@@ -256,8 +252,6 @@ const BookingReview: React.FC = () => {
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_10%_-10%,var(--accent-soft)_0%,transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_90%_0%,oklch(96%_0.02_250)_0%,transparent_55%)]" />
       </div>
 
       <div className="mx-auto max-w-7xl">

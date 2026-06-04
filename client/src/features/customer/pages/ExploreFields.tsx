@@ -1,589 +1,202 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, Globe, MapPin, Users, DollarSign, Navigation, Trophy, Check, ChevronDown,
-  Star, ArrowUpDown, SlidersHorizontal, RotateCcw
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft, ArrowRight, ArrowUpDown, ChevronDown, LocateFixed,
+  RotateCcw, Search, SlidersHorizontal, Trophy, X,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { pitchService } from '../../../services/pitchService';
 import type { PitchResponse } from '../../../services/pitchService';
 import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 import { PitchCard } from '../components/PitchCard';
+import exploreSportsBanner from '../../../assets/explore-sports-banner.png';
 
-const CompactDropdown: React.FC<{
-  label: string;
-  icon: React.ReactNode;
-  value: string | number;
-  options: { label: string, value: string | number }[];
-  onChange: (value: any) => void;
-  disabled?: boolean;
-  className?: string;
-}> = ({ label, icon, value, options, onChange, disabled, className }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedLabel = options.find(opt => opt.value === value)?.label || label;
-  const hasValue = value !== '' && value !== undefined && value !== null;
+const sports = [
+  { id: '', label: 'Tất cả', tone: 'bg-slate-900 text-white' },
+  { id: 'Football', label: 'Bóng đá', tone: 'bg-blue-600 text-white' },
+  { id: 'Badminton', label: 'Cầu lông', tone: 'bg-emerald-600 text-white' },
+  { id: 'Pickleball', label: 'Pickleball', tone: 'bg-orange-500 text-white' },
+  { id: 'Tennis', label: 'Tennis', tone: 'bg-amber-400 text-slate-900' },
+  { id: 'Basketball', label: 'Bóng rổ', tone: 'bg-red-500 text-white' },
+  { id: 'Volleyball', label: 'Bóng chuyền', tone: 'bg-cyan-600 text-white' },
+  { id: 'TableTennis', label: 'Bóng bàn', tone: 'bg-violet-600 text-white' },
+];
 
-  return (
-    <div className={`relative ${className}`}>
-      <button 
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
-          ${disabled 
-            ? 'opacity-20 cursor-not-allowed' 
-            : isOpen 
-              ? 'bg-blue-50 border-blue-200 text-blue-600 ring-2 ring-blue-500/10' 
-              : hasValue
-                ? 'bg-white border-slate-300 text-slate-900 shadow-sm'
-                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 shadow-sm'
-          }`}
-      >
-        <span className="shrink-0">{icon}</span>
-        <span className="truncate flex-1 text-left">{selectedLabel}</span>
-        <ChevronDown size={12} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <motion.div 
-              initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute top-full left-0 mt-2 min-w-[220px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] border border-slate-100 z-50 overflow-hidden p-2"
-            >
-              <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                {options.map((opt) => (
-                  <button
-                    key={opt.value} type="button"
-                    onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[11px] font-bold transition-all mb-1 last:mb-0
-                      ${value === opt.value ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    <span className="truncate">{opt.label}</span>
-                    {value === opt.value && <Check size={12} strokeWidth={3} />}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+const pitchTypes: Record<string, Array<{ value: string; label: string }>> = {
+  '': [
+    { value: '', label: 'Mọi loại sân' }, { value: 'Football5', label: 'Bóng đá 5 người' },
+    { value: 'Football7', label: 'Bóng đá 7 người' }, { value: 'Football11', label: 'Bóng đá 11 người' },
+    { value: 'Badminton', label: 'Cầu lông' }, { value: 'Pickleball', label: 'Pickleball' },
+    { value: 'Tennis', label: 'Tennis' }, { value: 'Basketball', label: 'Bóng rổ' },
+    { value: 'Volleyball', label: 'Bóng chuyền' }, { value: 'TableTennis', label: 'Bóng bàn' },
+  ],
+  Football: [{ value: '', label: 'Mọi sân bóng đá' }, { value: 'Football5', label: 'Bóng đá 5 người' }, { value: 'Football7', label: 'Bóng đá 7 người' }, { value: 'Football11', label: 'Bóng đá 11 người' }],
+  Badminton: [{ value: '', label: 'Mọi sân cầu lông' }, { value: 'Badminton', label: 'Cầu lông' }],
+  Pickleball: [{ value: '', label: 'Mọi sân pickleball' }, { value: 'Pickleball', label: 'Pickleball' }],
+  Tennis: [{ value: '', label: 'Mọi sân tennis' }, { value: 'Tennis', label: 'Tennis' }],
+  Basketball: [{ value: '', label: 'Mọi sân bóng rổ' }, { value: 'Basketball', label: 'Bóng rổ' }],
+  Volleyball: [{ value: '', label: 'Mọi sân bóng chuyền' }, { value: 'Volleyball', label: 'Bóng chuyền' }],
+  TableTennis: [{ value: '', label: 'Mọi sân bóng bàn' }, { value: 'TableTennis', label: 'Bóng bàn' }],
 };
 
-const FilterField: React.FC<{
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}> = ({ label, className, children }) => (
-  <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-    {children}
-  </div>
+const priceOptions = [
+  { value: '', label: 'Không giới hạn' }, { value: '100000', label: '100.000đ' },
+  { value: '200000', label: '200.000đ' }, { value: '400000', label: '400.000đ' },
+  { value: '600000', label: '600.000đ' }, { value: '1000000', label: '1.000.000đ' },
+];
+
+const SelectField = ({ label, value, onChange, children, disabled = false }: React.PropsWithChildren<{
+  label: string; value: string | number; onChange: (value: string) => void; disabled?: boolean;
+}>) => (
+  <label className="block">
+    <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+    <select value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300">
+      {children}
+    </select>
+  </label>
 );
 
 const ExploreFields: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [province, setProvince] = useState('');
-  const [provinceCode, setProvinceCode] = useState<number | undefined>(undefined);
+  const [provinceCode, setProvinceCode] = useState<number>();
   const [district, setDistrict] = useState('');
-  const [districtCode, setDistrictCode] = useState<number | undefined>(undefined);
+  const [districtCode, setDistrictCode] = useState<number>();
   const [sportType, setSportType] = useState('');
   const [pitchType, setPitchType] = useState('');
-  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
-  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
-  const [minRating, setMinRating] = useState<number | undefined>(undefined);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [minRating, setMinRating] = useState('');
   const [sortBy, setSortBy] = useState('rating_desc');
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>();
   const [isNearMe, setIsNearMe] = useState(false);
-  const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
-
-  const { provinces, districts } = useVietnamLocations(provinceCode, districtCode);
+  const [showFilters, setShowFilters] = useState(false);
   const [pitches, setPitches] = useState<PitchResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
-  const [filterError, setFilterError] = useState('');
-
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 8;
+  const { provinces, districts } = useVietnamLocations(provinceCode, districtCode);
+
+  const options = pitchTypes[sportType] || pitchTypes[''];
+  const activeCount = [searchQuery, province, district, sportType, pitchType, minPrice, maxPrice, minRating, isNearMe].filter(Boolean).length;
 
   useEffect(() => {
-    fetchPitches();
-  }, [province, district, sportType, pitchType, minPrice, maxPrice, minRating, sortBy, isNearMe, coords, searchQuery, page]);
+    if (!options.some((option) => option.value === pitchType)) setPitchType('');
+  }, [options, pitchType]);
 
-  const fetchPitches = async () => {
-    setIsLoading(true);
-    setFilterError('');
-    try {
-      const result = await pitchService.search({
-        searchTerm: searchQuery || undefined,
-        province: province || undefined,
-        district: district || undefined,
-        sportType: sportType || undefined,
-        type: pitchType || undefined,
-        minPrice: minPrice || undefined,
-        maxPrice: maxPrice || undefined,
-        minRating: minRating || undefined,
-        sortBy: sortBy || undefined,
-        latitude: isNearMe ? coords?.lat : undefined,
-        longitude: isNearMe ? coords?.lng : undefined,
-        radiusKm: isNearMe ? 10 : undefined,
-        pageNumber: page,
-        pageSize: pageSize
-      }) as any;
-      
-      const items = result?.items || result?.Items || [];
-      const total = result?.totalCount ?? result?.TotalCount ?? items.length;
-      const totalP = result?.totalPages ?? result?.TotalPages ?? Math.ceil(total / pageSize);
-      
-      setPitches(sortPitches(items));
-      setTotalCount(total);
-      setTotalPages(totalP);
-    } catch (error) {
-      console.error("Failed to fetch pitches:", error);
-      setFilterError('Không thể tải danh sách sân. Hãy kiểm tra kết nối hoặc thử lại bộ lọc khác.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const sortPitches = (items: PitchResponse[]) => {
-    const sorted = [...items];
-    if (sortBy === 'price_asc') {
-      return sorted.sort((a, b) => Number(a.minPrice || 0) - Number(b.minPrice || 0));
-    }
-    if (sortBy === 'price_desc') {
-      return sorted.sort((a, b) => Number(b.minPrice || 0) - Number(a.minPrice || 0));
-    }
-    if (sortBy === 'newest') {
-      return sorted.reverse();
-    }
-    return sorted.sort((a, b) => Number(b.averageRating || 0) - Number(a.averageRating || 0));
-  };
-
-  const toggleNearMe = () => {
-    if (!isNearMe) {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition((position) => {
-          setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setIsNearMe(true);
-        }, (error) => console.error(error));
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const result = await pitchService.search({
+          searchTerm: searchQuery.trim() || undefined, province: province || undefined, district: district || undefined,
+          sportType: sportType || undefined, type: pitchType || undefined,
+          minPrice: minPrice || undefined, maxPrice: maxPrice || undefined, minRating: minRating || undefined,
+          sortBy, latitude: isNearMe ? coords?.lat : undefined, longitude: isNearMe ? coords?.lng : undefined,
+          radiusKm: isNearMe ? 10 : undefined, pageNumber: page, pageSize,
+        });
+        setPitches(result.items || []);
+        setTotalCount(result.totalCount || 0);
+        setTotalPages(Math.max(result.totalPages || 1, 1));
+      } catch {
+        setError('Không thể tải danh sách sân. Vui lòng thử lại sau ít phút.');
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      setIsNearMe(false);
-      setCoords(null);
-    }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, province, district, sportType, pitchType, minPrice, maxPrice, minRating, sortBy, isNearMe, coords, page]);
+
+  const chips = useMemo(() => [
+    province && { key: 'province', label: province, clear: () => { setProvince(''); setProvinceCode(undefined); setDistrict(''); setDistrictCode(undefined); } },
+    district && { key: 'district', label: district, clear: () => { setDistrict(''); setDistrictCode(undefined); } },
+    pitchType && { key: 'type', label: options.find((item) => item.value === pitchType)?.label || pitchType, clear: () => setPitchType('') },
+    minPrice && { key: 'min', label: `Từ ${Number(minPrice).toLocaleString('vi-VN')}đ`, clear: () => setMinPrice('') },
+    maxPrice && { key: 'max', label: `Đến ${Number(maxPrice).toLocaleString('vi-VN')}đ`, clear: () => setMaxPrice('') },
+    minRating && { key: 'rating', label: `Từ ${minRating} sao`, clear: () => setMinRating('') },
+    isNearMe && { key: 'near', label: 'Gần tôi 10km', clear: () => { setIsNearMe(false); setCoords(undefined); } },
+  ].filter(Boolean) as Array<{ key: string; label: string; clear: () => void }>, [province, district, pitchType, minPrice, maxPrice, minRating, isNearMe, options]);
+
+  const reset = () => {
+    setSearchQuery(''); setProvince(''); setProvinceCode(undefined); setDistrict(''); setDistrictCode(undefined);
+    setSportType(''); setPitchType(''); setMinPrice(''); setMaxPrice(''); setMinRating('');
+    setSortBy('rating_desc'); setIsNearMe(false); setCoords(undefined); setPage(1); setError('');
   };
 
-  const sports = [
-    { id: '', label: 'Tất cả' },
-    { id: 'Football', label: 'Bóng đá' },
-    { id: 'Badminton', label: 'Cầu lông' },
-    { id: 'Tennis', label: 'Tennis' },
-    { id: 'Pickleball', label: 'Pickleball' },
-    { id: 'Basketball', label: 'Bóng rổ' },
-    { id: 'Volleyball', label: 'Bóng chuyền' },
-    { id: 'TableTennis', label: 'Bóng bàn' }
-  ];
-
-  const sportLabelById = sports.reduce<Record<string, string>>((acc, item) => {
-    acc[item.id] = item.label;
-    return acc;
-  }, {});
-
-  const pitchTypeLabelByValue: Record<string, string> = {
-    Football5: 'Bóng đá 5',
-    Football7: 'Bóng đá 7',
-    Football11: 'Bóng đá 11',
-    Badminton: 'Cầu lông',
-    Tennis: 'Tennis',
-    Pickleball: 'Pickleball',
-    Basketball: 'Bóng rổ',
-    Volleyball: 'Bóng chuyền',
-    TableTennis: 'Bóng bàn'
+  const locate = () => {
+    if (isNearMe) { setIsNearMe(false); setCoords(undefined); setPage(1); return; }
+    if (!navigator.geolocation) { setError('Trình duyệt không hỗ trợ lấy vị trí hiện tại.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: current }) => { setCoords({ lat: current.latitude, lng: current.longitude }); setIsNearMe(true); setPage(1); },
+      () => setError('Không thể lấy vị trí. Vui lòng cấp quyền vị trí cho trình duyệt.'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
   };
-
-  const pitchTypeOptionsBySport: Record<string, { label: string; value: string }[]> = {
-    '': [
-      { label: 'Mọi quy mô', value: '' },
-      { label: 'Bóng đá 5', value: 'Football5' },
-      { label: 'Bóng đá 7', value: 'Football7' },
-      { label: 'Bóng đá 11', value: 'Football11' },
-      { label: 'Cầu lông', value: 'Badminton' },
-      { label: 'Tennis', value: 'Tennis' },
-      { label: 'Pickleball', value: 'Pickleball' },
-      { label: 'Bóng rổ', value: 'Basketball' },
-      { label: 'Bóng chuyền', value: 'Volleyball' },
-      { label: 'Bóng bàn', value: 'TableTennis' }
-    ],
-    Football: [
-      { label: 'Bóng đá 5', value: 'Football5' },
-      { label: 'Bóng đá 7', value: 'Football7' },
-      { label: 'Bóng đá 11', value: 'Football11' }
-    ],
-    Badminton: [
-      { label: 'Cầu lông', value: 'Badminton' }
-    ],
-    Tennis: [
-      { label: 'Tennis', value: 'Tennis' }
-    ],
-    Pickleball: [
-      { label: 'Pickleball', value: 'Pickleball' }
-    ],
-    Basketball: [
-      { label: 'Bóng rổ', value: 'Basketball' }
-    ],
-    Volleyball: [
-      { label: 'Bóng chuyền', value: 'Volleyball' }
-    ],
-    TableTennis: [
-      { label: 'Bóng bàn', value: 'TableTennis' }
-    ]
-  };
-
-  const pitchTypeOptions = useMemo(
-    () => pitchTypeOptionsBySport[sportType] ?? pitchTypeOptionsBySport[''],
-    [sportType]
-  );
-
-  useEffect(() => {
-    if (pitchType && !pitchTypeOptions.some(opt => opt.value === pitchType)) {
-      setPitchType('');
-    }
-  }, [pitchType, pitchTypeOptions]);
-
-  const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
-
-  const minPriceOptions = [
-    { label: 'Không giới hạn', value: '' },
-    { label: 'Từ 200k', value: 200000 },
-    { label: 'Từ 400k', value: 400000 },
-    { label: 'Từ 600k', value: 600000 },
-    { label: 'Từ 800k', value: 800000 },
-    { label: 'Từ 1 triệu', value: 1000000 }
-  ];
-
-  const maxPriceOptions = [
-    { label: 'Không giới hạn', value: '' },
-    { label: 'Đến 200k', value: 200000 },
-    { label: 'Đến 400k', value: 400000 },
-    { label: 'Đến 600k', value: 600000 },
-    { label: 'Đến 800k', value: 800000 },
-    { label: 'Đến 1 triệu', value: 1000000 },
-    { label: 'Đến 2 triệu', value: 2000000 }
-  ];
-
-  const handleMinPriceChange = (val: number | '') => {
-    const nextValue = val === '' ? undefined : val;
-    setMinPrice(nextValue);
-    if (nextValue && maxPrice && nextValue > maxPrice) {
-      setMaxPrice(undefined);
-      setFilterError('Giá tối thiểu đang cao hơn giá tối đa nên hệ thống đã bỏ giá tối đa.');
-    }
-    setPage(1);
-  };
-
-  const handleMaxPriceChange = (val: number | '') => {
-    const nextValue = val === '' ? undefined : val;
-    setMaxPrice(nextValue);
-    if (nextValue && minPrice && nextValue < minPrice) {
-      setMinPrice(undefined);
-      setFilterError('Giá tối đa đang thấp hơn giá tối thiểu nên hệ thống đã bỏ giá tối thiểu.');
-    }
-    setPage(1);
-  };
-
-  const resetFilters = () => {
-    setSportType('');
-    setPitchType('');
-    setProvinceCode(undefined);
-    setProvince('');
-    setDistrictCode(undefined);
-    setDistrict('');
-    setMinPrice(undefined);
-    setMaxPrice(undefined);
-    setMinRating(undefined);
-    setSearchQuery('');
-    setIsNearMe(false);
-    setCoords(null);
-    setSortBy('rating_desc');
-    setFilterError('');
-    setPage(1);
-  };
-
-  const activeFilters = [
-    searchQuery ? { key: 'search', label: `Từ khóa: ${searchQuery}`, onClear: () => setSearchQuery('') } : null,
-    sportType ? { key: 'sport', label: `Môn: ${sportLabelById[sportType]}`, onClear: () => setSportType('') } : null,
-    pitchType ? { key: 'pitch', label: `Loại sân: ${pitchTypeLabelByValue[pitchType] || pitchType}`, onClear: () => setPitchType('') } : null,
-    province ? { key: 'province', label: `Tỉnh/Thành: ${province}`, onClear: () => { setProvince(''); setProvinceCode(undefined); setDistrict(''); setDistrictCode(undefined); } } : null,
-    district ? { key: 'district', label: `Quận/Huyện: ${district}`, onClear: () => { setDistrict(''); setDistrictCode(undefined); } } : null,
-    minPrice ? { key: 'minPrice', label: `Từ ${formatPrice(minPrice)}đ`, onClear: () => setMinPrice(undefined) } : null,
-    maxPrice ? { key: 'maxPrice', label: `Đến ${formatPrice(maxPrice)}đ`, onClear: () => setMaxPrice(undefined) } : null,
-    minRating ? { key: 'rating', label: `Từ ${minRating.toFixed(1)} sao`, onClear: () => setMinRating(undefined) } : null,
-    isNearMe ? { key: 'near', label: 'Gần tôi (10km)', onClear: () => { setIsNearMe(false); setCoords(null); } } : null
-  ].filter(Boolean) as Array<{ key: string; label: string; onClear: () => void }>;
-
-  const sortLabel = {
-    rating_desc: 'Xếp hạng cao nhất',
-    price_asc: 'Giá thấp trước',
-    price_desc: 'Giá cao trước',
-    newest: 'Mới nhất',
-  }[sortBy] || 'Xếp hạng cao nhất';
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 pt-32">
-      <div className="max-w-[1400px] mx-auto px-6">
-        {/* Header */}
-        <header className="mb-12 space-y-10">
-          <div className="space-y-3">
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.8] text-slate-900">Explore. <br/><span className="text-blue-600">SmartSport</span></h1>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.4em]">Hệ thống sân đấu tiêu chuẩn quốc tế</p>
+    <div className="min-h-screen bg-slate-50 pb-20 pt-24 text-slate-900">
+      <header className="border-b border-cyan-100 bg-cyan-50">
+        <div className="mx-auto grid max-w-[1680px] gap-8 px-6 py-10 xl:grid-cols-[0.66fr_1.34fr] xl:items-center xl:py-14">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-blue-700"><Trophy size={16} /> Khám phá sân thể thao</p>
+            <h1 className="mt-4 text-4xl font-black leading-tight text-slate-950 sm:text-6xl">Tìm sân phù hợp.<br /><span className="text-blue-700">Đặt lịch thật nhanh.</span></h1>
+            <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-slate-600">Tìm theo tên sân, địa chỉ hoặc khu vực. Bộ lọc phía dưới giúp bạn chọn đúng bộ môn, loại sân và mức giá mong muốn.</p>
+            <div className="relative mt-7 rounded-2xl border border-blue-100 bg-white p-2 shadow-xl shadow-blue-950/10">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-blue-700" size={20} />
+            <input value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setPage(1); }} placeholder="Tìm tên sân, đường, quận hoặc tỉnh thành..." className="h-14 w-full rounded-xl border-0 bg-blue-50 pl-12 pr-4 text-sm font-bold text-slate-800 outline-none ring-blue-200 placeholder:text-slate-400 focus:bg-white focus:ring-4" />
           </div>
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl shadow-blue-950/10">
+            <img src={exploreSportsBanner} alt="Đa dạng sân thể thao trên SmartSport" className="block h-auto w-full object-contain" />
+          </div>
+        </div>
+      </header>
 
-          <div className="space-y-8">
-            <div className="relative group w-full">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={24} />
-              <input 
-                type="text" placeholder="Tìm tên sân, khu vực hoặc môn thể thao..." value={searchQuery} 
-                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-6 pl-16 pr-6 text-base font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
-              />
-            </div>
+      <main className="mx-auto max-w-[1440px] px-4 py-7 sm:px-6">
+        <section className="flex gap-2 overflow-x-auto pb-2">
+          {sports.map((sport) => <button type="button" key={sport.id} onClick={() => { setSportType(sport.id); setPage(1); }} className={`shrink-0 rounded-xl border px-4 py-2.5 text-xs font-black transition ${sportType === sport.id ? sport.tone : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700'}`}>{sport.label}</button>)}
+        </section>
 
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Môn thể thao</p>
-              {activeFilters.length > 0 && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
-                >
-                  Xóa tất cả
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-center gap-2 overflow-x-auto md:flex-wrap md:overflow-visible scrollbar-hide py-2 px-1 -mx-1">
-                {sports.map(sport => {
-                  const isActive = sportType === sport.id;
-                  return (
-                    <button 
-                      key={sport.id} onClick={() => { setSportType(sport.id); setPage(1); }}
-                      aria-pressed={isActive}
-                      className={`px-4 py-2 rounded-full font-bold text-xs transition-all border shrink-0
-                        ${isActive 
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'}`}
-                    >
-                      {sport.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="text-right">
-                  <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none">{totalCount}</p>
-                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-1">Sân khả dụng</p>
-                </div>
-              </div>
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <button type="button" onClick={() => setShowFilters((value) => !value)} className="flex items-center justify-between gap-3 text-left">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-700"><SlidersHorizontal size={18} /></span>
+              <span className="flex-1"><strong className="block text-sm">Bộ lọc tìm sân</strong><span className="text-xs font-semibold text-slate-400">{activeCount ? `${activeCount} điều kiện đang áp dụng` : 'Thu hẹp kết quả theo nhu cầu'}</span></span>
+              <ChevronDown size={17} className={`text-slate-400 transition ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={locate} className={`inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-black transition ${isNearMe ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}><LocateFixed size={15} />{isNearMe ? 'Đang lọc gần tôi' : 'Sân gần tôi'}</button>
+              {activeCount > 0 && <button type="button" onClick={reset} title="Đặt lại bộ lọc" className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-600 hover:bg-red-100"><RotateCcw size={16} /></button>}
             </div>
           </div>
+          <AnimatePresence initial={false}>
+            {showFilters && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden"><div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+              <SelectField label="Tỉnh / Thành" value={provinceCode || ''} onChange={(value) => { const code = Number(value) || undefined; setProvinceCode(code); setProvince(provinces.find((item) => item.code === code)?.name || ''); setDistrict(''); setDistrictCode(undefined); setPage(1); }}><option value="">Toàn quốc</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
+              <SelectField label="Quận / Huyện" value={districtCode || ''} disabled={!provinceCode} onChange={(value) => { const code = Number(value) || undefined; setDistrictCode(code); setDistrict(districts.find((item) => item.code === code)?.name || ''); setPage(1); }}><option value="">Mọi khu vực</option>{districts.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
+              <SelectField label="Loại sân" value={pitchType} onChange={(value) => { setPitchType(value); setPage(1); }}>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectField>
+              <SelectField label="Đánh giá" value={minRating} onChange={(value) => { setMinRating(value); setPage(1); }}><option value="">Mọi đánh giá</option><option value="4">Từ 4.0 sao</option><option value="4.5">Từ 4.5 sao</option><option value="5">Đạt 5.0 sao</option></SelectField>
+              <SelectField label="Giá tối thiểu" value={minPrice} onChange={(value) => { setMinPrice(value); if (maxPrice && Number(value) > Number(maxPrice)) setMaxPrice(''); setPage(1); }}>{priceOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectField>
+              <SelectField label="Giá tối đa" value={maxPrice} onChange={(value) => { setMaxPrice(value); if (minPrice && Number(value) < Number(minPrice)) setMinPrice(''); setPage(1); }}>{priceOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectField>
+              <SelectField label="Sắp xếp" value={sortBy} onChange={(value) => { setSortBy(value); setPage(1); }}><option value="rating_desc">Đánh giá cao nhất</option><option value="price_asc">Giá thấp trước</option><option value="price_desc">Giá cao trước</option><option value="newest">Sân mới nhất</option></SelectField>
+            </div></motion.div>}
+          </AnimatePresence>
+          {chips.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{chips.map((chip) => <button type="button" key={chip.key} onClick={() => { chip.clear(); setPage(1); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">{chip.label}<X size={13} /></button>)}</div>}
+        </section>
 
-          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 shadow-sm md:p-6 space-y-5">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
-                  <SlidersHorizontal size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-black text-slate-900">Bộ lọc sân</p>
-                  <p className="text-xs font-bold text-slate-400">
-                    {activeFilters.length > 0 ? `${activeFilters.length} điều kiện đang áp dụng` : 'Chọn điều kiện để thu hẹp kết quả'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500">
-                <span className="rounded-full bg-white px-3 py-2 ring-1 ring-slate-200">{totalCount} sân phù hợp</span>
-                <span className="rounded-full bg-white px-3 py-2 ring-1 ring-slate-200">{sortLabel}</span>
-                {activeFilters.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-3 py-2 text-white transition hover:bg-blue-600"
-                  >
-                    <RotateCcw size={13} />
-                    Đặt lại
-                  </button>
-                )}
-              </div>
-            </div>
+        {error && <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</div>}
+        <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-widest text-blue-600">Danh sách sân</p><h2 className="mt-1 text-2xl font-black">Chọn sân cho trận đấu tiếp theo</h2></div><p className="flex items-center gap-2 text-xs font-bold text-slate-500"><ArrowUpDown size={14} />{totalCount} kết quả, trang {page}/{totalPages}</p></div>
 
-            {filterError && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-                {filterError}
-              </div>
-            )}
+        <section className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {isLoading ? Array.from({ length: 8 }).map((_, index) => <div key={index} className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="aspect-[16/10] animate-pulse bg-slate-200" /><div className="space-y-3 p-4"><div className="h-4 animate-pulse rounded bg-slate-100" /><div className="h-3 w-2/3 animate-pulse rounded bg-slate-100" /><div className="h-8 animate-pulse rounded bg-slate-100" /></div></div>) :
+          pitches.length ? pitches.map((pitch) => <PitchCard key={pitch.id} id={pitch.id} name={pitch.name} typeDisplay={pitch.typeDisplay} price={Number(pitch.minPrice || 0).toLocaleString('vi-VN')} rating={pitch.averageRating} reviews={pitch.totalReviews} address={pitch.address?.fullAddress} image={pitch.images?.find((item) => item.isPrimary)?.imageUrl || pitch.images?.[0]?.imageUrl || 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=900&q=80'} />) :
+          <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center"><Trophy size={48} className="mx-auto text-slate-300" /><h3 className="mt-4 text-xl font-black">Chưa tìm thấy sân phù hợp</h3><p className="mt-2 text-sm font-semibold text-slate-500">Thử bỏ bớt điều kiện hoặc tìm kiếm khu vực lân cận.</p><button type="button" onClick={reset} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-xs font-black text-white hover:bg-blue-800"><RotateCcw size={15} />Đặt lại bộ lọc</button></div>}
+        </section>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
-              <FilterField label="Tỉnh / Thành">
-                <CompactDropdown 
-                  label="Chọn tỉnh" icon={<Globe size={14} className="text-blue-500" />} value={provinceCode || ''}
-                  options={[{ label: 'Toàn quốc', value: '' }, ...provinces.map(p => ({ label: p.name, value: p.code }))]}
-                  onChange={(code) => {
-                    const p = provinces.find(x => x.code === code);
-                    setProvinceCode(code || undefined); setProvince(p?.name || '');
-                    setDistrictCode(undefined); setDistrict(''); setPage(1);
-                  }}
-                />
-              </FilterField>
-              <FilterField label="Quận / Huyện">
-                <CompactDropdown 
-                  label="Chọn quận" icon={<MapPin size={14} className="text-red-500" />} disabled={!provinceCode} value={districtCode || ''}
-                  options={[{ label: 'Mọi khu vực', value: '' }, ...districts.map(d => ({ label: d.name, value: d.code }))]}
-                  onChange={(code) => {
-                    const d = districts.find(x => x.code === code);
-                    setDistrictCode(code || undefined); setDistrict(d?.name || ''); setPage(1);
-                  }}
-                />
-              </FilterField>
-              <FilterField label="Loại sân">
-                <CompactDropdown 
-                  label="Mọi loại" icon={<Users size={14} className="text-emerald-500" />} value={pitchType}
-                  options={pitchTypeOptions}
-                  onChange={(val) => { setPitchType(val); setPage(1); }}
-                />
-              </FilterField>
-              <FilterField label="Giá tối thiểu">
-                <CompactDropdown 
-                  label="Không giới hạn" icon={<DollarSign size={14} className="text-amber-500" />} value={minPrice || ''}
-                  options={minPriceOptions}
-                  onChange={handleMinPriceChange}
-                />
-              </FilterField>
-              <FilterField label="Giá tối đa">
-                <CompactDropdown 
-                  label="Không giới hạn" icon={<DollarSign size={14} className="text-amber-500" />} value={maxPrice || ''}
-                  options={maxPriceOptions}
-                  onChange={handleMaxPriceChange}
-                />
-              </FilterField>
-              <FilterField label="Xếp hạng">
-                <CompactDropdown 
-                  label="Mọi đánh giá" icon={<Star size={14} className="text-yellow-500" />} value={minRating || ''}
-                  options={[
-                    { label: 'Mọi đánh giá', value: '' }, 
-                    { label: 'Từ 4.0 sao', value: 4 }, 
-                    { label: 'Từ 4.5 sao', value: 4.5 }, 
-                    { label: 'Xuất sắc (5.0)', value: 5 }
-                  ]}
-                  onChange={(val) => { setMinRating(val || undefined); setPage(1); }}
-                />
-              </FilterField>
-              <FilterField label="Sắp xếp">
-                <CompactDropdown 
-                  label="Hàng đầu" icon={<ArrowUpDown size={14} className="text-blue-600" />} value={sortBy}
-                  options={[
-                    { label: 'Hàng đầu', value: 'rating_desc' }, 
-                    { label: 'Giá: Thấp - Cao', value: 'price_asc' }, 
-                    { label: 'Giá: Cao - Thấp', value: 'price_desc' },
-                    { label: 'Mới nhất', value: 'newest' }
-                  ]}
-                  onChange={(val) => { setSortBy(val); setPage(1); }}
-                />
-              </FilterField>
-              <FilterField label="Vị trí">
-                <button
-                  type="button"
-                  onClick={() => { toggleNearMe(); setPage(1); }}
-                  aria-pressed={isNearMe}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all
-                    ${isNearMe
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'}`}
-                >
-                  <Navigation size={14} />
-                  Gần tôi (10km)
-                </button>
-              </FilterField>
-            </div>
-
-            {activeFilters.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {activeFilters.map(filter => (
-                  <button
-                    key={filter.key}
-                    type="button"
-                    onClick={() => { filter.onClear(); setPage(1); }}
-                    aria-label={`Bỏ lọc: ${filter.label}`}
-                    className="flex items-center gap-2 px-3 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-all"
-                  >
-                    <span className="truncate max-w-[220px]">{filter.label}</span>
-                    <span className="text-slate-400">x</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Grid */}
-        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-12 pt-4">
-          {isLoading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="space-y-6">
-                <div className="aspect-[4/5] bg-slate-50 rounded-[2.5rem] animate-pulse" />
-                <div className="h-4 bg-slate-50 rounded-full w-3/4 animate-pulse" />
-              </div>
-            ))
-          ) : pitches.length > 0 ? (
-            <AnimatePresence mode="popLayout">
-              {pitches.map((pitch, index) => (
-                <motion.div 
-                  key={pitch.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} 
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <PitchCard 
-                    id={pitch.id} name={pitch.name} typeDisplay={pitch.typeDisplay} 
-                    price={new Intl.NumberFormat('vi-VN').format(pitch.minPrice || 0)} 
-                    rating={pitch.averageRating} reviews={pitch.totalReviews}
-                    image={pitch.images?.find(img => img.isPrimary)?.imageUrl || pitch.images?.[0]?.imageUrl || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800"}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          ) : (
-            <div className="col-span-full py-40 text-center bg-slate-50 rounded-[4rem] border-2 border-dashed border-slate-200">
-              <Trophy size={64} className="mx-auto mb-6 text-slate-200" />
-              <h3 className="text-3xl font-black text-slate-900 mb-2">Không tìm thấy sân</h3>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm khác nhé!</p>
-              <button 
-                onClick={resetFilters} 
-                className="mt-10 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-blue-600/20 hover:scale-105 transition-all"
-              >
-                Đặt lại toàn bộ lọc
-              </button>
-            </div>
-          )}
-        </main>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-3 py-24">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i + 1} onClick={() => setPage(i + 1)}
-                className={`w-12 h-12 rounded-2xl font-black text-xs transition-all border-2
-                  ${page === i + 1 
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-xl' 
-                    : 'bg-white text-slate-400 border-slate-100 hover:border-blue-500/20 hover:text-blue-500'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        {totalPages > 1 && <nav className="mt-9 flex items-center justify-center gap-2" aria-label="Phân trang"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-40"><ArrowLeft size={16} /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).map((value) => <button type="button" key={value} onClick={() => setPage(value)} className={`h-10 min-w-10 rounded-xl px-3 text-xs font-black ${page === value ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>{value}</button>)}<button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(value + 1, totalPages))} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-40"><ArrowRight size={16} /></button></nav>}
+      </main>
     </div>
   );
 };

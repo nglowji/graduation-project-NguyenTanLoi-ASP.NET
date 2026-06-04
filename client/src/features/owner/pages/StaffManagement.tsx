@@ -31,6 +31,7 @@ const StaffManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -89,14 +90,13 @@ const StaffManagement: React.FC = () => {
 
   const filteredStaff = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return staff;
-
     return staff.filter((item) =>
-      [item.fullName, item.email, item.phoneNumber]
+      (!keyword || [item.fullName, item.email, item.phoneNumber]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(keyword))
+        .some((value) => value.toLowerCase().includes(keyword))) &&
+      (statusFilter === 'all' || (statusFilter === 'active' ? item.isActive : !item.isActive))
     );
-  }, [staff, search]);
+  }, [staff, search, statusFilter]);
 
   const stats = useMemo(() => {
     const active = staff.filter((item) => item.isActive).length;
@@ -184,6 +184,9 @@ const StaffManagement: React.FC = () => {
             className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
           />
         </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {([{ id: 'all', label: 'Tất cả nhân viên' }, { id: 'active', label: 'Đang hoạt động' }, { id: 'inactive', label: 'Tạm khóa' }] as const).map((item) => <button key={item.id} type="button" onClick={() => setStatusFilter(item.id)} className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition ${statusFilter === item.id ? item.id === 'inactive' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800'}`}>{item.label}</button>)}
+        </div>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -203,7 +206,7 @@ const StaffManagement: React.FC = () => {
             {filteredStaff.map((item) => (
               <div key={item.id} className="grid gap-4 p-5 transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40 xl:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_140px_120px] xl:items-center">
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700 dark:bg-blue-500/10">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${item.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                     {item.fullName.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">

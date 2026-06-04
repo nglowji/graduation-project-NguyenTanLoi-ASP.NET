@@ -27,11 +27,24 @@ public class ServiceHandlers :
 
     public async Task<Result<List<ServiceDto>>> Handle(GetOwnerServicesQuery request, CancellationToken cancellationToken)
     {
-        var sportCenterId = await GetSportCenterId(request.OwnerId, cancellationToken);
-        if (sportCenterId == Guid.Empty) return Result<List<ServiceDto>>.Success(new List<ServiceDto>());
+        var sportCenterIds = await _context.SportCenters
+            .Where(sc => sc.OwnerId == request.OwnerId)
+            .Select(sc => sc.Id)
+            .ToListAsync(cancellationToken);
+
+        var legacyCenterIds = await _context.Pitches
+            .Where(p => p.OwnerId == request.OwnerId)
+            .Select(p => p.SportCenterId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        sportCenterIds = sportCenterIds.Concat(legacyCenterIds).Distinct().ToList();
+        if (sportCenterIds.Count == 0) return Result<List<ServiceDto>>.Success(new List<ServiceDto>());
 
         var services = await _context.AdditionalServices
-            .Where(s => s.SportCenterId == sportCenterId)
+            .Where(s => sportCenterIds.Contains(s.SportCenterId)
+                || s.SportCenter.OwnerId == request.OwnerId
+                || s.SportCenter.Pitches.Any(p => p.OwnerId == request.OwnerId))
             .Select(s => new ServiceDto(s.Id, s.Name, s.Price.Amount, s.Icon, s.StockQuantity, s.ImageUrl, s.IsActive))
             .ToListAsync(cancellationToken);
 

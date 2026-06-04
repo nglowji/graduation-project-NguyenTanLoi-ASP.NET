@@ -5,15 +5,19 @@ import {
   Archive,
   Box,
   CheckCircle2,
+  ChevronDown,
   DollarSign,
   Eye,
+  Filter,
   Image as ImageIcon,
   Loader2,
   Package,
   Plus,
   Save,
   Search,
+  SlidersHorizontal,
   Trash2,
+  WalletCards,
   X,
 } from 'lucide-react';
 import api from '../../../services/api';
@@ -37,7 +41,10 @@ const Services: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all');
+  const [priceFilter, setPriceFilter] = useState<'all' | 'under50' | '50to100' | 'over100'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'priceAsc' | 'priceDesc' | 'stockAsc' | 'stockDesc'>('name');
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -149,23 +156,52 @@ const Services: React.FC = () => {
       const isActive = service.isActive !== false;
       const statusMatch = statusFilter === 'all' || (statusFilter === 'active' ? isActive : !isActive);
       const stock = Number(service.stockQuantity || 0);
-      const stockMatch = stockFilter === 'all' || (stockFilter === 'in' ? stock > 0 : stock <= 0);
-      return nameMatch && statusMatch && stockMatch;
+      const price = Number(service.price || 0);
+      const stockMatch =
+        stockFilter === 'all' ||
+        (stockFilter === 'in' && stock > 0) ||
+        (stockFilter === 'low' && stock > 0 && stock <= 5) ||
+        (stockFilter === 'out' && stock <= 0);
+      const priceMatch =
+        priceFilter === 'all' ||
+        (priceFilter === 'under50' && price < 50000) ||
+        (priceFilter === '50to100' && price >= 50000 && price <= 100000) ||
+        (priceFilter === 'over100' && price > 100000);
+      return nameMatch && statusMatch && stockMatch && priceMatch;
+    }).sort((a, b) => {
+      if (sortBy === 'priceAsc') return Number(a.price || 0) - Number(b.price || 0);
+      if (sortBy === 'priceDesc') return Number(b.price || 0) - Number(a.price || 0);
+      if (sortBy === 'stockAsc') return Number(a.stockQuantity || 0) - Number(b.stockQuantity || 0);
+      if (sortBy === 'stockDesc') return Number(b.stockQuantity || 0) - Number(a.stockQuantity || 0);
+      return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
     });
-  }, [services, search, statusFilter, stockFilter]);
+  }, [services, search, statusFilter, stockFilter, priceFilter, sortBy]);
 
   const stats = useMemo(() => {
     const active = services.filter((service) => service.isActive !== false).length;
     const outOfStock = services.filter((service) => Number(service.stockQuantity || 0) <= 0).length;
+    const lowStock = services.filter((service) => Number(service.stockQuantity || 0) > 0 && Number(service.stockQuantity || 0) <= 5).length;
     const inventoryValue = services.reduce(
       (sum, service) => sum + Number(service.price || 0) * Number(service.stockQuantity || 0),
       0
     );
-    return { active, outOfStock, inventoryValue };
+    return { total: services.length, active, outOfStock, lowStock, inventoryValue };
   }, [services]);
+  const activeFilterCount = [
+    statusFilter !== 'all',
+    stockFilter !== 'all',
+    priceFilter !== 'all',
+    sortBy !== 'name',
+  ].filter(Boolean).length;
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setStockFilter('all');
+    setPriceFilter('all');
+    setSortBy('name');
+  };
 
   return (
-    <div className="mx-auto max-w-375 space-y-6 pb-16">
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Service inventory</p>
@@ -183,22 +219,26 @@ const Services: React.FC = () => {
         </button>
       </header>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang bán</p>
-          <p className="mt-2 text-2xl font-black text-emerald-600">{stats.active}</p>
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng dịch vụ</p><p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p></div></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hết hàng</p>
-          <p className="mt-2 text-2xl font-black text-red-600">{stats.outOfStock}</p>
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang bán</p><p className="mt-1 text-2xl font-black text-emerald-600">{stats.active}</p></div></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p>
-          <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{formatMoney(stats.inventoryValue)}</p>
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><AlertCircle size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp hết hàng</p><p className="mt-1 text-2xl font-black text-amber-600">{stats.lowStock}</p></div></div>
+        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-red-600"><Archive size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-red-600">Hết hàng</p><p className="mt-1 text-2xl font-black text-red-600">{stats.outOfStock}</p></div></div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><WalletCards size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p><p className="mt-1 text-lg font-black text-slate-950 dark:text-white">{formatMoney(stats.inventoryValue)}</p></div></div>
         </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
@@ -208,8 +248,16 @@ const Services: React.FC = () => {
             className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
           />
         </div>
+          <button type="button" onClick={() => setIsFiltersOpen((value) => !value)} className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black uppercase tracking-widest transition ${isFiltersOpen || activeFilterCount > 0 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+            <Filter size={16} /> Bộ lọc
+            {activeFilterCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-blue-600 px-1 text-[10px] text-white">{activeFilterCount}</span>}
+            <ChevronDown size={15} className={`transition ${isFiltersOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <p className="text-sm font-bold text-slate-400 lg:text-right">{filteredServices.length} / {services.length} dịch vụ</p>
+        </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+        {isFiltersOpen && <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
           <span className="text-slate-400">Trạng thái</span>
           {(
             [
@@ -237,6 +285,7 @@ const Services: React.FC = () => {
             [
               { id: 'all', label: 'Tất cả' },
               { id: 'in', label: 'Còn hàng' },
+              { id: 'low', label: 'Sắp hết' },
               { id: 'out', label: 'Hết hàng' },
             ] as const
           ).map((item) => (
@@ -254,6 +303,12 @@ const Services: React.FC = () => {
             </button>
           ))}
         </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><DollarSign size={15} className="text-blue-600" />Mức giá</span><select value={priceFilter} onChange={(event) => setPriceFilter(event.target.value as typeof priceFilter)} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-slate-600 outline-none"><option value="all">Mọi mức giá</option><option value="under50">Dưới 50.000đ</option><option value="50to100">50.000đ - 100.000đ</option><option value="over100">Trên 100.000đ</option></select></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><SlidersHorizontal size={15} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-slate-600 outline-none"><option value="name">Tên A-Z</option><option value="priceAsc">Giá thấp trước</option><option value="priceDesc">Giá cao trước</option><option value="stockAsc">Tồn kho ít trước</option><option value="stockDesc">Tồn kho nhiều trước</option></select></label>
+        </div>
+        {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-600 hover:text-white"><X size={14} />Xóa lọc</button>}
+        </div>}
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">

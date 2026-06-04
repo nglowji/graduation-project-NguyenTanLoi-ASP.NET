@@ -5,12 +5,14 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Filter,
   Eye,
   Flag,
   Loader2,
   MapPin,
   Phone,
   Search,
+  ShoppingCart,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -44,6 +46,7 @@ type BookingRow = {
   status?: string;
   checkInCode?: string;
 };
+type ServiceItem = { id: string; name?: string; price?: number; stockQuantity?: number; isActive?: boolean };
 
 const tabs = [
   { id: 'all', label: 'Tất cả' },
@@ -59,10 +62,17 @@ const Bookings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState('');
+  const [pitchFilter, setPitchFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<'dateAsc' | 'dateDesc' | 'amountDesc'>('dateAsc');
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [serviceId, setServiceId] = useState('');
+  const [serviceQuantity, setServiceQuantity] = useState(1);
 
   useEffect(() => {
     fetchBookings();
   }, [tab]);
+  useEffect(() => { api.get('/additional-services/my').then((res: any) => setServices(Array.isArray(res) ? res : [])).catch(() => setServices([])); }, []);
 
   const fetchBookings = async () => {
     setIsLoading(true);
@@ -100,6 +110,18 @@ const Bookings: React.FC = () => {
       fetchBookings();
     } catch {
       alert('Không thể cập nhật trạng thái');
+    }
+  };
+  const addServiceToBooking = async (bookingId: string) => {
+    if (!serviceId || serviceQuantity <= 0) return;
+    try {
+      await api.post(`/bookings/${bookingId}/services`, [{ serviceId, quantity: serviceQuantity }]);
+      setServiceId('');
+      setServiceQuantity(1);
+      fetchBookings();
+      alert('Đã cộng dịch vụ vào đơn.');
+    } catch (error: any) {
+      alert(error.message || 'Không thể cộng dịch vụ vào đơn.');
     }
   };
 
@@ -172,19 +194,26 @@ const Bookings: React.FC = () => {
 
   const filteredBookings = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
-    if (!keyword) return bookings;
-
-    return bookings.filter((booking) =>
-      [
+    return bookings.filter((booking) => {
+      const keywordMatch = !keyword || [
         getCustomerName(booking),
         getCustomerPhone(booking),
         getPitchName(booking),
         booking.checkInCode,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(keyword))
-    );
-  }, [bookings, searchTerm]);
+        .some((value) => String(value).toLowerCase().includes(keyword));
+      const dateMatch = !dateFilter || String(booking.bookingDate || '').slice(0, 10) === dateFilter;
+      const pitchMatch = pitchFilter === 'all' || getPitchName(booking) === pitchFilter;
+      return keywordMatch && dateMatch && pitchMatch;
+    }).sort((a, b) => {
+      if (sortBy === 'amountDesc') return getTotal(b) - getTotal(a);
+      const first = `${String(a.bookingDate || '').slice(0, 10)} ${getStartTime(a)}`;
+      const second = `${String(b.bookingDate || '').slice(0, 10)} ${getStartTime(b)}`;
+      return sortBy === 'dateDesc' ? second.localeCompare(first) : first.localeCompare(second);
+    });
+  }, [bookings, searchTerm, dateFilter, pitchFilter, sortBy]);
+  const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchName))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
 
   const counts = useMemo(() => {
     const total = bookings.length;
@@ -202,16 +231,16 @@ const Bookings: React.FC = () => {
           <p className="mt-2 text-sm font-semibold text-slate-500">Theo dõi đơn, cọc, khung giờ và trạng thái xử lý trong một màn hình.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="px-4 py-2">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-xl bg-white px-4 py-2 dark:bg-slate-800">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p>
             <p className="text-xl font-black text-slate-950 dark:text-white">{counts.total}</p>
           </div>
-          <div className="px-4 py-2">
+          <div className="rounded-xl bg-amber-100 px-4 py-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p>
             <p className="text-xl font-black text-amber-600">{counts.pending}</p>
           </div>
-          <div className="px-4 py-2">
+          <div className="rounded-xl bg-emerald-100 px-4 py-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p>
             <p className="text-xl font-black text-emerald-600">{counts.confirmed}</p>
           </div>
@@ -247,6 +276,12 @@ const Bookings: React.FC = () => {
             />
           </div>
         </div>
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white" /></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateAsc">Lịch gần nhất</option><option value="dateDesc">Lịch xa nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
+        </div>
+        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateAsc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateAsc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -394,6 +429,14 @@ const Bookings: React.FC = () => {
                           <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600">
                             <Trash2 size={16} />
                           </button>
+                        </div>
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><ShoppingCart size={14} className="text-blue-600" />Bán thêm dịch vụ</p>
+                          <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-2">
+                            <select value={serviceId} onChange={(event) => setServiceId(event.target.value)} className="h-11 min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-300"><option value="">Chọn dịch vụ</option>{services.filter(item => item.isActive !== false && Number(item.stockQuantity || 0) > 0).map(item => <option key={item.id} value={item.id}>{item.name} · {Number(item.stockQuantity || 0)} còn</option>)}</select>
+                            <input type="number" min="1" value={serviceQuantity} onChange={(event) => setServiceQuantity(Number(event.target.value))} className="h-11 rounded-xl border border-blue-100 bg-blue-50 px-2 text-center text-xs font-black text-slate-700 outline-none focus:border-blue-300" />
+                          </div>
+                          <button type="button" disabled={!serviceId || serviceQuantity <= 0} onClick={() => addServiceToBooking(booking.id)} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black text-white transition hover:bg-blue-700 disabled:bg-blue-300"><ShoppingCart size={15} />Cộng vào đơn</button>
                         </div>
                       </div>
                     </div>

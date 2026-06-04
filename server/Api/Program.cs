@@ -135,6 +135,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<Application.Common.Interfaces.IBookingNotificationService, Api.Services.BookingNotificationService>();
+builder.Services.AddSingleton<Api.Services.IPasswordResetService, Api.Services.PasswordResetService>();
 
 // Background Services
 builder.Services.AddHostedService<BookingLockCleanupService>();

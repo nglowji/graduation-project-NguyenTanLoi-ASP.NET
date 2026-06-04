@@ -32,9 +32,7 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         var totalCount = await query.CountAsync(cancellationToken);
 
         // 3. Apply Sorting and Pagination (at Database level)
-        var pagedQuery = query
-            .OrderByDescending(p => p.AverageRating)
-            .ThenByDescending(p => p.CreatedAt)
+        var pagedQuery = ApplySorting(query, request.SortBy)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize);
 
@@ -67,8 +65,13 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             filtered = filtered.Where(p =>
-                p.Name.Contains(request.SearchTerm) || 
-                (p.Description != null && p.Description.Contains(request.SearchTerm))
+                p.Name.Contains(request.SearchTerm) ||
+                (p.Description != null && p.Description.Contains(request.SearchTerm)) ||
+                (p.SportCenter != null &&
+                    (p.SportCenter.Name.Contains(request.SearchTerm) ||
+                     p.SportCenter.Address.Street.Contains(request.SearchTerm) ||
+                     p.SportCenter.Address.District.Contains(request.SearchTerm) ||
+                     p.SportCenter.Address.City.Contains(request.SearchTerm)))
             );
         }
 
@@ -142,6 +145,21 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         }
 
         return filtered;
+    }
+
+    private static IOrderedQueryable<Domain.Entities.Pitch> ApplySorting(
+        IQueryable<Domain.Entities.Pitch> query,
+        string? sortBy)
+    {
+        return sortBy?.ToLowerInvariant() switch
+        {
+            "price_asc" => query.OrderBy(p => p.TimeSlots.Where(ts => ts.IsActive).Select(ts => (decimal?)ts.Price.Amount).Min() ?? decimal.MaxValue)
+                .ThenByDescending(p => p.AverageRating),
+            "price_desc" => query.OrderByDescending(p => p.TimeSlots.Where(ts => ts.IsActive).Select(ts => (decimal?)ts.Price.Amount).Min() ?? 0)
+                .ThenByDescending(p => p.AverageRating),
+            "newest" => query.OrderByDescending(p => p.CreatedAt),
+            _ => query.OrderByDescending(p => p.AverageRating).ThenByDescending(p => p.CreatedAt)
+        };
     }
 
     private static string GetPitchTypeDisplay(Domain.Enums.PitchType type)

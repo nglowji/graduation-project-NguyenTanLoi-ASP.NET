@@ -43,6 +43,7 @@ public class PitchesController : ApiControllerBase
         [FromQuery] double? latitude,
         [FromQuery] double? longitude,
         [FromQuery] double? radiusKm,
+        [FromQuery] string? sortBy,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -51,6 +52,7 @@ public class PitchesController : ApiControllerBase
             searchTerm, type, sportType, minPrice, maxPrice,
             province, district, ward, minRating,
             latitude, longitude, radiusKm,
+            sortBy,
             pageNumber, pageSize
         );
 

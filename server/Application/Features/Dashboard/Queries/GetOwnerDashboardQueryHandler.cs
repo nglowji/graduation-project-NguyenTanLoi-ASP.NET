@@ -65,6 +65,7 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
             Summary = CalculateSummary(pitches, bookings, allOwnerBookings, allTimeSlots, rangeDays),
             RevenueChart = CalculateRevenueChart(bookings, startDate, endDate),
             BookingStatusDistribution = CalculateStatusDistribution(bookings),
+            PitchRevenue = CalculatePitchRevenue(bookings),
             RecentBookings = MapRecentBookings(bookings
                 .OrderByDescending(b => b.BookingDate)
                 .ThenByDescending(b => b.CreatedAt)
@@ -75,6 +76,23 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         return Result<OwnerDashboardDto>.Success(dashboard);
     }
 
+    private List<PitchRevenueDto> CalculatePitchRevenue(IReadOnlyList<Domain.Entities.Booking> bookings)
+    {
+        return bookings
+            .Where(b => b.Status == BookingStatus.Completed && b.TimeSlot?.Pitch != null)
+            .GroupBy(b => new { b.TimeSlot.Pitch.Id, b.TimeSlot.Pitch.Name, b.TimeSlot.Pitch.Type })
+            .Select(group => new PitchRevenueDto
+            {
+                PitchId = group.Key.Id,
+                PitchName = group.Key.Name,
+                PitchType = group.Key.Type.ToString(),
+                Revenue = group.Sum(b => b.TotalPrice.Amount),
+                Bookings = group.Count()
+            })
+            .OrderByDescending(item => item.Revenue)
+            .ToList();
+    }
+
     private SummaryStatsDto CalculateSummary(
         IReadOnlyList<Domain.Entities.Pitch> pitches, 
         IReadOnlyList<Domain.Entities.Booking> filteredBookings,
@@ -82,10 +100,9 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         IReadOnlyList<Domain.Entities.TimeSlot> timeSlots,
         int days)
     {
-        var completedBookings = allOwnerBookings.Where(b => b.Status == BookingStatus.Completed).ToList();
+        var completedBookings = filteredBookings.Where(b => b.Status == BookingStatus.Completed).ToList();
         var occupiedBookings = filteredBookings.Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed).ToList();
         
-        // Revenue on the owner revenue page is all completed bookings, independent from chart filters.
         var totalRevenue = completedBookings.Sum(b => b.TotalPrice.Amount);
 
         // Calculate Occupancy Rate
@@ -139,6 +156,7 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         {
             Id = b.Id,
             PitchName = b.TimeSlot?.Pitch?.Name ?? "N/A",
+            PitchType = b.TimeSlot?.Pitch?.Type.ToString() ?? "Unknown",
             UserName = b.User?.FullName ?? "Khách hàng",
             BookingDate = b.BookingDate.ToString("yyyy-MM-dd"),
             TimeRange = b.TimeSlot?.TimeRange.ToString() ?? "N/A",

@@ -23,6 +23,7 @@ type OwnerReview = {
   userName: string;
   pitchId: string;
   pitchName: string;
+  pitchType?: string;
   rating: number;
   comment: string;
   createdAt: string;
@@ -45,6 +46,7 @@ const isOwnerReview = (value: unknown): value is OwnerReview => {
     typeof review.createdAt === 'string'
   );
 };
+const pitchTypeLabel = (type?: string) => ({ '1': 'Bóng đá 5 người', Football5: 'Bóng đá 5 người', '2': 'Bóng đá 7 người', Football7: 'Bóng đá 7 người', '3': 'Bóng đá 11 người', Football11: 'Bóng đá 11 người', '4': 'Tennis', Tennis: 'Tennis', '5': 'Cầu lông', Badminton: 'Cầu lông', '6': 'Pickleball', Pickleball: 'Pickleball', '7': 'Bóng rổ', Basketball: 'Bóng rổ', '8': 'Bóng chuyền', Volleyball: 'Bóng chuyền', '9': 'Bóng bàn', TableTennis: 'Bóng bàn' }[String(type || '')] || 'Chưa phân loại');
 
 const Reviews: React.FC = () => {
   const [reviews, setReviews] = useState<OwnerReview[]>([]);
@@ -54,6 +56,9 @@ const Reviews: React.FC = () => {
   const [replyText, setReplyText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pitchFilter, setPitchFilter] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [replyFilter, setReplyFilter] = useState('all');
 
   const fetchReviews = useCallback(async () => {
     setIsLoading(true);
@@ -99,10 +104,18 @@ const Reviews: React.FC = () => {
     }
   };
 
-  const filteredReviews = reviews.filter(r => 
-    r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const pitchStats = Array.from(reviews.reduce((map, review) => {
+    const current = map.get(review.pitchId) || { id: review.pitchId, name: review.pitchName, type: review.pitchType, total: 0, score: 0, pending: 0 };
+    current.total += 1; current.score += review.rating; if (!review.reply) current.pending += 1; map.set(review.pitchId, current); return map;
+  }, new Map<string, { id: string; name: string; type?: string; total: number; score: number; pending: number }>()).values());
+  const pitchOptions = pitchStats.map(pitch => [pitch.id, pitchTypeLabel(pitch.type)] as const);
+  const filteredReviews = reviews.filter(r =>
+    (r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.comment.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.pitchName.toLowerCase().includes(searchTerm.toLowerCase())
+    r.pitchName.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (pitchFilter === 'all' || r.pitchId === pitchFilter) &&
+    (ratingFilter === 'all' || r.rating === Number(ratingFilter)) &&
+    (replyFilter === 'all' || (replyFilter === 'replied' ? Boolean(r.reply) : !r.reply))
   );
 
   const stats = {
@@ -152,7 +165,7 @@ const Reviews: React.FC = () => {
         </div>
       </header>
 
-      <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-3 shadow-sm flex flex-col md:flex-row items-center gap-4 group">
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/50 md:flex-row">
         <div className="relative flex-1 group/search">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-blue-600 transition-colors" size={20} />
           <input 
@@ -168,6 +181,15 @@ const Reviews: React.FC = () => {
           <span className="text-[10px] font-black uppercase tracking-widest">Sắp xếp: Mới nhất</span>
         </div>
       </div>
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3 dark:border-slate-700 dark:bg-slate-800">
+        <select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-600"><option value="all">Tất cả sân</option>{pitchOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+        <select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-600"><option value="all">Tất cả mức sao</option>{[5, 4, 3, 2, 1].map(value => <option key={value} value={value}>{value} sao</option>)}</select>
+        <select value={replyFilter} onChange={(event) => setReplyFilter(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-600"><option value="all">Tất cả phản hồi</option><option value="replied">Đã phản hồi</option><option value="pending">Chưa phản hồi</option></select>
+      </div>
+      <section>
+        <div className="mb-4"><h2 className="text-lg font-black text-slate-900 dark:text-white">Điểm đánh giá theo từng sân</h2><p className="mt-1 text-xs font-bold text-slate-400">Điểm trung bình được tính riêng, không gộp giữa các sân.</p></div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{pitchStats.map(pitch => <button type="button" key={pitch.id} onClick={() => setPitchFilter(pitch.id)} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800"><p className="truncate text-sm font-black text-slate-900 dark:text-white">{pitchTypeLabel(pitch.type)}</p><div className="mt-4 flex items-center justify-between"><span className="flex items-center gap-2 text-xl font-black text-amber-500"><Star size={18} className="fill-current" />{(pitch.score / pitch.total).toFixed(1)}</span><span className="text-xs font-black text-slate-400">{pitch.total} đánh giá · {pitch.pending} chưa trả lời</span></div></button>)}</div>
+      </section>
 
       <div className="space-y-6">
         {isLoading ? (
@@ -176,7 +198,7 @@ const Reviews: React.FC = () => {
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Retrieving feedback data...</p>
           </div>
         ) : filteredReviews.length === 0 ? (
-          <div className="text-center py-40 bg-slate-50 dark:bg-slate-900/30 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-40 text-center dark:border-slate-700 dark:bg-slate-900/30">
             <MessageSquare size={64} className="mx-auto mb-6 text-slate-200 dark:text-slate-800" />
             <h3 className="text-xl font-black text-slate-400 dark:text-slate-600">Chưa có đánh giá</h3>
             <p className="text-slate-400 text-sm mt-2">Phản hồi từ khách hàng sẽ xuất hiện tại đây.</p>
@@ -188,7 +210,7 @@ const Reviews: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all group"
+              className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800"
             >
               <div className="flex flex-col lg:flex-row gap-8">
                 <div className="flex items-start gap-6 lg:w-1/3">
@@ -199,7 +221,7 @@ const Reviews: React.FC = () => {
                     <h4 className="text-xl font-black text-slate-900 dark:text-white leading-none">{review.userName}</h4>
                     <Link to={getPitchDetailUrl(review)} className="flex w-fit items-center gap-1.5 rounded-full border border-slate-100 bg-slate-50 px-3 py-1 transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900/50">
                       <div className="w-1 h-1 rounded-full bg-blue-600" />
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{review.pitchName}</span>
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{pitchTypeLabel(review.pitchType)}</span>
                       <ExternalLink size={11} className="text-slate-400" />
                     </Link>
                     <div className="flex items-center gap-3 pt-1">
@@ -280,7 +302,7 @@ const Reviews: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 dark:border-slate-800"
+              className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-5">
@@ -301,7 +323,7 @@ const Reviews: React.FC = () => {
               </div>
 
               <div className="p-10 space-y-10">
-                <div className="p-8 bg-slate-50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-200 dark:border-slate-800 relative">
+                <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-8 dark:border-slate-800 dark:bg-slate-950/50">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Nội dung đánh giá của {selectedReview?.userName}</span>
                   <p className="text-sm text-slate-600 dark:text-slate-400 italic font-medium leading-relaxed">"{selectedReview?.comment}"</p>
                 </div>
@@ -323,14 +345,14 @@ const Reviews: React.FC = () => {
                     <button
                       type="button"
                       onClick={closeReplyModal}
-                      className="flex-1 py-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:text-slate-900 dark:hover:text-white transition-all shadow-sm"
+                      className="flex-1 rounded-xl border border-slate-200 bg-white py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 shadow-sm transition-all hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white"
                     >
                       Hủy bỏ
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-90 shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-4 active:scale-[0.98] transition-all group/save"
+                      className="flex flex-[2] items-center justify-center gap-4 rounded-xl bg-blue-600 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98]"
                     >
                       {isSubmitting ? (
                         <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />

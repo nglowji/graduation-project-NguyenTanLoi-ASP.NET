@@ -9,6 +9,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Api.Services;
 
 namespace Api.Controllers;
 
@@ -18,15 +19,68 @@ public class AuthController : ApiControllerBase
     private readonly IMediator _mediator;
     private readonly IApplicationDbContext _context;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPasswordResetService _passwordResetService;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly IEmailService _emailService;
 
     public AuthController(
         IMediator mediator,
         IApplicationDbContext context,
-        IJwtTokenService jwtTokenService)
+        IJwtTokenService jwtTokenService,
+        IPasswordResetService passwordResetService,
+        IPasswordHasher passwordHasher,
+        IEmailService emailService)
     {
         _mediator = mediator;
         _context = context;
         _jwtTokenService = jwtTokenService;
+        _passwordResetService = passwordResetService;
+        _passwordHasher = passwordHasher;
+        _emailService = emailService;
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        var user = await _context.Users.FirstOrDefaultAsync(item => item.Email.ToLower() == email, cancellationToken);
+        if (user != null)
+        {
+            var otp = _passwordResetService.CreateOtp(email);
+            await _emailService.SendEmailAsync(email, "Ma OTP dat lai mat khau SmartSport", $"Ma OTP cua ban la: {otp}. Ma co hieu luc trong 5 phut.", cancellationToken);
+        }
+
+        return OkResponse<object?>(null, "Nếu email tồn tại, mã OTP đã được gửi.");
+    }
+
+    [HttpPost("verify-reset-otp")]
+    [AllowAnonymous]
+    public IActionResult VerifyResetOtp([FromBody] VerifyResetOtpRequest request)
+    {
+        var token = _passwordResetService.VerifyOtp(request.Email.Trim().ToLowerInvariant(), request.Otp.Trim());
+        return token == null
+            ? BadRequestResponse("Mã OTP không đúng hoặc đã hết hạn.")
+            : OkResponse(new { ResetToken = token });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+            return BadRequestResponse("Mật khẩu mới phải có ít nhất 8 ký tự.");
+
+        if (!_passwordResetService.ConsumeResetToken(email, request.ResetToken))
+            return BadRequestResponse("Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
+
+        var user = await _context.Users.FirstOrDefaultAsync(item => item.Email.ToLower() == email, cancellationToken);
+        if (user == null) return BadRequestResponse("Không tìm thấy tài khoản.");
+
+        user.ChangePassword(_passwordHasher.HashPassword(request.NewPassword));
+        await _context.SaveChangesAsync(cancellationToken);
+        return OkResponse<object?>(null, "Đặt lại mật khẩu thành công.");
     }
 
     /// <summary>
@@ -186,3 +240,7 @@ public class AuthController : ApiControllerBase
         return OkResponse<object?>(null, "Đăng xuất thành công."); // Senior rule: 204 doesn't return body, but we can return 200 with success:true
     }
 }
+
+public record ForgotPasswordRequest(string Email);
+public record VerifyResetOtpRequest(string Email, string Otp);
+public record ResetPasswordRequest(string Email, string ResetToken, string NewPassword);

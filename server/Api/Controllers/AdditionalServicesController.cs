@@ -13,23 +13,25 @@ using Microsoft.AspNetCore.Mvc;
 namespace Api.Controllers;
 
 [Route("api/v1/additional-services")]
-[Authorize(Roles = "PitchOwner")]
+[Authorize(Roles = "PitchOwner,PitchStaff")]
 public class AdditionalServicesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IApplicationDbContext _context;
+    private readonly IUserRepository _userRepository;
 
-    public AdditionalServicesController(IMediator mediator, IApplicationDbContext context)
+    public AdditionalServicesController(IMediator mediator, IApplicationDbContext context, IUserRepository userRepository)
     {
         _mediator = mediator;
         _context = context;
+        _userRepository = userRepository;
     }
 
     [HttpGet("my")]
     [ProducesResponseType(typeof(ApiResponse<List<ServiceDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyServices(CancellationToken ct)
     {
-        var ownerId = GetCurrentUserId();
+        var ownerId = await GetOwnerId(ct);
         var result = await _mediator.Send(new GetOwnerServicesQuery(ownerId), ct);
         return OkResponse(result.Value);
     }
@@ -79,6 +81,7 @@ public class AdditionalServicesController : ApiControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreateServiceCommand command, CancellationToken ct)
@@ -91,6 +94,7 @@ public class AdditionalServicesController : ApiControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceCommand command, CancellationToken ct)
@@ -103,6 +107,7 @@ public class AdditionalServicesController : ApiControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "PitchOwner")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -112,5 +117,13 @@ public class AdditionalServicesController : ApiControllerBase
         return result.IsSuccess 
             ? OkResponse<object?>(null, "Service deleted successfully") 
             : BadRequestResponse(result.ErrorMessage ?? "Failed to delete service");
+    }
+
+    private async Task<Guid> GetOwnerId(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!User.IsInRole("PitchStaff")) return userId;
+        var staff = await _userRepository.GetByIdAsync(userId, ct);
+        return staff?.OwnerId ?? Guid.Empty;
     }
 }
