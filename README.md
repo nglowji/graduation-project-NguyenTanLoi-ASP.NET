@@ -1,145 +1,435 @@
-# 🏆 SmartSport - Enterprise-Grade Sports Booking Ecosystem
+# SmartSport
 
-<div align="center">
+Sports Booking and Facility Management Platform built with ASP.NET Core (.NET 8), Clean Architecture, Domain-Driven Design (DDD), and CQRS.
 
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet)
-![React](https://img.shields.io/badge/React-2024-61DAFB?style=for-the-badge&logo=react)
-![Architecture](https://img.shields.io/badge/Clean-Architecture-blue?style=for-the-badge)
-![Patterns](https://img.shields.io/badge/DDD-CQRS-orange?style=for-the-badge)
-![Database](https://img.shields.io/badge/PostgreSQL-Managed-336791?style=for-the-badge&logo=postgresql)
+## Overview
 
-**Một giải pháp toàn diện cho việc quản lý và vận hành sân tập thể thao hiện đại, được xây dựng với tư duy kỹ thuật đỉnh cao.**
+SmartSport is a sports facility booking platform that allows users to search, book, and manage sports venues while providing administrators and venue owners with tools for facility operations, scheduling, and business management.
 
-[Khám phá Tính năng](#-tính-năng-đẳng-cấp) • [Kiến trúc Hệ thống](#-triết-lý-kiến-trúc) • [Công nghệ](#-hệ-sinh-thái-công-nghệ) • [Hướng dẫn Cài đặt](#-quy-trình-triển-khai)
+The project was developed to apply modern backend engineering practices, scalable architecture principles, and real-world business workflows such as booking management, payment processing, concurrency control, and real-time communication.
 
-</div>
+## Project Status
 
----
-
-### 🚀 Trạng thái Dự án (Project Status)
-
-> [!IMPORTANT]
-> **Hiện tại, dự án đã hoàn thành 100% Core Logic (Backend) và đang trong giai đoạn tối ưu hóa giao diện (UI Development).**
-> - ✅ Backend API: Hoàn thiện (Clean Architecture, DDD, CQRS).
-> - 🏗️ Frontend: Đang triển khai các Dashboard phức tạp dành cho Admin và Owner.
-> - 🧪 Testing: Đang mở rộng độ bao phủ Unit Test cho các Domain Services.
+| Module                         | Status      |
+| ------------------------------ | ----------- |
+| Authentication & Authorization | Completed   |
+| Venue Management               | Completed   |
+| Booking Management             | Completed   |
+| Payment Integration            | Completed   |
+| Real-Time Notification         | Completed   |
+| RESTful API                    | Completed   |
+| Frontend Dashboard             | In Progress |
+| Automated Testing              | In Progress |
 
 ---
 
-## 🔥 Tính năng nổi bật
+# Key Features
 
-SmartSport không chỉ là một ứng dụng đặt sân, đây là một hệ sinh thái được tối ưu cho hiệu suất kinh doanh:
+## User Features
 
-*   **🤖 Smart Intelligence**: Tích hợp thuật toán gợi ý sân (Recommendation Engine) dựa trên tần suất tập luyện, loại sân yêu thích và vị trí địa lý của người dùng.
-*   **⚡ Real-time Synchronization**: Sử dụng **SignalR** để đảm bảo trạng thái sân (Available/Occupied/Locked) được cập nhật tức thời trên mọi thiết bị.
-*   **💰 Dynamic Pricing Engine**: Hệ thống tự động tính toán giá dựa trên các tham số biến thiên: Giờ vàng (Peak hours), Ngày lễ, và các chiến dịch khuyến mãi tự động.
-*   **🛡️ Distributed Locking & Concurrency**: Giải quyết triệt để vấn đề "double booking" bằng kỹ thuật xử lý đồng thời (Concurrency Control) ở mức Database và Application.
-*   **🔄 Automated Waitlist**: Khi một khung giờ hot bị hủy, hệ thống tự động thông báo theo thứ tự ưu tiên cho người chơi trong hàng chờ.
-*   **💳 Automated Financials**: Tích hợp cổng thanh toán **VNPAY** với quy trình đối soát và hoàn tiền tự động (Automatic Refund) dựa trên chính sách hủy sân linh hoạt.
+* User registration and login
+* JWT Authentication and Refresh Token
+* Search and filter sports venues
+* Court booking management
+* Booking history tracking
+* Online payment via VNPAY
+* Real-time booking status updates
+
+## Venue Owner Features
+
+* Sports center management
+* Court and schedule configuration
+* Booking monitoring
+* Revenue overview
+* Pricing management
+
+## Administration Features
+
+* User management
+* Role and permission management
+* Venue approval workflow
+* System monitoring
 
 ---
 
-## 🏗️ Triết lý Kiến trúc (Architectural Excellence)
+# System Architecture
 
-Dự án được xây dựng dựa trên sự kết hợp của những mẫu thiết kế phần mềm kinh điển, đảm bảo khả năng bảo trì và mở rộng trong tương lai.
+The project follows Clean Architecture principles to ensure maintainability, scalability, and separation of concerns.
 
-### 🧩 Phân lớp Kiến trúc (Clean Architecture)
-1.  **Domain Layer (Core)**: Chứa các Business Logic thuần túy, không phụ thuộc vào framework. Áp dụng **Rich Domain Model** thay vì Anemic Domain Model.
-2.  **Application Layer**: Sử dụng mô hình **CQRS** (MediatR) để tách biệt luồng đọc và ghi dữ liệu, giúp tối ưu hiệu năng và khả năng mở rộng.
-3.  **Infrastructure Layer**: Triển khai các dịch vụ kỹ thuật (EF Core, Redis, Payment, Email) theo nguyên lý Dependency Inversion.
-4.  **Presentation Layer (Web API)**: Tuân thủ chuẩn RESTful, tích hợp cơ chế Versioning và Swagger Documentation.
-
-### 📊 Hệ thống Luồng dữ liệu (Data Flow)
 ```mermaid
-graph TD
-    subgraph "Client Layer (Modern React)"
-        UI[React UI - Tailwind CSS]
-        State[State Management - Zustand]
-    end
+flowchart TD
+    Client[React Client]
 
-    subgraph "Core System (.NET 8)"
-        API[API - RESTful & Hubs]
-        MediatR[MediatR - Command/Query Pipeline]
-        Logic[Domain Logic & Services]
-        Repo[Repositories & Unit of Work]
-    end
+    Client --> API[ASP.NET Core Web API]
+    Client --> Hub[SignalR Hub]
 
-    subgraph "Distributed Infrastructure"
-        PG[(PostgreSQL - Persistent)]
-        RD[(Redis - Distributed Cache)]
-        VN[[VNPAY - Payment Gateway]]
-        MAIL[[SMTP - Notifications]]
-    end
+    API --> Middleware[Middleware Pipeline]
+    Middleware --> MediatR[MediatR]
 
-    UI <--> State
-    State <--> API
-    API --> MediatR
-    MediatR --> Logic
-    Logic --> Repo
-    Repo --> PG
-    Logic -.-> RD
-    Logic -.-> VN
-    Logic -.-> MAIL
+    MediatR --> Commands[Command Handlers]
+    MediatR --> Queries[Query Handlers]
+
+    Commands --> Domain[Domain Layer]
+    Queries --> Domain
+
+    Domain --> Repositories[Repositories]
+    Repositories --> PostgreSQL[(PostgreSQL)]
+
+    Domain --> Redis[(Redis)]
+    Domain --> VNPAY[VNPAY]
+    Domain --> Email[Email Service]
+
+    Commands --> Hub
+    Hub --> Client
 ```
 
 ---
 
-## 🛠️ Hệ sinh thái Công nghệ (Tech Stack)
+# Clean Architecture Layers
 
-### **Backend Mastery**
--   **Core**: .NET 8, C# 12.
--   **Patterns**: CQRS, MediatR, Repository & Unit of Work, Result Pattern.
--   **Database**: PostgreSQL với Entity Framework Core (Code First).
--   **Optimization**: Redis Distributed Caching cho các truy vấn hiệu năng cao.
--   **Validation**: FluentValidation tích hợp sâu vào pipeline xử lý.
--   **Logging**: Serilog cấu hình ghi log có cấu trúc.
+## Presentation Layer
 
-### **Frontend Modernization** (In Progress)
--   **Framework**: React 18 + Vite (TypeScript).
--   **UI/UX**: Tailwind CSS, Headless UI, Framer Motion cho các hiệu ứng mượt mà.
--   **State Management**: Zustand (Gọn nhẹ & Hiệu quả).
--   **Data Sync**: TanStack Query (React Query) xử lý server state chuyên nghiệp.
+Responsibilities:
+
+* REST API Endpoints
+* SignalR Hubs
+* Middleware
+* Request/Response Handling
+
+Technologies:
+
+* ASP.NET Core Web API
+* Swagger
+* SignalR
+
+## Application Layer
+
+Responsibilities:
+
+* CQRS Commands
+* CQRS Queries
+* DTOs
+* Validation
+* Business Use Cases
+
+Technologies:
+
+* MediatR
+* FluentValidation
+
+## Domain Layer
+
+Responsibilities:
+
+* Entities
+* Aggregates
+* Value Objects
+* Domain Services
+* Business Rules
+
+The domain layer contains no dependency on external frameworks.
+
+## Infrastructure Layer
+
+Responsibilities:
+
+* Database Access
+* Caching
+* Payment Integration
+* Email Services
+* External Systems
+
+Technologies:
+
+* Entity Framework Core
+* PostgreSQL
+* Redis
+* VNPAY
 
 ---
 
-## 🧪 Đảm bảo Chất lượng (Engineering Standards)
+# Database Design
 
-Dự án chú trọng tuyệt đối vào tính đúng đắn của logic nghiệp vụ:
--   **Unit Testing**: Sử dụng **xUnit**, **FluentAssertions** và **Moq** để kiểm thử các Domain Services phức tạp (Ví dụ: logic tính giá, logic xử lý hàng chờ).
--   **Functional Error Handling**: Không sử dụng Exception cho logic điều khiển, thay vào đó sử dụng **Result Pattern** để code sạch và dễ đoán hơn.
--   **Middleware**: Hệ thống Global Exception Handling và Request Logging đảm bảo tính ổn định 24/7.
+## Core Entities
+
+```mermaid
+erDiagram
+
+    USERS ||--o{ BOOKINGS : creates
+    USERS ||--o{ REVIEWS : writes
+    USERS }o--|| ROLES : assigned
+
+    SPORTS_CENTERS ||--o{ COURTS : contains
+    SPORTS_CENTERS ||--o{ REVIEWS : receives
+    SPORTS_CENTERS }o--|| USERS : owned_by
+
+    COURTS ||--o{ TIMESLOTS : provides
+    COURTS ||--o{ BOOKINGS : reserved
+
+    TIMESLOTS ||--o{ BOOKINGS : scheduled
+
+    BOOKINGS ||--|| PAYMENTS : generates
+```
+
+Main entities:
+
+* User
+* Role
+* SportsCenter
+* Court
+* TimeSlot
+* Booking
+* Payment
+* Review
+* Notification
+
+---
+
+# Booking Workflow
+
+The booking process is designed to prevent double-booking and ensure data consistency.
+
+```mermaid
+sequenceDiagram
+
+    participant User
+    participant API
+    participant Application
+    participant Database
+    participant Payment
+
+    User->>API: Create Booking Request
+
+    API->>Application: Validate Request
+
+    Application->>Database: Check Court Availability
+
+    Database-->>Application: Available
+
+    Application->>Database: Create Booking Transaction
+
+    Application->>Payment: Create Payment URL
+
+    Payment-->>User: Payment Page
+
+    User->>Payment: Complete Payment
+
+    Payment->>API: Callback
+
+    API->>Database: Confirm Booking
+
+    API-->>User: Booking Success
+```
 
 ---
 
-## 🚀 Quy trình Triển khai
+# Engineering Decisions
 
-### Prerequisites
-- .NET 8 SDK
-- Node.js (v18+)
-- PostgreSQL & Redis (Local hoặc Docker)
+## Why CQRS?
 
-### Installation
-1.  **Khởi tạo Backend**:
-    ```bash
-    cd server/Api
-    dotnet ef database update
-    dotnet run
-    ```
-2.  **Khởi tạo Frontend**:
-    ```bash
-    cd client
-    npm install
-    npm run dev
-    ```
+The system separates read and write operations using CQRS.
+
+Benefits:
+
+* Clear separation of responsibilities
+* Easier maintenance
+* Better scalability
+* Independent optimization for queries and commands
+* Cleaner business logic
+
+Example:
+
+Query:
+
+```csharp
+GetBookingByIdQuery
+```
+
+Command:
+
+```csharp
+CreateBookingCommand
+CancelBookingCommand
+ConfirmPaymentCommand
+```
 
 ---
 
-## 👨‍💻 Thông tin Tác giả
+## Why Redis?
 
-**Nguyễn Tấn Lợi**
--   **Vị trí**: Backend Developer (Specializing in .NET & vide coding React)
--   **Định hướng**: Backend Developer
--   **GitHub**: [@nglowji](https://github.com/nglowji)
+Redis is used to reduce database load and improve response time.
+
+Use Cases:
+
+* Frequently accessed venue data
+* Sports center information
+* Search results
+* Hot booking schedules
+
+Benefits:
+
+* Lower database traffic
+* Faster API responses
+* Better scalability
 
 ---
-*Dự án đang trong giai đoạn nước rút để hoàn thiện các module giao diện người dùng cuối. Mọi đóng góp hoặc thắc mắc vui lòng liên hệ qua GitHub Issues.*
+
+## Why SignalR?
+
+A booking system requires real-time synchronization.
+
+Without SignalR:
+
+* Users must refresh pages
+* Higher risk of outdated data
+
+With SignalR:
+
+* Instant booking updates
+* Real-time court status changes
+* Notification broadcasting
+
+Example:
+
+When User A books a court, User B immediately sees that slot become unavailable.
+
+---
+
+## How Double-Booking Is Prevented?
+
+Double-booking is one of the most critical problems in booking systems.
+
+The project uses multiple protection layers.
+
+### Validation Layer
+
+Check court availability before creating a booking.
+
+### Database Constraint Layer
+
+Unique constraints ensure the same court and time slot cannot be booked twice.
+
+Example:
+
+```sql
+UNIQUE(court_id, timeslot_id, booking_date)
+```
+
+### Transaction Layer
+
+Booking creation and payment confirmation are executed inside database transactions.
+
+### Concurrency Control
+
+Optimistic concurrency prevents conflicting updates.
+
+Result:
+
+Even when multiple users attempt to book the same slot simultaneously, only one booking can succeed.
+
+---
+
+# Technology Stack
+
+## Backend
+
+* ASP.NET Core (.NET 8)
+* C# 12
+* Entity Framework Core
+* MediatR
+* FluentValidation
+* SignalR
+* Serilog
+
+## Database
+
+* PostgreSQL
+* Redis
+
+## Frontend
+
+* React 18
+* TypeScript
+* Vite
+* Tailwind CSS
+* Zustand
+* TanStack Query
+
+## Testing
+
+* xUnit
+* Moq
+* FluentAssertions
+
+## DevOps
+
+* Docker
+* GitHub Actions
+* Postman
+* Swagger
+
+---
+
+# Project Structure
+
+```text
+src
+├── Api
+├── Application
+├── Domain
+├── Infrastructure
+├── Persistence
+└── Shared
+```
+
+---
+
+# Local Setup
+
+## Prerequisites
+
+* .NET 8 SDK
+* Node.js 18+
+* PostgreSQL
+* Redis
+
+## Backend
+
+```bash
+cd server/Api
+
+dotnet ef database update
+
+dotnet run
+```
+
+## Frontend
+
+```bash
+cd client
+
+npm install
+
+npm run dev
+```
+
+---
+
+# Future Improvements
+
+* Recommendation Engine
+* Waitlist Management
+* Advanced Analytics Dashboard
+* Mobile Application
+* CI/CD Deployment Pipeline
+* Multi-Tenant Architecture
+
+---
+
+# Author
+
+Nguyen Tan Loi
+
+Backend Developer
+
+GitHub: https://github.com/nglowji
