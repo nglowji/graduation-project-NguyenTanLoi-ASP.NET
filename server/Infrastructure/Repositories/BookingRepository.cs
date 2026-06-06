@@ -31,6 +31,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
                     .ThenInclude(p => p.SportCenter)
+            .Include(b => b.Services)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Booking>(items, totalCount, pageNumber, pageSize);
@@ -162,6 +163,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
+            .Include(b => b.Services)
             .Where(b => b.TimeSlot.Pitch.OwnerId == ownerId);
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<BookingStatus>(status, true, out var statusEnum))

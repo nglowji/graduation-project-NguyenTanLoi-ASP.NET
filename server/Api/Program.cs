@@ -139,6 +139,7 @@ builder.Services.AddSingleton<Api.Services.IPasswordResetService, Api.Services.P
 
 // Background Services
 builder.Services.AddHostedService<BookingLockCleanupService>();
+builder.Services.AddHostedService<PaymentTimeoutService>();
 
 // Health Checks
 builder.Services.AddHealthChecks();

@@ -4,6 +4,9 @@ namespace Application.Features.Dashboard.DTOs;
 
 public record AdminDashboardStatsDto(
     int TotalUsers,
+    int TotalOwners,
+    int TotalPitches,
+    int TotalBookings,
     int ActiveOwners,
     decimal PlatformCommission,
     int PendingApprovals,
@@ -94,7 +97,17 @@ public record OwnerBookingDto(
     string StartTime,
     string EndTime,
     decimal TotalAmount,
-    string Status
+    string Status,
+    List<OwnerBookingServiceDto> Services
+);
+
+public record OwnerBookingServiceDto(
+    Guid Id,
+    Guid ServiceId,
+    string ServiceName,
+    decimal Price,
+    int Quantity,
+    decimal LineTotal
 );
 
 public record OwnerPitchSummaryDto(

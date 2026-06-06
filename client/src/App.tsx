@@ -35,6 +35,9 @@ import Users from './features/admin/pages/Users';
 import Approvals from './features/admin/pages/Approvals';
 import PlatformRevenue from './features/admin/pages/PlatformRevenue';
 import Reports from './features/admin/pages/Reports';
+import ContentModeration from './features/admin/pages/ContentModeration';
+import SystemManagement from './features/admin/pages/SystemManagement';
+import CustomerSupport from './features/admin/pages/CustomerSupport';
 
 function App() {
   return (
@@ -75,6 +78,9 @@ function App() {
               <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/admin/users" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Users /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/admin/approvals" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Approvals /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/moderation" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><ContentModeration /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/system" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><SystemManagement /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin/support" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><CustomerSupport /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/admin/revenue" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><PlatformRevenue /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/admin/reports" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Reports /></DashboardLayout></ProtectedRoute>} />
 

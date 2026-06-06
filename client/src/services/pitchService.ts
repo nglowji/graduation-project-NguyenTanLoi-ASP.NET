@@ -63,7 +63,7 @@ export const pitchService = {
 
   getReviews: async (id: string): Promise<PaginatedResult<ReviewResponse>> => {
     return await api.get(`/pitches/${id}/reviews`, {
-      params: { pageNumber: 1, pageSize: 10 },
+      params: { pageNumber: 1, pageSize: 100 },
     });
   },
 

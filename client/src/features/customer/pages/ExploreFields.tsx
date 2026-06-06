@@ -44,6 +44,11 @@ const priceOptions = [
   { value: '600000', label: '600.000đ' }, { value: '1000000', label: '1.000.000đ' },
 ];
 
+const normalizeLocationName = (value?: string) =>
+  String(value || '')
+    .replace(/^(Tỉnh|Thành phố|TP\.?|Quận|Huyện|Thị xã)\s+/i, '')
+    .trim();
+
 const SelectField = ({ label, value, onChange, children, disabled = false }: React.PropsWithChildren<{
   label: string; value: string | number; onChange: (value: string) => void; disabled?: boolean;
 }>) => (
@@ -130,7 +135,15 @@ const ExploreFields: React.FC = () => {
     if (isNearMe) { setIsNearMe(false); setCoords(undefined); setPage(1); return; }
     if (!navigator.geolocation) { setError('Trình duyệt không hỗ trợ lấy vị trí hiện tại.'); return; }
     navigator.geolocation.getCurrentPosition(
-      ({ coords: current }) => { setCoords({ lat: current.latitude, lng: current.longitude }); setIsNearMe(true); setPage(1); },
+      ({ coords: current }) => {
+        setCoords({ lat: current.latitude, lng: current.longitude });
+        setIsNearMe(true);
+        setProvince('');
+        setProvinceCode(undefined);
+        setDistrict('');
+        setDistrictCode(undefined);
+        setPage(1);
+      },
       () => setError('Không thể lấy vị trí. Vui lòng cấp quyền vị trí cho trình duyệt.'),
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -174,8 +187,8 @@ const ExploreFields: React.FC = () => {
           </div>
           <AnimatePresence initial={false}>
             {showFilters && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden"><div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-4">
-              <SelectField label="Tỉnh / Thành" value={provinceCode || ''} onChange={(value) => { const code = Number(value) || undefined; setProvinceCode(code); setProvince(provinces.find((item) => item.code === code)?.name || ''); setDistrict(''); setDistrictCode(undefined); setPage(1); }}><option value="">Toàn quốc</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
-              <SelectField label="Quận / Huyện" value={districtCode || ''} disabled={!provinceCode} onChange={(value) => { const code = Number(value) || undefined; setDistrictCode(code); setDistrict(districts.find((item) => item.code === code)?.name || ''); setPage(1); }}><option value="">Mọi khu vực</option>{districts.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
+              <SelectField label="Tỉnh / Thành" value={provinceCode || ''} onChange={(value) => { const code = Number(value) || undefined; setProvinceCode(code); setProvince(normalizeLocationName(provinces.find((item) => item.code === code)?.name)); setDistrict(''); setDistrictCode(undefined); setIsNearMe(false); setCoords(undefined); setPage(1); }}><option value="">Toàn quốc</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
+              <SelectField label="Quận / Huyện" value={districtCode || ''} disabled={!provinceCode} onChange={(value) => { const code = Number(value) || undefined; setDistrictCode(code); setDistrict(normalizeLocationName(districts.find((item) => item.code === code)?.name)); setIsNearMe(false); setCoords(undefined); setPage(1); }}><option value="">Mọi khu vực</option>{districts.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</SelectField>
               <SelectField label="Loại sân" value={pitchType} onChange={(value) => { setPitchType(value); setPage(1); }}>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectField>
               <SelectField label="Đánh giá" value={minRating} onChange={(value) => { setMinRating(value); setPage(1); }}><option value="">Mọi đánh giá</option><option value="4">Từ 4.0 sao</option><option value="4.5">Từ 4.5 sao</option><option value="5">Đạt 5.0 sao</option></SelectField>
               <SelectField label="Giá tối thiểu" value={minPrice} onChange={(value) => { setMinPrice(value); if (maxPrice && Number(value) > Number(maxPrice)) setMaxPrice(''); setPage(1); }}>{priceOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectField>

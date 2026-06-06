@@ -265,6 +265,8 @@ const Profile: React.FC = () => {
 
   const getRemainingAmount = (booking: BookingResponse) =>
     isCompletedBooking(booking) ? 0 : Math.max(getBookingAmount(booking) - getPaidDepositAmount(booking), 0);
+  const getExtraServices = (booking: BookingResponse) => Array.isArray(booking.services) ? booking.services : [];
+  const getExtraTotal = (booking: BookingResponse) => getExtraServices(booking).reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
 
   const formatMoney = (value?: number) =>
     `${Number(value || 0).toLocaleString('vi-VN')}đ`;
@@ -682,21 +684,50 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pt-32 pb-24 font-body">
+    <div className="min-h-screen bg-slate-50 pb-24 pt-28 font-body">
       <div className="container mx-auto px-6">
         <div className="max-w-7xl mx-auto">
           
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="mb-6 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
+            <div className="grid gap-5 bg-cyan-50 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-blue-700 text-2xl font-black text-white shadow-lg shadow-blue-700/20">
+                  {user?.fullName?.charAt(0) || 'U'}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-widest text-blue-700">Tài khoản SmartSport</p>
+                  <h1 className="mt-1 truncate text-2xl font-black text-slate-950 sm:text-3xl">{user?.fullName || 'Người dùng'}</h1>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-500">{user?.email}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                  <p className="text-xl font-black text-blue-700">{bookings.length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đơn sân</p>
+                </div>
+                <div className="rounded-2xl border border-rose-100 bg-white px-4 py-3">
+                  <p className="text-xl font-black text-rose-600">{notificationItems.filter((item) => !item.isRead).length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thông báo</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-3">
+                  <p className="text-xl font-black text-emerald-600">{user?.emailConfirmed ? 'OK' : '!'}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6 lg:flex-row">
             {/* Left Sidebar */}
             <aside className="w-full lg:w-80 shrink-0">
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden sticky top-32">
+              <div className="sticky top-28 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
                 {/* User Brief */}
-                <div className="border-b border-slate-50 bg-slate-50/50 p-8 text-center">
+                <div className="border-b border-blue-50 bg-white p-6 text-center">
                   <div className="relative inline-block mb-4 group">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-4xl bg-blue-700 text-3xl font-black text-white shadow-2xl shadow-blue-500/20">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-700 text-3xl font-black text-white shadow-xl shadow-blue-500/20">
                       {user?.fullName?.charAt(0) || 'U'}
                     </div>
-                    <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-primary transition-all group-hover:scale-110 active:scale-90">
+                    <button className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-white text-slate-400 shadow-lg transition-all hover:text-blue-600 group-hover:scale-110 active:scale-90">
                       <Camera size={18} />
                     </button>
                   </div>
@@ -719,12 +750,12 @@ const Profile: React.FC = () => {
                         onClick={() => handleTabChange(item.id as TabType)}
                         className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
                           activeTab === item.id 
-                          ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10' 
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                          : 'text-slate-500 hover:bg-blue-50 hover:text-blue-700'
                         }`}
                       >
                         <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-xl transition-colors ${activeTab === item.id ? 'bg-white/10 text-white' : item.color + ' bg-slate-50 group-hover:bg-white'}`}>
+                          <div className={`rounded-xl p-2 transition-colors ${activeTab === item.id ? 'bg-white/15 text-white' : item.color + ' bg-slate-50 group-hover:bg-white'}`}>
                             {item.icon}
                           </div>
                           <span className="text-sm font-black tracking-tight">{item.label}</span>
@@ -758,10 +789,10 @@ const Profile: React.FC = () => {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="space-y-8"
+                    className="space-y-6"
                   >
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-10">
-                      <div className="flex items-center justify-between mb-10">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
                             <User size={24} />
@@ -945,7 +976,7 @@ const Profile: React.FC = () => {
                             <button 
                               type="submit"
                               disabled={isSaving}
-                              className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-slate-900/20 hover:bg-primary transition-all active:scale-95 flex items-center gap-3"
+                              className="flex items-center gap-3 rounded-2xl bg-blue-600 px-10 py-4 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-95"
                             >
                               {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                               Lưu thay đổi
@@ -955,7 +986,7 @@ const Profile: React.FC = () => {
                       </form>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-[2.5rem] bg-blue-700 p-10 text-white shadow-2xl shadow-blue-600/20">
+                    <div className="relative overflow-hidden rounded-3xl border border-blue-100 bg-blue-700 p-8 text-white shadow-lg shadow-blue-600/15">
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                           <ShieldCheck size={20} />
@@ -978,21 +1009,22 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6">
                       <div>
-                        <h3 className="text-3xl font-black text-slate-900 tracking-tight font-heading">Lịch sử đặt sân</h3>
-                        <p className="text-sm font-bold text-slate-400">Theo dõi các đơn hàng và trạng thái sân</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Lịch đặt sân</p>
+                        <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950 font-heading">Lịch sử đặt sân</h3>
+                        <p className="mt-2 text-sm font-bold text-slate-500">Theo dõi đơn sân, thanh toán cọc, đánh giá và trạng thái xử lý.</p>
                       </div>
                     </div>
 
-                    <div className="mb-6 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
                       {bookingFilterOptions.map((item) => (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => setBookingFilter(item.id)}
-                          className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
-                            bookingFilter === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
+                          className={`rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest transition ${
+                            bookingFilter === item.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
                           }`}
                         >
                           {item.label}
@@ -1000,7 +1032,7 @@ const Profile: React.FC = () => {
                       ))}
                     </div>
                     {isLoadingBookings ? (
-                      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-slate-100">
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-20 shadow-sm">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải lịch sử đặt sân...</p>
                       </div>
@@ -1024,6 +1056,12 @@ const Profile: React.FC = () => {
                                     <span className={`h-1.5 w-1.5 rounded-full ${paymentMeta.dotClassName}`} />
                                     {paymentMeta.label}
                                   </span>
+                                  {getExtraServices(item).length > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100">
+                                      <ShoppingBag size={12} />
+                                      Có hóa đơn phát sinh
+                                    </span>
+                                  )}
                                 </div>
                                 <h4 className="truncate text-base font-black text-slate-950">{getBookingPitchName(item)}</h4>
                                 <p className="mt-1 flex items-center gap-1.5 truncate text-xs font-bold text-slate-500">
@@ -1047,11 +1085,11 @@ const Profile: React.FC = () => {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiền cọc</p>
                                 <p className="text-sm font-black text-slate-950">{formatMoney(getBookingDepositAmount(item))}</p>
                               </div>
-                              <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
-                                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-black uppercase tracking-widest text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                                 >
                                   <Eye size={16} />
                                   {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
@@ -1060,7 +1098,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/booking-review/${item.id}`)}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 text-xs font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white"
                                   >
                                     <CreditCard size={16} />
                                     Thanh toán cọc
@@ -1070,7 +1108,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleCancelBooking(item)}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-xs font-black uppercase tracking-widest text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-red-50 px-3 text-[10px] font-black uppercase tracking-widest text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white"
                                   >
                                     <X size={16} />
                                     Hủy đơn
@@ -1080,7 +1118,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => openReviewForm(item.id)}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100 transition hover:bg-amber-500 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-amber-50 px-3 text-[10px] font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100 transition hover:bg-amber-500 hover:text-white"
                                   >
                                     <Star size={16} />
                                     Đánh giá
@@ -1131,7 +1169,7 @@ const Profile: React.FC = () => {
                                             key={rating}
                                             type="button"
                                             onClick={() => setReviewRating(rating)}
-                                            className={`grid h-10 w-10 place-items-center rounded-xl transition ${
+                                            className={`grid h-9 w-9 place-items-center rounded-xl transition ${
                                               rating <= reviewRating ? 'bg-amber-400 text-white' : 'bg-white text-slate-300 ring-1 ring-slate-200'
                                             }`}
                                           >
@@ -1153,7 +1191,7 @@ const Profile: React.FC = () => {
                                       type="button"
                                       onClick={() => submitReview(item.id)}
                                       disabled={reviewSubmittingId === item.id}
-                                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black uppercase tracking-widest text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-3 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                       {reviewSubmittingId === item.id ? <Loader2 size={16} className="animate-spin" /> : <Star size={16} />}
                                       Gửi
@@ -1201,6 +1239,10 @@ const Profile: React.FC = () => {
                                           <dd className="text-right text-slate-800">{formatMoney(getBookingAmount(item))}</dd>
                                         </div>
                                         <div className="flex justify-between gap-4">
+                                          <dt className="text-slate-400">Hóa đơn phát sinh</dt>
+                                          <dd className="text-right text-amber-700">{getExtraServices(item).length ? formatMoney(getExtraTotal(item)) : 'Chưa có'}</dd>
+                                        </div>
+                                        <div className="flex justify-between gap-4">
                                           <dt className="text-slate-400">Cọc cần thanh toán</dt>
                                           <dd className="text-right text-emerald-700">{formatMoney(getBookingDepositAmount(item))}</dd>
                                         </div>
@@ -1213,6 +1255,19 @@ const Profile: React.FC = () => {
                                           <dd className="text-right text-slate-800">{formatMoney(getRemainingAmount(item))}</dd>
                                         </div>
                                       </dl>
+                                      {getExtraServices(item).length > 0 && (
+                                        <div className="mt-4 rounded-xl bg-amber-50 p-3">
+                                          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-700">Dịch vụ mua thêm tại sân</p>
+                                          <div className="space-y-2">
+                                            {getExtraServices(item).map((service) => (
+                                              <div key={service.id} className="flex justify-between gap-3 text-xs font-bold text-slate-700">
+                                                <span className="truncate">{service.serviceName} x{service.quantity}</span>
+                                                <span className="shrink-0 font-black">{formatMoney(service.lineTotal)}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
 
                                     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -1243,11 +1298,11 @@ const Profile: React.FC = () => {
                         );
                       })
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white py-20 shadow-sm">
                         <ShoppingBag size={64} className="text-slate-200 mb-6" />
                         <h4 className="text-xl font-black text-slate-900 mb-2">Chưa có đơn đặt sân nào</h4>
                         <p className="text-slate-400 font-bold mb-8 text-center max-w-xs">Bắt đầu khám phá và đặt sân bóng yêu thích của bạn ngay hôm nay!</p>
-                        <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-primary transition-all">Khám phá sân ngay</button>
+                        <button className="rounded-2xl bg-blue-600 px-8 py-4 text-sm font-black text-white transition-all hover:bg-blue-700">Khám phá sân ngay</button>
                       </div>
                     )}
                   </motion.div>
@@ -1261,21 +1316,22 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="rounded-3xl border border-blue-100 bg-cyan-50 p-6">
                       <div>
-                        <h3 className="text-3xl font-black text-slate-900 tracking-tight font-heading">Thông báo</h3>
-                        <p className="text-sm font-bold text-slate-400">Cập nhật trạng thái đơn đặt sân và thanh toán cọc</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-blue-700">Trung tâm thông báo</p>
+                        <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950 font-heading">Thông báo</h3>
+                        <p className="mt-2 text-sm font-bold text-slate-500">Cập nhật trạng thái đặt sân, thanh toán cọc và các thay đổi quan trọng.</p>
                       </div>
                     </div>
 
-                    <div className="mb-6 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
                       {notificationFilterOptions.map((item) => (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => setNotificationFilter(item.id)}
-                          className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
-                            notificationFilter === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
+                          className={`rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest transition ${
+                            notificationFilter === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-blue-50 hover:text-blue-700'
                           }`}
                         >
                           {item.label}
@@ -1284,21 +1340,21 @@ const Profile: React.FC = () => {
                     </div>
 
                     {isLoadingBookings ? (
-                      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-slate-100">
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-20 shadow-sm">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải thông báo...</p>
                       </div>
                     ) : filteredNotificationItems.length > 0 ? (
-                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                         <div className="divide-y divide-slate-100">
                           {filteredNotificationItems.map((item) => (
                             <button
                               key={item.id}
                               type="button"
                               onClick={item.onClick}
-                              className="flex w-full items-start gap-4 p-5 text-left transition hover:bg-slate-50"
+                              className="flex w-full items-start gap-4 p-5 text-left transition hover:bg-blue-50/50"
                             >
-                              <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.className}`}>
+                              <div className={`mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${item.className}`}>
                                 {item.icon}
                               </div>
                               <div className="min-w-0 flex-1">
@@ -1311,7 +1367,7 @@ const Profile: React.FC = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatBookingDate(item.date)}</span>
+                                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{formatBookingDate(item.date)}</span>
                                 </div>
                                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{item.message}</p>
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1326,7 +1382,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white py-24 shadow-sm">
                         <div className="relative mb-8">
                           <div className="w-24 h-24 rounded-4xl bg-slate-50 flex items-center justify-center text-slate-200">
                             <Bell size={48} />
@@ -1353,7 +1409,7 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-8"
                   >
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-10">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                       <div className="flex items-center gap-4 mb-10">
                         <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                           <ShieldCheck size={24} />
@@ -1364,7 +1420,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="p-8 rounded-4xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <div className="flex flex-col gap-5 rounded-3xl border border-slate-100 bg-slate-50 p-6 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-6">
                           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${user?.emailConfirmed ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'}`}>
                             {user?.emailConfirmed ? <MailCheck size={32} /> : <AlertCircle size={32} />}
@@ -1375,7 +1431,7 @@ const Profile: React.FC = () => {
                           </div>
                         </div>
                         {!user?.emailConfirmed && (
-                          <button className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary transition-all">Gửi mã xác thực</button>
+                          <button className="rounded-xl bg-blue-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-blue-700">Gửi mã xác thực</button>
                         )}
                       </div>
 
@@ -1390,11 +1446,11 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white flex items-center justify-between overflow-hidden relative">
+                    <div className="relative flex items-center justify-between overflow-hidden rounded-3xl border border-blue-100 bg-blue-700 p-8 text-white shadow-lg shadow-blue-600/15">
                        <div className="relative z-10">
                           <h4 className="text-xl font-black mb-2">Đổi mật khẩu</h4>
                           <p className="text-sm font-bold text-white/40 mb-6">Bạn nên thay đổi mật khẩu định kỳ để bảo vệ tài khoản.</p>
-                          <button className="flex items-center gap-2 text-white font-black text-sm hover:text-primary transition-colors">
+                          <button className="flex items-center gap-2 text-sm font-black text-white transition-colors hover:text-cyan-200">
                              Thiết lập ngay <ExternalLink size={16} />
                           </button>
                        </div>

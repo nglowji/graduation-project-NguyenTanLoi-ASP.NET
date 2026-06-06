@@ -108,7 +108,7 @@ const Reviews: React.FC = () => {
     const current = map.get(review.pitchId) || { id: review.pitchId, name: review.pitchName, type: review.pitchType, total: 0, score: 0, pending: 0 };
     current.total += 1; current.score += review.rating; if (!review.reply) current.pending += 1; map.set(review.pitchId, current); return map;
   }, new Map<string, { id: string; name: string; type?: string; total: number; score: number; pending: number }>()).values());
-  const pitchOptions = pitchStats.map(pitch => [pitch.id, pitchTypeLabel(pitch.type)] as const);
+  const pitchOptions = pitchStats.map(pitch => [pitch.id, `${pitch.name} - ${pitchTypeLabel(pitch.type)}`] as const);
   const filteredReviews = reviews.filter(r =>
     (r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.comment.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -116,7 +116,7 @@ const Reviews: React.FC = () => {
     (pitchFilter === 'all' || r.pitchId === pitchFilter) &&
     (ratingFilter === 'all' || r.rating === Number(ratingFilter)) &&
     (replyFilter === 'all' || (replyFilter === 'replied' ? Boolean(r.reply) : !r.reply))
-  );
+  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const stats = {
     average: reviews.length > 0
@@ -188,7 +188,7 @@ const Reviews: React.FC = () => {
       </div>
       <section>
         <div className="mb-4"><h2 className="text-lg font-black text-slate-900 dark:text-white">Điểm đánh giá theo từng sân</h2><p className="mt-1 text-xs font-bold text-slate-400">Điểm trung bình được tính riêng, không gộp giữa các sân.</p></div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{pitchStats.map(pitch => <button type="button" key={pitch.id} onClick={() => setPitchFilter(pitch.id)} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800"><p className="truncate text-sm font-black text-slate-900 dark:text-white">{pitchTypeLabel(pitch.type)}</p><div className="mt-4 flex items-center justify-between"><span className="flex items-center gap-2 text-xl font-black text-amber-500"><Star size={18} className="fill-current" />{(pitch.score / pitch.total).toFixed(1)}</span><span className="text-xs font-black text-slate-400">{pitch.total} đánh giá · {pitch.pending} chưa trả lời</span></div></button>)}</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{pitchStats.map(pitch => <button type="button" key={pitch.id} onClick={() => setPitchFilter(pitch.id)} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800"><p className="truncate text-sm font-black text-slate-900 dark:text-white">{pitch.name}</p><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-600">{pitchTypeLabel(pitch.type)}</p><div className="mt-4 flex items-center justify-between"><span className="flex items-center gap-2 text-xl font-black text-amber-500"><Star size={18} className="fill-current" />{(pitch.score / pitch.total).toFixed(1)}</span><span className="text-xs font-black text-slate-400">{pitch.total} đánh giá · {pitch.pending} chưa trả lời</span></div></button>)}</div>
       </section>
 
       <div className="space-y-6">

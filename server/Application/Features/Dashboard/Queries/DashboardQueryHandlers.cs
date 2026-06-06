@@ -39,6 +39,8 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
         var users = await _userRepository.GetAllAsync(cancellationToken);
         var thisMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(thisMonthStart, today, cancellationToken);
         var lastMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(lastMonthStart, lastMonthEnd, cancellationToken);
+        var totalPitches = await _context.Pitches.AsNoTracking().CountAsync(cancellationToken);
+        var totalBookings = await _context.Bookings.AsNoTracking().CountAsync(cancellationToken);
         var pendingPitches = await _pitchRepository.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, cancellationToken);
         var pendingOwnerCenters = await _context.SportCenters
             .AsNoTracking()
@@ -60,6 +62,9 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
 
         return Result<AdminDashboardStatsDto>.Success(new AdminDashboardStatsDto(
             users.Count,
+            users.Count(u => u.Role == UserRole.PitchOwner),
+            totalPitches,
+            totalBookings,
             users.Count(u => u.Role == UserRole.PitchOwner && u.IsActive),
             thisMonthRevenue,
             pendingPitches.TotalCount + pendingOwnerCenters,
@@ -145,7 +150,15 @@ public class GetOwnerBookingsQueryHandler : IRequestHandler<GetOwnerBookingsQuer
             b.TimeSlot?.TimeRange.StartTime.ToString(@"hh\:mm") ?? "",
             b.TimeSlot?.TimeRange.EndTime.ToString(@"hh\:mm") ?? "",
             b.TotalPrice.Amount,
-            b.Status.ToString()
+            b.Status.ToString(),
+            b.Services.Select(service => new OwnerBookingServiceDto(
+                service.Id,
+                service.ServiceId,
+                service.ServiceName,
+                service.Price.Amount,
+                service.Quantity,
+                service.Price.Amount * service.Quantity
+            )).ToList()
         )).ToList();
 
         return Result<PagedResult<OwnerBookingDto>>.Success(

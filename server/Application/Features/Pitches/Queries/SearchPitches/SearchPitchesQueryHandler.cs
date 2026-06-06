@@ -61,6 +61,8 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         SearchPitchesQuery request)
     {
         var filtered = query.Where(p => p.Status == Domain.Enums.PitchStatus.Active);
+        var province = NormalizeLocationFilter(request.Province);
+        var district = NormalizeLocationFilter(request.District);
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
@@ -96,20 +98,20 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Province))
+        if (!string.IsNullOrWhiteSpace(province))
         {
             filtered = filtered.Where(p => p.SportCenter != null && 
-                (p.SportCenter.Address.City == request.Province || 
-                 p.SportCenter.Address.City.Contains(request.Province) || 
-                 request.Province.Contains(p.SportCenter.Address.City)));
+                (p.SportCenter.Address.City == province ||
+                 p.SportCenter.Address.City.Contains(province) ||
+                 EF.Functions.Like(p.SportCenter.Address.City, $"%{province}%")));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.District))
+        if (!string.IsNullOrWhiteSpace(district))
         {
             filtered = filtered.Where(p => p.SportCenter != null && 
-                (p.SportCenter.Address.District == request.District || 
-                 p.SportCenter.Address.District.Contains(request.District) || 
-                 request.District.Contains(p.SportCenter.Address.District)));
+                (p.SportCenter.Address.District == district ||
+                 p.SportCenter.Address.District.Contains(district) ||
+                 EF.Functions.Like(p.SportCenter.Address.District, $"%{district}%")));
         }
 
         if (request.MinRating.HasValue)
@@ -145,6 +147,23 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         }
 
         return filtered;
+    }
+
+    private static string? NormalizeLocationFilter(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        var normalized = value.Trim();
+        foreach (var prefix in new[] { "Tỉnh ", "Thành phố ", "TP. ", "TP ", "Quận ", "Huyện ", "Thị xã " })
+        {
+            if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized[prefix.Length..].Trim();
+                break;
+            }
+        }
+
+        return normalized;
     }
 
     private static IOrderedQueryable<Domain.Entities.Pitch> ApplySorting(

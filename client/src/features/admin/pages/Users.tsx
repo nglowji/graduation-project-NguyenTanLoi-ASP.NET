@@ -32,7 +32,7 @@ const Users: React.FC = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const roleFilter = tab === 'owners' ? 2 : tab === 'customers' ? 1 : undefined;
+      const roleFilter = tab === 'owners' ? 2 : tab === 'customers' ? 1 : tab === 'staff' ? 4 : tab === 'admins' ? 3 : undefined;
       const res = await api.get('/admin/users', { params: { search: search || undefined, role: roleFilter, pageSize: 50 } }) as any;
       setUsers(res?.items || res || []);
     } catch {
@@ -77,9 +77,10 @@ const Users: React.FC = () => {
     }
   };
 
-  const roleLabel = (r: number) => r === 3 ? 'Admin' : r === 2 ? 'Chủ sân' : 'Khách hàng';
+  const roleLabel = (r: number) => r === 3 ? 'Admin' : r === 4 ? 'Nhân viên sân' : r === 2 ? 'Chủ sân' : 'Khách hàng';
   const roleStyles = (r: number) => {
     if (r === 3) return 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20';
+    if (r === 4) return 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20';
     if (r === 2) return 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
     return 'bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20';
   };
@@ -110,6 +111,8 @@ const Users: React.FC = () => {
               { id: 'all', label: 'Tất cả' },
               { id: 'owners', label: 'Chủ sân' },
               { id: 'customers', label: 'Khách' },
+              { id: 'staff', label: 'Nhân viên' },
+              { id: 'admins', label: 'Admin' },
             ].map((t) => (
               <button 
                 key={t.id} 
@@ -318,6 +321,7 @@ const Users: React.FC = () => {
                       <option value={1}>Khách hàng</option>
                       <option value={2}>Chủ sân</option>
                       <option value={3}>Administrator</option>
+                      <option value={4}>Nhân viên sân</option>
                     </select>
                   </div>
                 </div>

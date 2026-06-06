@@ -8,6 +8,8 @@ import {
   CalendarDays,
   Clock,
   CreditCard,
+  ExternalLink,
+  Hourglass,
   Loader2,
   Mail,
   MapPin,
@@ -72,6 +74,7 @@ const BookingReview: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
+  const [now, setNow] = useState(() => Date.now());
   const [paymentModal, setPaymentModal] = useState<{
     isOpen: boolean;
     paymentUrl: string;
@@ -113,6 +116,7 @@ const BookingReview: React.FC = () => {
     const deposit = Number(booking?.depositAmount || 0);
 
     return {
+      bookingCode: booking?.checkInCode || booking?.id?.slice(0, 8).toUpperCase() || '--------',
       pitchName: booking?.pitchName || pitch?.name || 'Sân thể thao',
       pitchType: pitch?.type || 'Tiêu chuẩn',
       pitchAddress: formatCompactAddress(pitch?.address || (booking as any)?.pitchAddress),
@@ -124,11 +128,32 @@ const BookingReview: React.FC = () => {
       total,
       deposit,
       remaining: Math.max(total - deposit, 0),
+      expiresAt: booking?.createdAt ? new Date(booking.createdAt).getTime() + 15 * 60 * 1000 : null,
     };
   }, [booking]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const holdRemainingMs = details.expiresAt ? Math.max(details.expiresAt - now, 0) : null;
+  const holdExpired = holdRemainingMs !== null && holdRemainingMs <= 0;
+  const formatCountdown = (value: number | null) => {
+    if (value === null) return '15:00';
+    const totalSeconds = Math.max(Math.ceil(value / 1000), 0);
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+
   const handlePayment = async () => {
     if (!booking) return;
+
+    if (holdExpired) {
+      setError('Đơn giữ chỗ đã quá 15 phút. Vui lòng tải lại trang hoặc chọn lại khung giờ.');
+      return;
+    }
 
     if (!customerName.trim() || !customerPhone.trim()) {
       setError('Vui lòng kiểm tra họ tên và số điện thoại trước khi thanh toán.');
@@ -469,9 +494,24 @@ const BookingReview: React.FC = () => {
                 </p>
               </div>
 
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700">
+                    <Hourglass size={15} />
+                    Giữ chỗ 15 phút
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black ${holdExpired ? 'bg-red-100 text-red-700' : 'bg-white text-amber-700'}`}>
+                    {holdExpired ? 'Hết hạn' : formatCountdown(holdRemainingMs)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+                  Nếu chưa thanh toán cọc trong 15 phút, đơn sẽ tự hủy và khung giờ được mở lại cho người khác.
+                </p>
+              </div>
+
               <button
                 onClick={handlePayment}
-                disabled={isProcessing}
+                disabled={isProcessing || holdExpired}
                 className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-[var(--accent)] px-5 py-4 text-xs font-black uppercase tracking-widest text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>Thanh toán online <ArrowRight size={18} /></>}
@@ -488,7 +528,7 @@ const BookingReview: React.FC = () => {
 
       {paymentModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="relative max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             <button
               type="button"
               onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
@@ -510,48 +550,127 @@ const BookingReview: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-6 py-6">
-              <div className="flex items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4">
-                <img
-                  src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
-                  alt="QR thanh toán"
-                  className="h-52 w-52 rounded-xl bg-white p-2"
-                />
-              </div>
+            <div className="grid max-h-[calc(92vh-88px)] gap-0 overflow-y-auto lg:grid-cols-[380px_minmax(0,1fr)]">
+              <div className="bg-slate-50 px-6 py-6">
+                <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-center justify-center rounded-xl bg-white p-3 shadow-sm">
+                    <img
+                      src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
+                      alt="QR thanh toán"
+                      className="h-64 w-64 rounded-lg object-contain"
+                    />
+                  </div>
+                </div>
 
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-700">Quét mã để thanh toán cọc.</p>
-                <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
-                  {paymentStatus === 'pending' && (
-                    <>
-                      <Loader2 className="animate-spin text-emerald-600" size={16} />
-                      <span>Đang chờ xác nhận thanh toán...</span>
-                    </>
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700">
+                      <Hourglass size={15} />
+                      Thời gian giữ chỗ
+                    </span>
+                    <strong className={`rounded-full px-3 py-1 text-sm ${holdExpired ? 'bg-red-100 text-red-700' : 'bg-white text-amber-700'}`}>
+                      {holdExpired ? 'Hết hạn' : formatCountdown(holdRemainingMs)}
+                    </strong>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+                    Quá 15 phút chưa thanh toán cọc, đơn tự hủy và slot được mở khóa lại.
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                  <p className="font-semibold text-slate-700">Quét mã hoặc mở trang thanh toán để trả cọc.</p>
+                  <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
+                    {paymentStatus === 'pending' && (
+                      <>
+                        <Loader2 className="animate-spin text-emerald-600" size={16} />
+                        <span>Đang chờ xác nhận thanh toán...</span>
+                      </>
+                    )}
+                    {paymentStatus === 'failed' && (
+                      <span className="text-red-600">Thanh toán chưa thành công. Vui lòng thử lại.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                  {paymentModal.paymentUrl && (
+                    <a
+                      href={paymentModal.paymentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
+                    >
+                      Mở trang thanh toán
+                      <ExternalLink size={16} />
+                    </a>
                   )}
-                  {paymentStatus === 'failed' && (
-                    <span className="text-red-600">Thanh toán chưa thành công. Vui lòng thử lại.</span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Đóng
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-3">
-                {paymentModal.paymentUrl && (
-                  <a
-                    href={paymentModal.paymentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700"
-                  >
-                    Mở trang thanh toán
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
-                  className="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:bg-slate-50"
-                >
-                  Đóng
-                </button>
+              <div className="px-6 py-6">
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Chi tiết đơn đặt</p>
+                  <h4 className="mt-2 text-2xl font-black text-slate-950">{details.pitchName}</h4>
+                  <p className="mt-2 flex items-start gap-2 text-sm font-semibold leading-5 text-slate-600">
+                    <MapPin size={16} className="mt-0.5 shrink-0 text-red-500" />
+                    {details.pitchAddress}
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mã đơn</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{details.bookingCode}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loại sân</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{details.pitchType}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày chơi</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{formatDate(booking.bookingDate)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                    <span className="font-semibold text-slate-600">Tiền thuê sân</span>
+                    <strong>{formatMoney(details.fieldPrice)}</strong>
+                  </div>
+                  {details.serviceTotal > 0 && (
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <span className="font-semibold text-slate-600">Dịch vụ phát sinh</span>
+                      <strong>{formatMoney(details.serviceTotal)}</strong>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                    <span className="font-semibold text-slate-600">Tổng tiền</span>
+                    <strong>{formatMoney(details.total)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 bg-emerald-50 px-4 py-4 text-sm">
+                    <span className="font-black text-emerald-700">Cọc cần thanh toán</span>
+                    <strong className="text-xl text-emerald-700">{formatMoney(details.deposit)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                    <span className="font-semibold text-slate-600">Còn lại tại sân</span>
+                    <strong>{formatMoney(details.remaining)}</strong>
+                  </div>
+                </div>
+
+                <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold leading-5 text-slate-600">
+                  Sau khi cổng thanh toán xác nhận thành công, hệ thống sẽ tự chuyển đơn sang trạng thái đã xác nhận và khóa slot này cho bạn.
+                </p>
               </div>
             </div>
           </div>

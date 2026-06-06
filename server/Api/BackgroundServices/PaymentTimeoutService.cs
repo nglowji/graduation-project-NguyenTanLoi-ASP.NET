@@ -48,6 +48,7 @@ public class PaymentTimeoutService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<IBookingNotificationService>();
 
         var cutoffTime = DateTime.UtcNow.Subtract(_paymentTimeout);
 
@@ -55,12 +56,19 @@ public class PaymentTimeoutService : BackgroundService
             .Where(pt => pt.Status == PaymentStatus.Pending && pt.CreatedAt < cutoffTime)
             .ToListAsync(cancellationToken);
 
-        if (expiredTransactions.Count == 0)
+        var expiredBookings = await context.Bookings
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+            .Where(b => b.Status == BookingStatus.PendingDeposit && b.CreatedAt < cutoffTime)
+            .ToListAsync(cancellationToken);
+
+        if (expiredTransactions.Count == 0 && expiredBookings.Count == 0)
             return;
 
         _logger.LogInformation(
-            "Found {Count} expired payment transactions",
-            expiredTransactions.Count
+            "Found {TransactionCount} expired payment transactions and {BookingCount} expired pending bookings",
+            expiredTransactions.Count,
+            expiredBookings.Count
         );
 
         foreach (var transaction in expiredTransactions)
@@ -72,11 +80,31 @@ public class PaymentTimeoutService : BackgroundService
             );
         }
 
+        foreach (var booking in expiredBookings)
+        {
+            booking.Cancel("Deposit payment timeout - exceeded 15 minutes");
+            _logger.LogInformation(
+                "Cancelled booking {BookingId} because deposit was not paid within 15 minutes",
+                booking.Id
+            );
+        }
+
         await context.SaveChangesAsync(cancellationToken);
 
+        foreach (var booking in expiredBookings)
+        {
+            await notificationService.NotifyBookingCancelledAsync(
+                booking.TimeSlot.PitchId,
+                booking.TimeSlotId,
+                booking.BookingDate,
+                cancellationToken
+            );
+        }
+
         _logger.LogInformation(
-            "Successfully processed {Count} expired payments",
-            expiredTransactions.Count
+            "Successfully processed {TransactionCount} expired payments and {BookingCount} expired pending bookings",
+            expiredTransactions.Count,
+            expiredBookings.Count
         );
     }
 }

@@ -16,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Entities;
+using Domain.Enums;
 
 namespace Api.Controllers;
 
@@ -165,7 +167,11 @@ public class BookingsController : ApiControllerBase
     public async Task<IActionResult> AddServices(Guid id, [FromBody] List<BookingServiceRequest> services, CancellationToken cancellationToken)
     {
         var requesterId = GetCurrentUserId();
-        var booking = await _bookingRepository.GetTrackedWithDetailsAsync(id, cancellationToken);
+        var booking = await _context.Bookings
+            .AsNoTracking()
+            .Include(item => item.TimeSlot)
+                .ThenInclude(slot => slot.Pitch)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (booking?.TimeSlot?.Pitch == null) return NotFoundResponse("Booking not found");
 
         var ownerId = requesterId;
@@ -183,19 +189,70 @@ public class BookingsController : ApiControllerBase
         if (quantities.Values.Any(quantity => quantity <= 0)) return BadRequestResponse("Service quantity must be greater than zero");
 
         var availableServices = await _context.AdditionalServices
+            .AsNoTracking()
             .Where(service => quantities.Keys.Contains(service.Id) && service.IsActive)
             .ToListAsync(cancellationToken);
         if (availableServices.Count != quantities.Count) return BadRequestResponse("One or more services are unavailable");
 
-        foreach (var service in availableServices)
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var quantity = quantities[service.Id];
-            service.DecreaseStock(quantity);
-            booking.AddPurchasedService(service.Id, service.Name, service.Price, quantity);
-        }
+            var additionalTotal = 0m;
+            foreach (var service in availableServices)
+            {
+                var quantity = quantities[service.Id];
+                var affectedRows = await _context.AdditionalServices
+                    .Where(item => item.Id == service.Id && item.IsActive && item.StockQuantity >= quantity)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(item => item.StockQuantity, item => item.StockQuantity - quantity),
+                        cancellationToken);
 
-        await _context.SaveChangesAsync(cancellationToken);
-        return OkResponse<object?>(null, "Services added successfully");
+                if (affectedRows == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return BadRequestResponse($"Service {service.Name} does not have enough stock");
+                }
+
+                _context.BookingServices.Add(BookingService.Create(id, service.Id, service.Name, service.Price, quantity));
+                additionalTotal += service.Price.Amount * quantity;
+            }
+
+            var bookingRows = await _context.Bookings
+                .Where(item => item.Id == id)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(item => item.TotalPrice.Amount, item => item.TotalPrice.Amount + additionalTotal)
+                        .SetProperty(item => item.UpdatedAt, DateTime.UtcNow),
+                    cancellationToken);
+
+            if (bookingRows == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return BadRequestResponse("Booking was changed. Please reload and try again.");
+            }
+
+            var serviceSummary = string.Join(", ", availableServices.Select(service =>
+            {
+                var quantity = quantities[service.Id];
+                return $"{service.Name} x{quantity}";
+            }));
+
+            _context.Notifications.Add(Notification.Create(
+                booking.UserId,
+                NotificationType.SystemAnnouncement,
+                "Đơn đặt sân có hóa đơn phát sinh",
+                $"Chủ sân vừa thêm dịch vụ vào đơn {booking.CheckInCode ?? booking.Id.ToString("N")[..8].ToUpperInvariant()}: {serviceSummary}. Tổng tiền tăng thêm {additionalTotal:N0}đ."
+            ));
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return OkResponse<object?>(null, "Services added successfully");
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return BadRequestResponse("Booking was changed by another user. Please reload and try again.");
+        }
     }
 
     [HttpPatch("{id:guid}/complete")]

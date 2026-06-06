@@ -77,10 +77,10 @@ export const PitchCard: React.FC<PitchCardProps> = ({
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá từ</p>
             <p className="mt-1 text-lg font-black text-blue-700">{price}<span className="ml-1 text-xs text-slate-400">đ/giờ</span></p>
           </div>
-          <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-black text-amber-700">
+          <div className="flex items-center gap-1 rounded-xl bg-amber-50 px-2.5 py-2 text-xs font-black text-amber-700 ring-1 ring-amber-100" title={`${reviews || 0} đánh giá`}>
             <Star size={13} className="fill-current" />
             {Number(rating || 0).toFixed(1)}
-            <span className="font-bold text-amber-600/70">({reviews || 0})</span>
+            <span className="font-bold text-amber-600/70">· {reviews || 0}</span>
           </div>
         </div>
       </div>

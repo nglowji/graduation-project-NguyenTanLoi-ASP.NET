@@ -6,14 +6,17 @@ import {
   Briefcase,
   Calendar,
   ChevronLeft,
+  CircleHelp,
   DollarSign,
   FileText,
+  Flag,
   Home,
   LayoutDashboard,
   LogOut,
   MapPin,
   Menu,
   Moon,
+  Settings,
   Search,
   ShieldCheck,
   Star,
@@ -44,9 +47,12 @@ const ownerNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Tổng quan', path: '/dashboard/admin' },
-  { icon: ShieldCheck, label: 'Duyệt yêu cầu', path: '/dashboard/admin/approvals' },
   { icon: Users, label: 'Quản lý người dùng', path: '/dashboard/admin/users' },
-  { icon: DollarSign, label: 'Quản lý doanh thu', path: '/dashboard/admin/revenue' },
+  { icon: ShieldCheck, label: 'Quản lý chủ sân', path: '/dashboard/admin/approvals' },
+  { icon: Flag, label: 'Kiểm duyệt nội dung', path: '/dashboard/admin/moderation' },
+  { icon: Settings, label: 'Quản lý hệ thống', path: '/dashboard/admin/system' },
+  { icon: CircleHelp, label: 'Hỗ trợ khách hàng', path: '/dashboard/admin/support' },
+  { icon: DollarSign, label: 'Doanh thu nền tảng', path: '/dashboard/admin/revenue' },
   { icon: FileText, label: 'Báo cáo hoa hồng', path: '/dashboard/admin/reports' },
 ];
 
@@ -329,6 +335,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                         const startTime = formatTime(booking.startTime || booking.timeSlot?.startTime);
                         const endTime = formatTime(booking.endTime || booking.timeSlot?.endTime);
                         const totalAmount = Number(booking.totalAmount ?? booking.totalPrice ?? 0);
+                        const extraServices = Array.isArray(booking.services) ? booking.services : [];
+                        const extraTotal = extraServices.reduce(
+                          (sum: number, service: any) => sum + Number(service.lineTotal || service.price * service.quantity || 0),
+                          0
+                        );
 
                         return (
                           <Link
@@ -354,8 +365,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                                 {notificationStatusLabel(booking.status)}
                               </span>
                             </div>
+                            {extraServices.length > 0 && (
+                              <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+                                <p className="truncate text-[10px] font-black uppercase tracking-widest text-amber-700">
+                                  Phát sinh dịch vụ: {extraServices.map((service: any) => `${service.serviceName} x${service.quantity}`).join(', ')}
+                                </p>
+                              </div>
+                            )}
                             <div className="mt-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-                              <span>Tổng tiền</span>
+                              <span>{extraServices.length > 0 ? `Tổng tiền, phát sinh ${formatMoney(extraTotal)}đ` : 'Tổng tiền'}</span>
                               <span className="text-slate-900 dark:text-white">{formatMoney(totalAmount)}đ</span>
                             </div>
                           </Link>

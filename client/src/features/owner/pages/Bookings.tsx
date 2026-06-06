@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/Pagination';
 
 type BookingRow = {
   id: string;
@@ -45,8 +46,10 @@ type BookingRow = {
   depositAmount?: number;
   status?: string;
   checkInCode?: string;
+  services?: BookingServiceItem[];
 };
 type ServiceItem = { id: string; name?: string; price?: number; stockQuantity?: number; isActive?: boolean };
+type BookingServiceItem = { id: string; serviceId: string; serviceName: string; price: number; quantity: number; lineTotal: number };
 
 const tabs = [
   { id: 'all', label: 'Tất cả' },
@@ -64,15 +67,27 @@ const Bookings: React.FC = () => {
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState('');
   const [pitchFilter, setPitchFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<'dateAsc' | 'dateDesc' | 'amountDesc'>('dateAsc');
+  const [sortBy, setSortBy] = useState<'dateAsc' | 'dateDesc' | 'amountDesc'>('dateDesc');
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [serviceId, setServiceId] = useState('');
   const [serviceQuantity, setServiceQuantity] = useState(1);
+  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   useEffect(() => {
     fetchBookings();
   }, [tab]);
-  useEffect(() => { api.get('/additional-services/my').then((res: any) => setServices(Array.isArray(res) ? res : [])).catch(() => setServices([])); }, []);
+  useEffect(() => { fetchServices(); }, []);
+
+  const fetchServices = async () => {
+    try {
+      const res = await api.get('/additional-services/my') as any;
+      setServices(Array.isArray(res) ? res : []);
+    } catch {
+      setServices([]);
+    }
+  };
 
   const fetchBookings = async () => {
     setIsLoading(true);
@@ -98,6 +113,7 @@ const Bookings: React.FC = () => {
   };
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
+    setUpdatingBookingId(id);
     try {
       const normalized = newStatus.toLowerCase();
       if (normalized === 'confirmed') {
@@ -107,9 +123,11 @@ const Bookings: React.FC = () => {
       } else if (normalized === 'cancelled') {
         await api.patch(`/bookings/${id}/cancel`, { reason: 'Owner cancelled booking' });
       }
-      fetchBookings();
+      await fetchBookings();
     } catch {
       alert('Không thể cập nhật trạng thái');
+    } finally {
+      setUpdatingBookingId(null);
     }
   };
   const addServiceToBooking = async (bookingId: string) => {
@@ -118,10 +136,10 @@ const Bookings: React.FC = () => {
       await api.post(`/bookings/${bookingId}/services`, [{ serviceId, quantity: serviceQuantity }]);
       setServiceId('');
       setServiceQuantity(1);
-      fetchBookings();
-      alert('Đã cộng dịch vụ vào đơn.');
+      await Promise.all([fetchBookings(), fetchServices()]);
+      alert('Đã tạo hóa đơn phát sinh và cộng dịch vụ vào đơn.');
     } catch (error: any) {
-      alert(error.message || 'Không thể cộng dịch vụ vào đơn.');
+      alert(error.message || 'Không thể tạo hóa đơn phát sinh. Vui lòng tải lại đơn và thử lại.');
     }
   };
 
@@ -172,6 +190,8 @@ const Bookings: React.FC = () => {
 
   const getRemaining = (booking: BookingRow) =>
     isCompletedBooking(booking) ? 0 : Math.max(getTotal(booking) - getDeposit(booking), 0);
+  const getExtraServices = (booking: BookingRow) => Array.isArray(booking.services) ? booking.services : [];
+  const getExtraTotal = (booking: BookingRow) => getExtraServices(booking).reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
 
   const getStatusLabel = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
@@ -213,6 +233,12 @@ const Bookings: React.FC = () => {
       return sortBy === 'dateDesc' ? second.localeCompare(first) : first.localeCompare(second);
     });
   }, [bookings, searchTerm, dateFilter, pitchFilter, sortBy]);
+  const pagedBookings = filteredBookings.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => { setPage(1); }, [tab, searchTerm, dateFilter, pitchFilter, sortBy]);
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(filteredBookings.length / pageSize), 1);
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredBookings.length, page]);
   const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchName))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
 
   const counts = useMemo(() => {
@@ -279,9 +305,9 @@ const Bookings: React.FC = () => {
         <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white" /></label>
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateAsc">Lịch gần nhất</option><option value="dateDesc">Lịch xa nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
         </div>
-        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateAsc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateAsc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
+        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -298,7 +324,7 @@ const Bookings: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filteredBookings.map((booking) => {
+            {pagedBookings.map((booking) => {
               const isExpanded = expandedBookingId === booking.id;
 
               return (
@@ -333,6 +359,12 @@ const Bookings: React.FC = () => {
                           <Clock size={13} className="text-blue-600" />
                           {getStartTime(booking)} - {getEndTime(booking)}
                         </span>
+                        {getExtraServices(booking).length > 0 && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100">
+                            <ShoppingCart size={12} />
+                            Có hóa đơn phát sinh
+                          </span>
+                        )}
                       </p>
                     </div>
 
@@ -389,6 +421,10 @@ const Bookings: React.FC = () => {
                             <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(getTotal(booking))}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
+                            <dt className="text-slate-400">Hóa đơn phát sinh</dt>
+                            <dd className="text-right text-amber-700">{getExtraServices(booking).length ? formatMoney(getExtraTotal(booking)) : 'Chưa có'}</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Tiền cọc</dt>
                             <dd className="text-right text-emerald-700">{formatMoney(getDeposit(booking))}</dd>
                           </div>
@@ -401,6 +437,19 @@ const Bookings: React.FC = () => {
                             <dd className="text-right text-slate-800 dark:text-slate-200">{isCompletedBooking(booking) ? 'Đã thanh toán đủ' : 'Còn thu tại sân'}</dd>
                           </div>
                         </dl>
+                        {getExtraServices(booking).length > 0 && (
+                          <div className="mt-4 rounded-xl bg-amber-50 p-3">
+                            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-700">Dịch vụ mua thêm</p>
+                            <div className="space-y-2">
+                              {getExtraServices(booking).map((service) => (
+                                <div key={service.id} className="flex justify-between gap-3 text-xs font-bold text-slate-700">
+                                  <span className="truncate">{service.serviceName} x{service.quantity}</span>
+                                  <span className="shrink-0 font-black">{formatMoney(service.lineTotal)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -409,14 +458,44 @@ const Bookings: React.FC = () => {
                           value={booking.status || 'PendingDeposit'}
                           onChange={(event) => handleStatusUpdate(booking.id, event.target.value)}
                           disabled={isCompletedBooking(booking) || isCancelledBooking(booking)}
-                          className={`mb-3 h-10 w-full rounded-xl border-0 px-3 text-xs font-black uppercase tracking-widest outline-none disabled:cursor-not-allowed disabled:opacity-70 ${getStatusClass(booking.status)}`}
+                          className={`hidden ${getStatusClass(booking.status)}`}
                         >
                           <option value={booking.status || 'PendingDeposit'}>{getStatusLabel(booking.status)}</option>
                           {isPendingBooking(booking) && <option value="Confirmed">Đã nhận cọc</option>}
                           {isConfirmedBooking(booking) && <option value="Completed">Hoàn tất, đã thu đủ</option>}
                           {(isPendingBooking(booking) || isConfirmedBooking(booking)) && <option value="Cancelled">Đã hủy</option>}
                         </select>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="mb-3 rounded-2xl bg-slate-50 p-2">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getStatusClass(booking.status)}`}>
+                              {getStatusLabel(booking.status)}
+                            </span>
+                            {updatingBookingId === booking.id && <Loader2 size={15} className="animate-spin text-blue-600" />}
+                          </div>
+                          <div className="grid gap-2">
+                            {isPendingBooking(booking) && (
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
+                                <CheckCircle2 size={16} /> Đã nhận cọc
+                              </button>
+                            )}
+                            {isConfirmedBooking(booking) && (
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-50 px-3 text-xs font-black text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
+                                <Flag size={16} /> Hoàn tất
+                              </button>
+                            )}
+                            {(isPendingBooking(booking) || isConfirmedBooking(booking)) && (
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-black text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
+                                <XCircle size={16} /> Hủy đơn
+                              </button>
+                            )}
+                            {(isCompletedBooking(booking) || isCancelledBooking(booking)) && (
+                              <p className="rounded-xl bg-white px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 ring-1 ring-slate-100">
+                                Không còn thao tác trạng thái
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="hidden grid-cols-4 gap-2">
                           <button type="button" disabled={!isPendingBooking(booking)} title="Xác nhận đã nhận cọc" onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="flex h-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition hover:bg-emerald-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
                             <CheckCircle2 size={17} />
                           </button>
@@ -430,13 +509,16 @@ const Bookings: React.FC = () => {
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 text-xs font-black text-slate-500 transition hover:bg-red-50 hover:text-red-600">
+                          <Trash2 size={16} /> Xóa đơn
+                        </button>
                         <div className="mt-4 border-t border-slate-100 pt-4">
-                          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><ShoppingCart size={14} className="text-blue-600" />Bán thêm dịch vụ</p>
+                          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><ShoppingCart size={14} className="text-blue-600" />Hóa đơn phát sinh</p>
                           <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-2">
                             <select value={serviceId} onChange={(event) => setServiceId(event.target.value)} className="h-11 min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-300"><option value="">Chọn dịch vụ</option>{services.filter(item => item.isActive !== false && Number(item.stockQuantity || 0) > 0).map(item => <option key={item.id} value={item.id}>{item.name} · {Number(item.stockQuantity || 0)} còn</option>)}</select>
                             <input type="number" min="1" value={serviceQuantity} onChange={(event) => setServiceQuantity(Number(event.target.value))} className="h-11 rounded-xl border border-blue-100 bg-blue-50 px-2 text-center text-xs font-black text-slate-700 outline-none focus:border-blue-300" />
                           </div>
-                          <button type="button" disabled={!serviceId || serviceQuantity <= 0} onClick={() => addServiceToBooking(booking.id)} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black text-white transition hover:bg-blue-700 disabled:bg-blue-300"><ShoppingCart size={15} />Cộng vào đơn</button>
+                          <button type="button" disabled={!serviceId || serviceQuantity <= 0} onClick={() => addServiceToBooking(booking.id)} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black text-white transition hover:bg-blue-700 disabled:bg-blue-300"><ShoppingCart size={15} />Tạo hóa đơn</button>
                         </div>
                       </div>
                     </div>
@@ -444,6 +526,7 @@ const Bookings: React.FC = () => {
                 </div>
               );
             })}
+            <Pagination page={page} totalItems={filteredBookings.length} pageSize={pageSize} onPageChange={setPage} label="đơn đặt sân" />
           </div>
         )}
       </section>
