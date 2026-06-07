@@ -242,6 +242,7 @@ const Bookings: React.FC = () => {
     if (page > maxPage) setPage(maxPage);
   }, [filteredBookings.length, page]);
   const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchType))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
+  const visibleDates = useMemo(() => Array.from(new Set(filteredBookings.map((booking) => String(booking.bookingDate || '').slice(0, 10)).filter(Boolean))).slice(0, 6), [filteredBookings]);
 
   const counts = useMemo(() => {
     const total = bookings.length;
@@ -251,42 +252,58 @@ const Bookings: React.FC = () => {
   }, [bookings]);
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-[1500px] space-y-5 pb-16">
+      <header className="grid overflow-hidden rounded-2xl border border-blue-300 bg-blue-700 text-white shadow-lg shadow-blue-950/10 lg:grid-cols-[1fr_440px]">
+        <div className="p-7">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Owner schedule</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Lịch đặt sân</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Theo dõi đơn, cọc, khung giờ và trạng thái xử lý trong một màn hình.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200">Điều phối lịch sân</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">Lịch đặt sân</h1>
+          <p className="mt-2 text-sm font-semibold text-blue-100">Theo dõi khách, giờ chơi, thanh toán và trạng thái xử lý.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-white px-4 py-2 dark:bg-slate-800">
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-blue-500 bg-blue-800/70">
+          <div className="grid place-content-center px-4 py-6 text-center">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p>
-            <p className="text-xl font-black text-slate-950 dark:text-white">{counts.total}</p>
+            <p className="text-2xl font-black text-white">{counts.total}</p>
           </div>
-          <div className="rounded-xl bg-amber-100 px-4 py-2">
+          <div className="grid place-content-center bg-amber-300 px-4 py-6 text-center text-blue-950">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p>
             <p className="text-xl font-black text-amber-600">{counts.pending}</p>
           </div>
-          <div className="rounded-xl bg-emerald-100 px-4 py-2">
+          <div className="grid place-content-center bg-emerald-300 px-4 py-6 text-center text-blue-950">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p>
             <p className="text-xl font-black text-emerald-600">{counts.confirmed}</p>
           </div>
         </div>
       </header>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="grid gap-5 xl:grid-cols-[270px_minmax(0,1fr)]">
+      <aside className="h-fit rounded-2xl border border-blue-100 bg-white p-4 shadow-sm xl:sticky xl:top-5 dark:border-slate-800 dark:bg-slate-900">
+        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">Bộ điều khiển lịch</p>
+        <div className="grid gap-2">
+          {tabs.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-black transition ${tab === item.id ? 'bg-blue-700 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}><span>{item.label}</span>{tab === item.id && <span className="h-2 w-2 rounded-full bg-cyan-300" />}</button>)}
+        </div>
+        <div className="my-4 border-t border-slate-100" />
+        <label className="block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày thi đấu</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300" /></label>
+        <label className="mt-3 block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Bộ môn</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300"><option value="all">Tất cả bộ môn</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
+        <label className="mt-3 block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300"><option value="dateDesc">Mới nhất</option><option value="dateAsc">Cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
+        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-rose-50 text-xs font-black text-rose-600 hover:bg-rose-600 hover:text-white"><XCircle size={14} />Xóa bộ lọc</button>}
+      </aside>
+
+      <div className="min-w-0 space-y-4">
+      <section className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap gap-2">
+          <div className="hidden flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
+                className={`rounded-lg px-4 py-2.5 text-xs font-black transition ${
                   tab === item.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700'
+                    ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-900'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {item.label}
@@ -304,15 +321,16 @@ const Bookings: React.FC = () => {
             />
           </div>
         </div>
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
+        <div className="hidden mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white" /></label>
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
         </div>
         {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
+      {visibleDates.length > 0 && <div className="flex gap-2 overflow-x-auto pb-1">{visibleDates.map((date) => <button key={date} onClick={() => setDateFilter(dateFilter === date ? '' : date)} className={`shrink-0 rounded-xl border px-4 py-3 text-left transition ${dateFilter === date ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}><span className="block text-[10px] font-black uppercase tracking-widest opacity-70">Ngày chơi</span><b className="mt-1 block text-sm">{formatDate(date)}</b></button>)}</div>}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {isLoading ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={38} />
@@ -325,16 +343,16 @@ const Bookings: React.FC = () => {
             <p className="mt-2 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="space-y-3">
             {pagedBookings.map((booking) => {
               const isExpanded = expandedBookingId === booking.id;
 
               return (
-                <div key={booking.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                  <div className="grid gap-4 p-4 xl:grid-cols-[minmax(210px,1fr)_minmax(230px,1.1fr)_150px_145px_54px] xl:items-center">
+                <article key={booking.id} className={`overflow-hidden rounded-2xl border bg-white transition hover:border-blue-200 hover:shadow-md dark:bg-slate-900 ${isExpanded ? 'border-blue-300 shadow-md' : 'border-slate-200 dark:border-slate-800'}`}>
+                  <div className="grid gap-4 p-4 xl:grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] xl:items-center">
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-black text-slate-500 dark:bg-slate-800">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700 dark:bg-slate-800">
                           {getCustomerName(booking).charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -348,7 +366,7 @@ const Bookings: React.FC = () => {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-slate-900 dark:text-white">
+                      <p className="truncate text-base font-black text-slate-900 dark:text-white">
                         <Activity size={15} className="mr-2 inline text-blue-600" />
                         {getPitchType(booking)}
                       </p>
@@ -382,7 +400,7 @@ const Bookings: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white"
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl transition ${isExpanded ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
                       title="Xem chi tiết"
                     >
                       <Eye size={18} />
@@ -390,8 +408,8 @@ const Bookings: React.FC = () => {
                   </div>
 
                   {isExpanded && (
-                    <div className="grid gap-4 border-t border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40 md:grid-cols-[1fr_1fr_280px]">
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="grid gap-4 border-t border-blue-100 bg-blue-50/50 p-5 dark:border-slate-800 dark:bg-slate-950/40 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_300px]">
+                      <div className="rounded-xl border border-blue-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                         <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <MapPin size={14} className="text-blue-600" />
                           Sân & khách
@@ -412,7 +430,7 @@ const Bookings: React.FC = () => {
                         </dl>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="rounded-xl border border-emerald-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                         <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <CreditCard size={14} className="text-emerald-600" />
                           Thanh toán
@@ -454,8 +472,8 @@ const Bookings: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                        <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Thao tác</p>
+                      <div className="rounded-xl border border-indigo-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600"><Flag size={14} />Xử lý đơn</p>
                         <select
                           value={booking.status || 'PendingDeposit'}
                           onChange={(event) => handleStatusUpdate(booking.id, event.target.value)}
@@ -467,7 +485,7 @@ const Bookings: React.FC = () => {
                           {isConfirmedBooking(booking) && <option value="Completed">Hoàn tất, đã thu đủ</option>}
                           {(isPendingBooking(booking) || isConfirmedBooking(booking)) && <option value="Cancelled">Đã hủy</option>}
                         </select>
-                        <div className="mb-3 rounded-2xl bg-slate-50 p-2">
+                        <div className="mb-3 rounded-xl bg-indigo-50 p-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getStatusClass(booking.status)}`}>
                               {getStatusLabel(booking.status)}
@@ -514,8 +532,8 @@ const Bookings: React.FC = () => {
                         <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 text-xs font-black text-slate-500 transition hover:bg-red-50 hover:text-red-600">
                           <Trash2 size={16} /> Xóa đơn
                         </button>
-                        <div className="mt-4 border-t border-slate-100 pt-4">
-                          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><ShoppingCart size={14} className="text-blue-600" />Hóa đơn phát sinh</p>
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700"><ShoppingCart size={14} />Bán thêm dịch vụ</p>
                           <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-2">
                             <select value={serviceId} onChange={(event) => setServiceId(event.target.value)} className="h-11 min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-300"><option value="">Chọn dịch vụ</option>{services.filter(item => item.isActive !== false && Number(item.stockQuantity || 0) > 0).map(item => <option key={item.id} value={item.id}>{item.name} · {Number(item.stockQuantity || 0)} còn</option>)}</select>
                             <input type="number" min="1" value={serviceQuantity} onChange={(event) => setServiceQuantity(Number(event.target.value))} className="h-11 rounded-xl border border-blue-100 bg-blue-50 px-2 text-center text-xs font-black text-slate-700 outline-none focus:border-blue-300" />
@@ -525,12 +543,14 @@ const Bookings: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </div>
+                </article>
               );
             })}
             <Pagination page={page} totalItems={filteredBookings.length} pageSize={pageSize} onPageChange={setPage} label="đơn đặt sân" />
           </div>
         )}
+      </section>
+      </div>
       </section>
     </div>
   );
