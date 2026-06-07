@@ -527,8 +527,8 @@ const BookingReview: React.FC = () => {
       </div>
 
       {paymentModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
-          <div className="relative max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-2 sm:p-4">
+          <div className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
             <button
               type="button"
               onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
@@ -538,7 +538,7 @@ const BookingReview: React.FC = () => {
               <X size={16} />
             </button>
 
-            <div className="border-b border-slate-200 px-6 py-5">
+            <div className="shrink-0 border-b border-slate-200 px-4 py-3 pr-14 sm:px-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                   <QrCode size={20} />
@@ -550,19 +550,19 @@ const BookingReview: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid max-h-[calc(92vh-88px)] gap-0 overflow-y-auto lg:grid-cols-[380px_minmax(0,1fr)]">
-              <div className="bg-slate-50 px-6 py-6">
-                <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 p-4">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[300px_minmax(0,1fr)]">
+              <div className="bg-slate-50 px-4 py-4 sm:px-5">
+                <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-3">
                   <div className="flex items-center justify-center rounded-xl bg-white p-3 shadow-sm">
                     <img
                       src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
                       alt="QR thanh toán"
-                      className="h-64 w-64 rounded-lg object-contain"
+                      className="h-48 w-48 rounded-lg object-contain sm:h-52 sm:w-52"
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700">
                       <Hourglass size={15} />
@@ -577,7 +577,7 @@ const BookingReview: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
                   <p className="font-semibold text-slate-700">Quét mã hoặc mở trang thanh toán để trả cọc.</p>
                   <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
                     {paymentStatus === 'pending' && (
@@ -592,7 +592,7 @@ const BookingReview: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3">
+                <div className="mt-3 grid gap-2">
                   {paymentModal.paymentUrl && (
                     <a
                       href={paymentModal.paymentUrl}
@@ -614,36 +614,36 @@ const BookingReview: React.FC = () => {
                 </div>
               </div>
 
-              <div className="px-6 py-6">
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+              <div className="px-4 py-4 sm:px-5">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Chi tiết đơn đặt</p>
-                  <h4 className="mt-2 text-2xl font-black text-slate-950">{details.pitchName}</h4>
+                  <h4 className="mt-2 text-xl font-black text-slate-950">{details.pitchName}</h4>
                   <p className="mt-2 flex items-start gap-2 text-sm font-semibold leading-5 text-slate-600">
                     <MapPin size={16} className="mt-0.5 shrink-0 text-red-500" />
                     {details.pitchAddress}
                   </p>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 p-4">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mã đơn</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{details.bookingCode}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loại sân</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{details.pitchType}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày chơi</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{formatDate(booking.bookingDate)}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
                     <span className="font-semibold text-slate-600">Tiền thuê sân</span>
                     <strong>{formatMoney(details.fieldPrice)}</strong>
@@ -668,7 +668,7 @@ const BookingReview: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold leading-5 text-slate-600">
+                <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-600">
                   Sau khi cổng thanh toán xác nhận thành công, hệ thống sẽ tự chuyển đơn sang trạng thái đã xác nhận và khóa slot này cho bạn.
                 </p>
               </div>

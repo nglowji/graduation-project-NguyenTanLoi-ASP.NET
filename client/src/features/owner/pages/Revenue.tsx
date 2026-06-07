@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, CalendarDays, CreditCard, Download, Filter, Loader2, TrendingUp, Wallet } from 'lucide-react';
+import { Activity, Award, CalendarDays, CreditCard, Download, Filter, Loader2, Medal, TrendingUp, Trophy, Wallet } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/Pagination';
 
 type FilterMode = 'all' | 'week' | 'month' | 'year';
 type RevenuePoint = { date: string; amount: number };
 type StatusPoint = { status: string; count: number };
 type PitchRevenue = { pitchId: string; pitchName: string; pitchType: string; revenue: number; bookings: number };
 type RecentBooking = { id: string; pitchName: string; pitchType?: string; userName: string; bookingDate: string; timeRange: string; totalPrice: number; status: string };
-type RevenueData = { summary: { totalRevenue: number; totalBookings: number; activePitches: number; occupancyRate: number }; revenueChart: RevenuePoint[]; bookingStatusDistribution: StatusPoint[]; pitchRevenue: PitchRevenue[]; recentBookings: RecentBooking[] };
+type TopCustomer = { userId: string; userName: string; bookings: number; totalSpent: number; favoritePitchType?: string };
+type RevenueData = { summary: { totalRevenue: number; totalBookings: number; activePitches: number; occupancyRate: number }; revenueChart: RevenuePoint[]; bookingStatusDistribution: StatusPoint[]; pitchRevenue: PitchRevenue[]; recentBookings: RecentBooking[]; topCustomers: TopCustomer[] };
 
 const today = new Date();
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -27,6 +29,8 @@ const Revenue: React.FC = () => {
   const [week, setWeek] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return iso(date); });
   const [month, setMonth] = useState(() => iso(today).slice(0, 7));
   const [year, setYear] = useState(String(today.getFullYear()));
+  const [customerPage, setCustomerPage] = useState(1);
+  const customerPageSize = 6;
   const range = () => {
     if (mode === 'all') return { fromDate: '2000-01-01', toDate: iso(today) };
     if (mode === 'week') { const start = new Date(`${week}T00:00:00`); const end = new Date(start); end.setDate(end.getDate() + 6); return { fromDate: iso(start), toDate: iso(end) }; }
@@ -38,6 +42,9 @@ const Revenue: React.FC = () => {
   const chart = data?.revenueChart || [];
   const statuses = data?.bookingStatusDistribution || [];
   const recent = data?.recentBookings || [];
+  const topCustomers = data?.topCustomers || [];
+  const pagedCustomers = topCustomers.slice((customerPage - 1) * customerPageSize, customerPage * customerPageSize);
+  useEffect(() => { setCustomerPage(1); }, [mode, week, month, year]);
   const byType = useMemo(() => Array.from((data?.pitchRevenue || []).reduce((map, pitch) => {
     const label = typeLabel(pitch.pitchType); const item = map.get(label) || { label, revenue: 0, bookings: 0 };
     item.revenue += Number(pitch.revenue); item.bookings += Number(pitch.bookings); map.set(label, item); return map;
@@ -95,6 +102,24 @@ const Revenue: React.FC = () => {
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Cơ cấu doanh thu</h2><p className="mt-1 text-xs font-bold text-slate-400">Tỷ trọng theo loại sân</p><div className="mt-5 grid gap-5 sm:grid-cols-[170px_1fr] sm:items-center"><div className="relative mx-auto h-40 w-40"><svg viewBox="0 0 120 120" className="-rotate-90"><circle cx="60" cy="60" r="46" fill="none" stroke="#eff6ff" strokeWidth="16" />{donut.map(item => <circle key={item.label} cx="60" cy="60" r="46" fill="none" stroke={item.color} strokeWidth="16" strokeDasharray={`${item.dash} ${circumference - item.dash}`} strokeDashoffset={item.offset} />)}</svg><div className="absolute inset-0 grid place-items-center text-center"><div><p className="text-base font-black">{money(total)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Tổng thu</p></div></div></div><div className="space-y-3">{donut.map(item => <div key={item.label} className="flex items-center justify-between gap-2 text-xs font-black"><span className="flex min-w-0 items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><span className="truncate">{item.label}</span></span><span className="shrink-0 text-slate-400">{total ? Math.round(item.revenue / total * 100) : 0}%</span></div>)}</div></div></article>
     </section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black">Giao dịch gần đây</h2><p className="mt-1 text-xs font-bold text-slate-400">Đối soát nhanh các đơn mới nhất</p></div><CalendarDays className="shrink-0 text-blue-600" size={21} /></div><div className="mt-4 divide-y divide-slate-100">{recent.slice(0, 8).map(item => <div key={item.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_145px_105px_125px] sm:items-center"><div className="min-w-0"><p className="truncate font-black">{typeLabel(item.pitchType)}</p><p className="mt-1 truncate text-xs font-bold text-slate-400">{item.userName}</p></div><span className="text-xs font-bold text-slate-500">{item.bookingDate} · {item.timeRange}</span><span className="text-xs font-black text-slate-600">{statusLabel(item.status)}</span><span className="font-black sm:text-right">{money(item.totalPrice)}</span></div>)}</div>{!recent.length && <p className="mt-5 text-sm font-bold text-slate-400">Chưa có giao dịch trong kỳ đã chọn.</p>}</section>
+    <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h2 className="text-lg font-black">Khách hàng thân thiết</h2><p className="mt-1 text-xs font-bold text-slate-400">Top 3 khách đặt sân nhiều nhất trong kỳ đang chọn</p></div>
+        <Trophy className="text-amber-500" size={22} />
+      </div>
+      {topCustomers.length ? <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {pagedCustomers.map((customer, index) => {
+          const rank = (customerPage - 1) * customerPageSize + index;
+          const RankIcon = rank === 0 ? Trophy : rank === 1 ? Medal : Award;
+          const tone = rank === 0 ? 'border-amber-300 bg-amber-50 text-amber-700' : rank === 1 ? 'border-slate-300 bg-slate-50 text-slate-700' : rank === 2 ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-100 bg-white text-blue-700';
+          return <article key={customer.userId} className={`rounded-2xl border p-4 ${tone}`}>
+            <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white shadow-sm"><RankIcon size={20} /></span><div className="min-w-0"><p className="truncate text-sm font-black text-slate-950">{customer.userName}</p><p className="mt-1 text-[10px] font-black uppercase tracking-widest">{typeLabel(customer.favoritePitchType)}</p></div></div><span className="text-xl font-black">#{rank + 1}</span></div>
+            <div className="mt-4 flex items-end justify-between gap-3 border-t border-current/10 pt-3"><div><p className="text-2xl font-black text-slate-950">{customer.bookings}</p><p className="text-[10px] font-black uppercase tracking-widest">đơn hoàn thành</p></div><p className="text-sm font-black text-slate-950">{money(customer.totalSpent)}</p></div>
+          </article>;
+        })}
+      </div> : <p className="mt-5 rounded-xl bg-slate-50 p-5 text-sm font-bold text-slate-400">Chưa có khách hàng hoàn thành đơn trong kỳ đã chọn.</p>}
+      <Pagination page={customerPage} totalItems={topCustomers.length} pageSize={customerPageSize} onPageChange={setCustomerPage} label="khách hàng" />
+    </section>
   </motion.div>;
 };
 export default Revenue;

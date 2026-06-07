@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
-  CalendarClock,
   ChevronDown,
   Clock3,
   DollarSign,
@@ -161,7 +160,9 @@ const MyPitches: React.FC = () => {
       const slotCount = getActiveSlotCount(pitch);
       const matchesSearch = !keyword ||
         String(pitch.name || '').toLowerCase().includes(keyword) ||
-        String(pitch.address || '').toLowerCase().includes(keyword);
+        String(pitch.address || '').toLowerCase().includes(keyword) ||
+        String(category?.label || '').toLowerCase().includes(keyword) ||
+        String(getPitchTypeLabel(pitch) || '').toLowerCase().includes(keyword);
       const matchesSport = filterSport === 'all' || category?.id === filterSport;
       const matchesType =
         filterType === 'all' ||
@@ -219,6 +220,9 @@ const MyPitches: React.FC = () => {
     { id: STANDARD_TYPE_FILTER, label: 'Sân chuẩn' },
     { id: '9', label: 'Bàn chuẩn' },
   ];
+  const availablePitchTypes = filterSport === 'all'
+    ? allPitchTypes
+    : SPORT_CATEGORIES.find((category) => category.id === filterSport)?.types || [];
   const hasFilters = search || filterSport !== 'all' || filterType !== 'all' || filterIndoor !== 'all' || filterPrice !== 'all' || filterSlots !== 'all' || filterStatus !== 'all' || filterRating !== 'all' || sortBy !== 'newest';
   const activeFilterCount = [
     search,
@@ -242,6 +246,9 @@ const MyPitches: React.FC = () => {
     setFilterRating('all');
     setSortBy('newest');
   };
+  useEffect(() => {
+    if (filterType !== 'all' && !availablePitchTypes.some((type) => type.id === filterType)) setFilterType('all');
+  }, [filterSport, filterType]);
 
   const selectFilters = [
     {
@@ -256,7 +263,7 @@ const MyPitches: React.FC = () => {
       label: 'Loại',
       value: filterType,
       onChange: (value: string) => setFilterType(value),
-      options: [{ value: 'all', label: 'Tất cả loại' }, ...allPitchTypes.map((type) => ({ value: type.id, label: type.label }))],
+      options: [{ value: 'all', label: 'Tất cả loại' }, ...availablePitchTypes.map((type) => ({ value: type.id, label: type.label }))],
     },
     {
       icon: <DollarSign size={16} />,
@@ -294,7 +301,7 @@ const MyPitches: React.FC = () => {
         <Settings size={17} />
       </button>
       {openActionId === pitch.id && (
-        <div className="absolute right-0 top-12 z-30 max-h-60 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <div className="absolute right-12 top-0 z-30 max-h-60 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
           <button type="button" onClick={() => navigate(`/field/${pitch.id}`)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold text-blue-700 hover:bg-blue-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50"><Eye size={15} /></span>Xem chi tiết</button>
           <button type="button" onClick={() => navigate(`/dashboard/owner/pitches/edit/${pitch.id}`)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold text-indigo-700 hover:bg-indigo-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-50"><Edit2 size={15} /></span>Chỉnh sửa sân</button>
           <button type="button" onClick={() => togglePitchStatus(pitch)} className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold ${isPitchActive(pitch) ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'}`}><span className={`grid h-8 w-8 place-items-center rounded-lg ${isPitchActive(pitch) ? 'bg-amber-50' : 'bg-emerald-50'}`}>{isPitchActive(pitch) ? <PauseCircle size={15} /> : <PlayCircle size={15} />}</span>{isPitchActive(pitch) ? 'Tạm ngưng sân' : 'Kích hoạt sân'}</button>
@@ -307,42 +314,47 @@ const MyPitches: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-700 text-white shadow-lg shadow-blue-950/10">
+        <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Pitch inventory</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Sân của tôi</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Quản lý sân, giá khởi điểm và khung giờ đang mở bán.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200">Kho sân vận hành</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">Sân của tôi</h1>
+          <p className="mt-2 text-sm font-semibold text-blue-100">Kiểm tra trạng thái, khung giờ và giá bán của toàn bộ sân.</p>
         </div>
 
         <button
           type="button"
           onClick={() => navigate('/dashboard/owner/pitches/create')}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 text-sm font-black text-blue-950 shadow-sm transition hover:bg-amber-200"
         >
           <Plus size={18} strokeWidth={3} />
           Thêm sân
-        </button>
+        </button></div>
+        <div className="grid grid-cols-3 divide-x divide-blue-500 border-t border-blue-500 bg-blue-800/60">
+          <div className="p-4 text-center"><b className="text-2xl">{stats.total}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Tổng sân</p></div>
+          <div className="p-4 text-center"><b className="text-2xl text-emerald-300">{stats.active}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Đang mở</p></div>
+          <div className="p-4 text-center"><b className="text-2xl text-amber-300">{stats.needsSlots}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Cần mở giờ</p></div>
+        </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Building2 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng số sân</p><p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p></div></div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><PlayCircle size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang hoạt động</p><p className="mt-1 text-2xl font-black text-emerald-600">{stats.active}</p></div></div>
-        </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Clock3 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ mở</p><p className="mt-1 text-2xl font-black text-blue-600">{stats.activeSlots}</p></div></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><Home size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trong nhà</p><p className="mt-1 text-2xl font-black text-indigo-600">{stats.indoor}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-600"><CalendarClock size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Cần mở giờ</p><p className="mt-1 text-2xl font-black text-amber-700">{stats.needsSlots}</p></div></div>
-        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {[
+            { label: 'Tất cả sân', active: filterStatus === 'all' && filterSlots === 'all', action: () => { setFilterStatus('all'); setFilterSlots('all'); } },
+            { label: 'Đang hoạt động', active: filterStatus === 'active' && filterSlots === 'all', action: () => { setFilterStatus('active'); setFilterSlots('all'); } },
+            { label: 'Tạm ngưng', active: filterStatus === 'inactive', action: () => setFilterStatus('inactive') },
+            { label: 'Chưa có khung giờ', active: filterSlots === 'empty', action: () => { setFilterSlots('empty'); setFilterStatus('all'); } },
+          ].map((item) => <button key={item.label} type="button" onClick={item.action} className={`rounded-full px-4 py-2 text-xs font-black transition ${item.active ? 'bg-blue-700 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}>{item.label}</button>)}
+        </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />

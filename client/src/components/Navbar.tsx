@@ -21,6 +21,7 @@ const publicLinks = [
   { to: '/', label: 'Trang chủ' },
   { to: '/explore', label: 'Khám phá sân' },
   { to: '/partner', label: 'Dành cho chủ sân' },
+  { to: '/contact', label: 'Liên hệ' },
 ];
 
 const Navbar: React.FC = () => {

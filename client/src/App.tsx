@@ -18,6 +18,7 @@ import PaymentResult from './features/customer/pages/PaymentResult';
 import Profile from './features/customer/pages/Profile';
 import BookingReview from './features/customer/pages/BookingReview';
 import DashboardLayout from './layouts/DashboardLayout';
+import Contact from './features/landing/pages/Contact';
 
 const AIChatBox = lazy(() => import('./components/AIChatBox'));
 
@@ -55,6 +56,7 @@ function App() {
               <Route path="/register" element={<div className="flex flex-col min-h-screen"><Navbar /><Register /><Footer /></div>} />
               <Route path="/forgot-password" element={<div className="flex flex-col min-h-screen"><Navbar /><PasswordReset /><Footer /></div>} />
               <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><PartnerPortal /><Footer /></div>} />
+              <Route path="/contact" element={<div className="flex flex-col min-h-screen"><Navbar /><Contact /><Footer /></div>} />
               <Route path="/payment-result" element={<div className="flex flex-col min-h-screen"><Navbar /><PaymentResult /><Footer /></div>} />
               <Route path="/booking-review/:id" element={<div className="flex flex-col min-h-screen"><Navbar /><BookingReview /><Footer /></div>} />
               <Route path="/profile" element={

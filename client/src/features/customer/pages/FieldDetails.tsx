@@ -10,6 +10,7 @@ import { bookingService } from '../../../services/bookingService';
 import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
 import { formatCompactAddress } from '../../../utils/address';
+import Pagination from '../../../components/Pagination';
 
 declare global {
   interface Window {
@@ -205,6 +206,9 @@ const FieldDetails: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(getVietnamDateInputValue());
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [reviewFilter, setReviewFilter] = useState(0);
+  const [reviewPage, setReviewPage] = useState(1);
+  const reviewPageSize = 5;
   
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({});
@@ -411,7 +415,8 @@ const FieldDetails: React.FC = () => {
       const data = await pitchService.getById(currentPitchId);
       const reviewResult = await pitchService.getReviews(currentPitchId).catch(() => null);
       const reviews = reviewResult?.items?.map(normalizeReview) ?? data.reviews ?? [];
-      setPitch({ ...data, reviews });
+      const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length : 0;
+      setPitch({ ...data, reviews, averageRating, totalReviews: reviewResult?.totalCount ?? reviews.length });
     } catch (error) {
       console.error("Error fetching pitch:", error);
     } finally {
@@ -423,6 +428,9 @@ const FieldDetails: React.FC = () => {
     ...review,
     userName: review.userName || review.userFullName || 'Người dùng SmartSport',
   });
+  const filteredReviews = (pitch?.reviews || []).filter((review) => reviewFilter === 0 || review.rating === reviewFilter);
+  const pagedReviews = filteredReviews.slice((reviewPage - 1) * reviewPageSize, reviewPage * reviewPageSize);
+  useEffect(() => setReviewPage(1), [reviewFilter, pitch?.id]);
 
   const fetchSlots = async (currentPitchId: string) => {
     try {
@@ -721,7 +729,7 @@ const FieldDetails: React.FC = () => {
             </div>
 
             {/* OpenStreetMap */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
                   <MapIcon size={12} className="text-blue-600" />
@@ -860,13 +868,14 @@ const FieldDetails: React.FC = () => {
             {/* Reviews */}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900 tracking-tight">Đánh giá</h3>
-                <div className="flex items-center gap-2 px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black border border-amber-100">
-                  <Star size={12} className="fill-current" /> {Number(pitch.averageRating ?? 0).toFixed(1)} / 5.0
+                <div><h3 className="text-xl font-black text-slate-950">Đánh giá khách hàng</h3><p className="mt-1 text-sm font-semibold text-slate-500">{pitch.totalReviews || 0} lượt đánh giá</p></div>
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-700">
+                  <Star size={20} className="fill-current" /> <span className="text-2xl">{Number(pitch.averageRating ?? 0).toFixed(1)}</span> / 5.0
                 </div>
               </div>
-              <div className="space-y-3">
-                {pitch.reviews && pitch.reviews.length > 0 ? pitch.reviews.map((rev) => (
+              <div className="mt-5 flex flex-wrap gap-2">{[0, 5, 4, 3, 2, 1].map((rating) => <button key={rating} type="button" onClick={() => setReviewFilter(rating)} className={`rounded-lg px-3 py-2 text-xs font-black ${reviewFilter === rating ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}>{rating === 0 ? 'Tất cả' : `${rating} sao`}</button>)}</div>
+              <div className="mt-5 space-y-3">
+                {pagedReviews.length > 0 ? pagedReviews.map((rev) => (
                   <div key={rev.id} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -878,7 +887,7 @@ const FieldDetails: React.FC = () => {
                       </div>
                       <div className="flex gap-0.5">
                         {Array.from({ length: 5 }).map((_, idx) => (
-                          <Star key={idx} size={10} className={`${idx < rev.rating ? 'text-amber-400 fill-current' : 'text-slate-200'}`} />
+                          <Star key={idx} size={16} className={`${idx < rev.rating ? 'text-amber-400 fill-current' : 'text-slate-200'}`} />
                         ))}
                       </div>
                     </div>
@@ -896,6 +905,7 @@ const FieldDetails: React.FC = () => {
                   </div>
                 )}
               </div>
+              <Pagination page={reviewPage} totalItems={filteredReviews.length} pageSize={reviewPageSize} onPageChange={setReviewPage} label="đánh giá" />
             </section>
           </div>
 

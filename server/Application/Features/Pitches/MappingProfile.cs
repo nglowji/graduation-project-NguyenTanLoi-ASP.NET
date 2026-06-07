@@ -10,6 +10,9 @@ public class MappingProfile : Profile
     {
         CreateMap<Pitch, PitchDto>()
             .ForMember(dest => dest.TypeDisplay, opt => opt.MapFrom(src => src.Type.ToString()))
+            .ForMember(dest => dest.AverageRating, opt => opt.MapFrom(src =>
+                src.Reviews.Any() ? src.Reviews.Average(review => review.Rating) : 0))
+            .ForMember(dest => dest.TotalReviews, opt => opt.MapFrom(src => src.Reviews.Count))
             .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.SportCenter != null ? src.SportCenter.Address : null))
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src =>
                 src.Images

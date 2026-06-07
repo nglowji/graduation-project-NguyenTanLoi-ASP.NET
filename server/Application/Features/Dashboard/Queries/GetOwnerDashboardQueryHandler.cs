@@ -66,6 +66,7 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
             RevenueChart = CalculateRevenueChart(bookings, startDate, endDate),
             BookingStatusDistribution = CalculateStatusDistribution(bookings),
             PitchRevenue = CalculatePitchRevenue(bookings),
+            TopCustomers = CalculateTopCustomers(bookings),
             RecentBookings = MapRecentBookings(bookings
                 .OrderByDescending(b => b.BookingDate)
                 .ThenByDescending(b => b.CreatedAt)
@@ -74,6 +75,29 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         };
 
         return Result<OwnerDashboardDto>.Success(dashboard);
+    }
+
+    private List<TopCustomerDto> CalculateTopCustomers(IReadOnlyList<Domain.Entities.Booking> bookings)
+    {
+        return bookings
+            .Where(b => b.Status != BookingStatus.Cancelled)
+            .GroupBy(b => new { b.UserId, UserName = b.User != null ? b.User.FullName : "Khách hàng" })
+            .Select(group => new TopCustomerDto
+            {
+                UserId = group.Key.UserId,
+                UserName = group.Key.UserName,
+                Bookings = group.Count(),
+                TotalSpent = group.Sum(b => b.TotalPrice.Amount),
+                FavoritePitchType = group
+                    .Where(b => b.TimeSlot?.Pitch != null)
+                    .GroupBy(b => b.TimeSlot!.Pitch!.Type)
+                    .OrderByDescending(typeGroup => typeGroup.Count())
+                    .Select(typeGroup => typeGroup.Key.ToString())
+                    .FirstOrDefault() ?? "Unknown"
+            })
+            .OrderByDescending(customer => customer.Bookings)
+            .ThenByDescending(customer => customer.TotalSpent)
+            .ToList();
     }
 
     private List<PitchRevenueDto> CalculatePitchRevenue(IReadOnlyList<Domain.Entities.Booking> bookings)

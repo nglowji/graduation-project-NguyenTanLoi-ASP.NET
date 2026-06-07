@@ -115,11 +115,16 @@ public class GetOwnerDashboardStatsQueryHandler : IRequestHandler<GetOwnerDashbo
 
         var uniqueCustomers = thisMonthBookings.Select(b => b.UserId).Distinct().Count();
 
+        var totalReviews = pitches.Sum(p => p.TotalReviews);
+        var averageRating = totalReviews > 0
+            ? pitches.Sum(p => (double)p.AverageRating * p.TotalReviews) / totalReviews
+            : 0;
+
         return Result<OwnerDashboardStatsDto>.Success(new OwnerDashboardStatsDto(
             thisRevenue,
             confirmedThis.Count,
             uniqueCustomers,
-            0, // AverageRating
+            Math.Round(averageRating, 1),
             revenueChange,
             bookingsChange
         ));
@@ -146,6 +151,7 @@ public class GetOwnerBookingsQueryHandler : IRequestHandler<GetOwnerBookingsQuer
             b.User?.FullName ?? "Khách hàng",
             b.User?.PhoneNumber ?? "",
             b.TimeSlot?.Pitch?.Name ?? "N/A",
+            b.TimeSlot?.Pitch?.Type.ToString() ?? "Unknown",
             b.BookingDate.ToString("dd/MM/yyyy"),
             b.TimeSlot?.TimeRange.StartTime.ToString(@"hh\:mm") ?? "",
             b.TimeSlot?.TimeRange.EndTime.ToString(@"hh\:mm") ?? "",

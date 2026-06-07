@@ -149,8 +149,10 @@ const Bookings: React.FC = () => {
   const getCustomerPhone = (booking: BookingRow) =>
     booking.customerPhone || booking.user?.phoneNumber || booking.user?.email || 'Chưa có liên hệ';
 
-  const getPitchName = (booking: BookingRow) =>
-    booking.pitchName || booking.timeSlot?.pitch?.name || 'Sân thể thao';
+  const getPitchType = (booking: BookingRow) => {
+    const type = String(booking.timeSlot?.pitch?.type || '');
+    return ({ Football5: 'Bóng đá 5 người', Football7: 'Bóng đá 7 người', Football11: 'Bóng đá 11 người', Tennis: 'Tennis', Badminton: 'Cầu lông', Pickleball: 'Pickleball', Basketball: 'Bóng rổ', Volleyball: 'Bóng chuyền', TableTennis: 'Bóng bàn', '1': 'Bóng đá 5 người', '2': 'Bóng đá 7 người', '3': 'Bóng đá 11 người', '4': 'Tennis', '5': 'Cầu lông', '6': 'Pickleball', '7': 'Bóng rổ', '8': 'Bóng chuyền', '9': 'Bóng bàn' } as Record<string, string>)[type] || 'Thể thao';
+  };
 
   const getPitchAddress = (booking: BookingRow) =>
     booking.timeSlot?.pitch?.address || 'Chưa cập nhật địa chỉ';
@@ -218,13 +220,13 @@ const Bookings: React.FC = () => {
       const keywordMatch = !keyword || [
         getCustomerName(booking),
         getCustomerPhone(booking),
-        getPitchName(booking),
+        getPitchType(booking),
         booking.checkInCode,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(keyword));
       const dateMatch = !dateFilter || String(booking.bookingDate || '').slice(0, 10) === dateFilter;
-      const pitchMatch = pitchFilter === 'all' || getPitchName(booking) === pitchFilter;
+      const pitchMatch = pitchFilter === 'all' || getPitchType(booking) === pitchFilter;
       return keywordMatch && dateMatch && pitchMatch;
     }).sort((a, b) => {
       if (sortBy === 'amountDesc') return getTotal(b) - getTotal(a);
@@ -239,7 +241,7 @@ const Bookings: React.FC = () => {
     const maxPage = Math.max(Math.ceil(filteredBookings.length / pageSize), 1);
     if (page > maxPage) setPage(maxPage);
   }, [filteredBookings.length, page]);
-  const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchName))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
+  const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchType))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
 
   const counts = useMemo(() => {
     const total = bookings.length;
@@ -348,7 +350,7 @@ const Bookings: React.FC = () => {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-slate-900 dark:text-white">
                         <Activity size={15} className="mr-2 inline text-blue-600" />
-                        {getPitchName(booking)}
+                        {getPitchType(booking)}
                       </p>
                       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500">
                         <span className="inline-flex items-center gap-1.5">

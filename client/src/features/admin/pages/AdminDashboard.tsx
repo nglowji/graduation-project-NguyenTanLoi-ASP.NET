@@ -68,7 +68,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="overflow-hidden rounded-2xl border border-indigo-300 bg-indigo-700 text-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">System admin</p>
@@ -77,7 +77,7 @@ const AdminDashboard: React.FC = () => {
               Xin chào {user?.fullName || 'Admin'}, trang này chỉ hiển thị số liệu tổng quan nền tảng. Các thao tác kiểm duyệt, phân quyền và hỗ trợ nằm ở menu riêng.
             </p>
           </div>
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
+          <div className="rounded-2xl border border-amber-300 bg-amber-300 p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-widest text-indigo-700">Việc cấp thiết</p>
             <p className="mt-3 text-4xl font-black text-indigo-950">{formatNumber(stats?.pendingApprovals)}</p>
             <p className="mt-2 text-sm font-bold leading-6 text-indigo-700">
@@ -98,8 +98,8 @@ const AdminDashboard: React.FC = () => {
         {cards.map((item) => {
           const Icon = item.icon;
           return (
-            <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl border ${item.tone}`}>
+            <article key={item.label} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+              <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl border transition group-hover:scale-105 ${item.tone}`}>
                 <Icon size={23} />
               </div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>

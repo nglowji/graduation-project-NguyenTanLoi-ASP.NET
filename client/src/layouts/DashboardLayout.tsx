@@ -282,7 +282,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
           </div>
 
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-            <div className="flex items-center gap-2">
+            <div className="hidden">
               <div className="relative">
                 <button
                   type="button"

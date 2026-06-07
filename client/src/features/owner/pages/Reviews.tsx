@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/Pagination';
 import { slugify } from '../../../utils/slug';
 
 type OwnerReview = {
@@ -59,6 +60,8 @@ const Reviews: React.FC = () => {
   const [pitchFilter, setPitchFilter] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [replyFilter, setReplyFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const fetchReviews = useCallback(async () => {
     setIsLoading(true);
@@ -117,6 +120,13 @@ const Reviews: React.FC = () => {
     (ratingFilter === 'all' || r.rating === Number(ratingFilter)) &&
     (replyFilter === 'all' || (replyFilter === 'replied' ? Boolean(r.reply) : !r.reply))
   ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const pagedReviews = filteredReviews.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [searchTerm, pitchFilter, ratingFilter, replyFilter]);
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(filteredReviews.length / pageSize), 1);
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredReviews.length, page]);
 
   const stats = {
     average: reviews.length > 0
@@ -130,8 +140,8 @@ const Reviews: React.FC = () => {
     `/san/${review.pitchId}-${slugify(review.pitchName || 'san')}`;
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+    <div className="space-y-5 animate-in fade-in duration-300 pb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
@@ -204,17 +214,18 @@ const Reviews: React.FC = () => {
             <p className="text-slate-400 text-sm mt-2">Phản hồi từ khách hàng sẽ xuất hiện tại đây.</p>
           </div>
         ) : (
-          filteredReviews.map((review, index) => (
+          <>
+          {pagedReviews.map((review, index) => (
             <motion.div
               key={review.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800"
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 dark:border-slate-700 dark:bg-slate-800"
             >
-              <div className="flex flex-col lg:flex-row gap-8">
-                <div className="flex items-start gap-6 lg:w-1/3">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-600/20 shrink-0">
+              <div className="flex flex-col gap-4 lg:flex-row">
+                <div className="flex items-start gap-3 lg:w-1/3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-black text-white">
                     {review.userName[0]?.toUpperCase() || <User size={24} />}
                   </div>
                   <div className="space-y-2">
@@ -264,7 +275,7 @@ const Reviews: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="pt-8 flex flex-wrap justify-end gap-3">
+                  <div className="flex flex-wrap justify-end gap-2 pt-4">
                     <Link
                       to={getPitchDetailUrl(review)}
                       className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
@@ -284,7 +295,9 @@ const Reviews: React.FC = () => {
                 </div>
               </div>
             </motion.div>
-          ))
+          ))}
+          <Pagination page={page} totalItems={filteredReviews.length} pageSize={pageSize} onPageChange={setPage} label="đánh giá" />
+          </>
         )}
       </div>
 

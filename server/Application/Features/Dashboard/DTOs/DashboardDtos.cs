@@ -93,6 +93,7 @@ public record OwnerBookingDto(
     string CustomerName,
     string CustomerPhone,
     string PitchName,
+    string PitchType,
     string BookingDate,
     string StartTime,
     string EndTime,

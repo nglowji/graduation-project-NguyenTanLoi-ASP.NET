@@ -16,6 +16,7 @@ import { formatCompactAddress } from '../../../utils/address';
 import { getReadNotificationIds, saveReadNotificationIds } from '../../../utils/notifications';
 import { slugify } from '../../../utils/slug';
 import { useVietnamLocations, type Province, type District, type Ward } from '../../../hooks/useVietnamLocations';
+import Pagination from '../../../components/Pagination';
 
 type TabType = 'profile' | 'bookings' | 'notifications' | 'security';
 
@@ -71,6 +72,9 @@ const Profile: React.FC = () => {
   const [reviewsByBooking, setReviewsByBooking] = useState<Record<string, UserReviewItem>>({});
   const [bookingFilter, setBookingFilter] = useState('all');
   const [notificationFilter, setNotificationFilter] = useState('all');
+  const [bookingPage, setBookingPage] = useState(1);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const profilePageSize = 6;
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => getReadNotificationIds());
   const previousBookingStatusRef = useRef<Record<string, string>>({});
 
@@ -490,6 +494,7 @@ const Profile: React.FC = () => {
     if (bookingFilter === 'cancelled') return normalized.includes('cancel') || normalized === '3';
     return true;
   });
+  const pagedBookings = filteredBookings.slice((bookingPage - 1) * profilePageSize, bookingPage * profilePageSize);
 
   const notificationItems = [
     ...systemNotifications.map((item) => ({
@@ -523,6 +528,18 @@ const Profile: React.FC = () => {
     if (notificationFilter === 'new') return !item.isRead;
     return item.source === notificationFilter;
   });
+  const pagedNotificationItems = filteredNotificationItems.slice((notificationPage - 1) * profilePageSize, notificationPage * profilePageSize);
+
+  useEffect(() => { setBookingPage(1); }, [bookingFilter]);
+  useEffect(() => { setNotificationPage(1); }, [notificationFilter]);
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(filteredBookings.length / profilePageSize), 1);
+    if (bookingPage > maxPage) setBookingPage(maxPage);
+  }, [filteredBookings.length, bookingPage]);
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(filteredNotificationItems.length / profilePageSize), 1);
+    if (notificationPage > maxPage) setNotificationPage(maxPage);
+  }, [filteredNotificationItems.length, notificationPage]);
 
   useEffect(() => {
     if (activeTab !== 'notifications' || notificationItems.length === 0) return;
@@ -1037,7 +1054,7 @@ const Profile: React.FC = () => {
                         <p className="text-slate-400 font-bold">Đang tải lịch sử đặt sân...</p>
                       </div>
                     ) : filteredBookings.length > 0 ? (
-                      filteredBookings.map((item) => {
+                      pagedBookings.map((item) => {
                         const payment = paymentHistoryByBooking[item.id];
                         const paymentMeta = getPaymentStatusMeta(item);
                         const isExpanded = expandedBookingId === item.id;
@@ -1085,11 +1102,11 @@ const Profile: React.FC = () => {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiền cọc</p>
                                 <p className="text-sm font-black text-slate-950">{formatMoney(getBookingDepositAmount(item))}</p>
                               </div>
-                              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                              <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
-                                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
                                 >
                                   <Eye size={16} />
                                   {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
@@ -1098,7 +1115,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/booking-review/${item.id}`)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
                                   >
                                     <CreditCard size={16} />
                                     Thanh toán cọc
@@ -1108,7 +1125,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleCancelBooking(item)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-red-50 px-3 text-[10px] font-black uppercase tracking-widest text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2.5 text-xs font-bold text-red-600 transition hover:bg-red-100"
                                   >
                                     <X size={16} />
                                     Hủy đơn
@@ -1118,7 +1135,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => openReviewForm(item.id)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-amber-50 px-3 text-[10px] font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100 transition hover:bg-amber-500 hover:text-white"
+                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-2.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
                                   >
                                     <Star size={16} />
                                     Đánh giá
@@ -1305,6 +1322,15 @@ const Profile: React.FC = () => {
                         <button className="rounded-2xl bg-blue-600 px-8 py-4 text-sm font-black text-white transition-all hover:bg-blue-700">Khám phá sân ngay</button>
                       </div>
                     )}
+                    {filteredBookings.length > 0 && (
+                      <Pagination
+                        page={bookingPage}
+                        totalItems={filteredBookings.length}
+                        pageSize={profilePageSize}
+                        onPageChange={setBookingPage}
+                        label="đơn đặt sân"
+                      />
+                    )}
                   </motion.div>
                 )}
 
@@ -1347,7 +1373,7 @@ const Profile: React.FC = () => {
                     ) : filteredNotificationItems.length > 0 ? (
                       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                         <div className="divide-y divide-slate-100">
-                          {filteredNotificationItems.map((item) => (
+                          {pagedNotificationItems.map((item) => (
                             <button
                               key={item.id}
                               type="button"
@@ -1379,6 +1405,15 @@ const Profile: React.FC = () => {
                               {item.source === 'booking' && <ChevronRight size={16} className="mt-3 shrink-0 text-slate-300" />}
                             </button>
                           ))}
+                        </div>
+                        <div className="border-t border-slate-100 p-4">
+                          <Pagination
+                            page={notificationPage}
+                            totalItems={filteredNotificationItems.length}
+                            pageSize={profilePageSize}
+                            onPageChange={setNotificationPage}
+                            label="thông báo"
+                          />
                         </div>
                       </div>
                     ) : (

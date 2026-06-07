@@ -7,6 +7,7 @@ public class OwnerDashboardDto
     public List<BookingStatusStatDto> BookingStatusDistribution { get; set; } = new();
     public List<PitchRevenueDto> PitchRevenue { get; set; } = new();
     public List<RecentBookingDto> RecentBookings { get; set; } = new();
+    public List<TopCustomerDto> TopCustomers { get; set; } = new();
 }
 
 public class PitchRevenueDto
@@ -48,4 +49,13 @@ public class RecentBookingDto
     public string TimeRange { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
     public string Status { get; set; } = string.Empty;
+}
+
+public class TopCustomerDto
+{
+    public Guid UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public int Bookings { get; set; }
+    public decimal TotalSpent { get; set; }
+    public string FavoritePitchType { get; set; } = string.Empty;
 }
