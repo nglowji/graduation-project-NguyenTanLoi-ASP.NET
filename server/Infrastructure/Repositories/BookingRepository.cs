@@ -117,6 +117,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
+            .Include(b => b.Services)
             .Where(b => pitchIds.Contains(b.TimeSlot.PitchId) &&
                         b.BookingDate >= startDate &&
                         b.BookingDate <= endDate)

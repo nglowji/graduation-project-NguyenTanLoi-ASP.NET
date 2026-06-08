@@ -120,6 +120,7 @@ public record OwnerPitchSummaryDto(
     int TodayBookings,
     decimal TodayRevenue,
     double AverageRating,
+    int TotalReviews,
     string Address,
     string? MapLink,
     bool IsIndoor,

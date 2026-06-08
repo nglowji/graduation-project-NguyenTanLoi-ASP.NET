@@ -29,6 +29,8 @@ type BookingRow = {
     email?: string;
   };
   pitchName?: string;
+  pitchType?: string | number;
+  type?: string | number;
   timeSlot?: {
     startTime?: string;
     endTime?: string;
@@ -150,8 +152,8 @@ const Bookings: React.FC = () => {
     booking.customerPhone || booking.user?.phoneNumber || booking.user?.email || 'Chưa có liên hệ';
 
   const getPitchType = (booking: BookingRow) => {
-    const type = String(booking.timeSlot?.pitch?.type || '');
-    return ({ Football5: 'Bóng đá 5 người', Football7: 'Bóng đá 7 người', Football11: 'Bóng đá 11 người', Tennis: 'Tennis', Badminton: 'Cầu lông', Pickleball: 'Pickleball', Basketball: 'Bóng rổ', Volleyball: 'Bóng chuyền', TableTennis: 'Bóng bàn', '1': 'Bóng đá 5 người', '2': 'Bóng đá 7 người', '3': 'Bóng đá 11 người', '4': 'Tennis', '5': 'Cầu lông', '6': 'Pickleball', '7': 'Bóng rổ', '8': 'Bóng chuyền', '9': 'Bóng bàn' } as Record<string, string>)[type] || 'Thể thao';
+    const type = String(booking.pitchType ?? booking.type ?? booking.timeSlot?.pitch?.type ?? '');
+    return ({ Football5: 'Bóng đá 5 người', Football7: 'Bóng đá 7 người', Football11: 'Bóng đá 11 người', Tennis: 'Tennis', Badminton: 'Cầu lông', Pickleball: 'Pickleball', Basketball: 'Bóng rổ', Volleyball: 'Bóng chuyền', TableTennis: 'Bóng bàn', '1': 'Bóng đá 5 người', '2': 'Bóng đá 7 người', '3': 'Bóng đá 11 người', '4': 'Tennis', '5': 'Cầu lông', '6': 'Pickleball', '7': 'Bóng rổ', '8': 'Bóng chuyền', '9': 'Bóng bàn' } as Record<string, string>)[type] || booking.timeSlot?.pitch?.name || booking.pitchName || 'Chưa xác định loại sân';
   };
 
   const getPitchAddress = (booking: BookingRow) =>
@@ -242,7 +244,6 @@ const Bookings: React.FC = () => {
     if (page > maxPage) setPage(maxPage);
   }, [filteredBookings.length, page]);
   const pitchOptions = useMemo(() => Array.from(new Set(bookings.map(getPitchType))).sort((a, b) => a.localeCompare(b, 'vi')), [bookings]);
-  const visibleDates = useMemo(() => Array.from(new Set(filteredBookings.map((booking) => String(booking.bookingDate || '').slice(0, 10)).filter(Boolean))).slice(0, 6), [filteredBookings]);
 
   const counts = useMemo(() => {
     const total = bookings.length;
@@ -278,23 +279,9 @@ const Bookings: React.FC = () => {
         </div>
       </header>
 
-      <section className="grid gap-5 xl:grid-cols-[270px_minmax(0,1fr)]">
-      <aside className="h-fit rounded-2xl border border-blue-100 bg-white p-4 shadow-sm xl:sticky xl:top-5 dark:border-slate-800 dark:bg-slate-900">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">Bộ điều khiển lịch</p>
-        <div className="grid gap-2">
-          {tabs.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-black transition ${tab === item.id ? 'bg-blue-700 text-white shadow-sm' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}><span>{item.label}</span>{tab === item.id && <span className="h-2 w-2 rounded-full bg-cyan-300" />}</button>)}
-        </div>
-        <div className="my-4 border-t border-slate-100" />
-        <label className="block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày thi đấu</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300" /></label>
-        <label className="mt-3 block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Bộ môn</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300"><option value="all">Tất cả bộ môn</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
-        <label className="mt-3 block"><span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-blue-300"><option value="dateDesc">Mới nhất</option><option value="dateAsc">Cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
-        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-rose-50 text-xs font-black text-rose-600 hover:bg-rose-600 hover:text-white"><XCircle size={14} />Xóa bộ lọc</button>}
-      </aside>
-
-      <div className="min-w-0 space-y-4">
       <section className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="hidden flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+          <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
             {tabs.map((item) => (
               <button
                 key={item.id}
@@ -321,14 +308,13 @@ const Bookings: React.FC = () => {
             />
           </div>
         </div>
-        <div className="hidden mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3 dark:border-slate-800">
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white" /></label>
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
           <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
         </div>
         {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
-      {visibleDates.length > 0 && <div className="flex gap-2 overflow-x-auto pb-1">{visibleDates.map((date) => <button key={date} onClick={() => setDateFilter(dateFilter === date ? '' : date)} className={`shrink-0 rounded-xl border px-4 py-3 text-left transition ${dateFilter === date ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}><span className="block text-[10px] font-black uppercase tracking-widest opacity-70">Ngày chơi</span><b className="mt-1 block text-sm">{formatDate(date)}</b></button>)}</div>}
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {isLoading ? (
@@ -549,8 +535,6 @@ const Bookings: React.FC = () => {
             <Pagination page={page} totalItems={filteredBookings.length} pageSize={pageSize} onPageChange={setPage} label="đơn đặt sân" />
           </div>
         )}
-      </section>
-      </div>
       </section>
     </div>
   );

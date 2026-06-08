@@ -93,6 +93,7 @@ const ExploreFields: React.FC = () => {
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
+      if (isNearMe && !coords) return;
       setIsLoading(true);
       setError('');
       try {

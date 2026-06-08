@@ -32,6 +32,12 @@ public class GetAdminDashboardStatsQueryHandlerTests
             .ReturnsAsync(new List<Booking>());
         _pitchRepoMock.Setup(r => r.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, It.IsAny<CancellationToken>()))
             .ReturnsAsync(PagedResult<Pitch>.Empty());
+        _contextMock.Setup(c => c.Users)
+            .Returns(CreateAsyncDbSet(Array.Empty<User>()));
+        _contextMock.Setup(c => c.Pitches)
+            .Returns(CreateAsyncDbSet(Array.Empty<Pitch>()));
+        _contextMock.Setup(c => c.Bookings)
+            .Returns(CreateAsyncDbSet(Array.Empty<Booking>()));
         _contextMock.Setup(c => c.SportCenters)
             .Returns(CreateAsyncDbSet(Array.Empty<SportCenter>()));
 

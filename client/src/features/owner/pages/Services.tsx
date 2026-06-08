@@ -237,7 +237,15 @@ const Services: React.FC = () => {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {([
+            ['all', 'Tất cả'],
+            ['in', 'Còn hàng'],
+            ['low', 'Sắp hết'],
+            ['out', 'Hết hàng'],
+          ] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setStockFilter(id)} className={`rounded-full px-4 py-2 text-xs font-black transition ${stockFilter === id ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}>{label}</button>)}
+        </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -433,9 +441,9 @@ const Services: React.FC = () => {
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="relative grid max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[320px_minmax(0,1fr)]"
+              className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             >
-              <aside className="hidden bg-slate-950 p-6 text-white lg:block">
+              <aside className="hidden">
                 <div className="flex h-full flex-col justify-between">
                   <div>
                     <div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-white/10">

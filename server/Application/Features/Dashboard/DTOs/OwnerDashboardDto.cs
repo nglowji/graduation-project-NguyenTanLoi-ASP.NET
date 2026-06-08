@@ -8,6 +8,15 @@ public class OwnerDashboardDto
     public List<PitchRevenueDto> PitchRevenue { get; set; } = new();
     public List<RecentBookingDto> RecentBookings { get; set; } = new();
     public List<TopCustomerDto> TopCustomers { get; set; } = new();
+    public List<TopServiceDto> TopServices { get; set; } = new();
+}
+
+public class TopServiceDto
+{
+    public Guid ServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public int QuantitySold { get; set; }
+    public decimal Revenue { get; set; }
 }
 
 public class PitchRevenueDto
@@ -22,6 +31,8 @@ public class PitchRevenueDto
 public class SummaryStatsDto
 {
     public decimal TotalRevenue { get; set; }
+    public decimal ServiceRevenue { get; set; }
+    public int ServicesSold { get; set; }
     public int TotalBookings { get; set; }
     public int ActivePitches { get; set; }
     public double OccupancyRate { get; set; }

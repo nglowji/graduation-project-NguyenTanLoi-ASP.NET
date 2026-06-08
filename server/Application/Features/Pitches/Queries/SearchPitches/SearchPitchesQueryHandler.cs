@@ -23,6 +23,8 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         SearchPitchesQuery request,
         CancellationToken cancellationToken)
     {
+        var pageNumber = Math.Max(request.PageNumber, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 40);
         var query = _pitchRepository.AsQueryable();
 
         // 1. Apply Filters (at Database level)
@@ -33,8 +35,8 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
 
         // 3. Apply Sorting and Pagination (at Database level)
         var pagedQuery = ApplySorting(query, request.SortBy)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize);
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize);
 
         // 4. Project to DTO (at Database level - No SELECT *)
         var items = await pagedQuery
@@ -49,8 +51,8 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         var result = new PagedResult<PitchDto>(
             items,
             totalCount,
-            request.PageNumber,
-            request.PageSize
+            pageNumber,
+            pageSize
         );
 
         return Result<PagedResult<PitchDto>>.Success(result);
@@ -116,7 +118,9 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
 
         if (request.MinRating.HasValue)
         {
-            filtered = filtered.Where(p => p.AverageRating >= request.MinRating.Value);
+            filtered = filtered.Where(p =>
+                p.Reviews.Any() &&
+                p.Reviews.Average(review => review.Rating) >= (double)request.MinRating.Value);
         }
 
         if (request.MinPrice.HasValue || request.MaxPrice.HasValue)
@@ -173,11 +177,11 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         return sortBy?.ToLowerInvariant() switch
         {
             "price_asc" => query.OrderBy(p => p.TimeSlots.Where(ts => ts.IsActive).Select(ts => (decimal?)ts.Price.Amount).Min() ?? decimal.MaxValue)
-                .ThenByDescending(p => p.AverageRating),
+                .ThenByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0),
             "price_desc" => query.OrderByDescending(p => p.TimeSlots.Where(ts => ts.IsActive).Select(ts => (decimal?)ts.Price.Amount).Min() ?? 0)
-                .ThenByDescending(p => p.AverageRating),
+                .ThenByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0),
             "newest" => query.OrderByDescending(p => p.CreatedAt),
-            _ => query.OrderByDescending(p => p.AverageRating).ThenByDescending(p => p.CreatedAt)
+            _ => query.OrderByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0).ThenByDescending(p => p.CreatedAt)
         };
     }
 

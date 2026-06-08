@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Award, CalendarDays, CreditCard, Download, Filter, Loader2, Medal, TrendingUp, Trophy, Wallet } from 'lucide-react';
 import api from '../../../services/api';
-import Pagination from '../../../components/Pagination';
 
 type FilterMode = 'all' | 'week' | 'month' | 'year';
 type RevenuePoint = { date: string; amount: number };
@@ -10,7 +9,8 @@ type StatusPoint = { status: string; count: number };
 type PitchRevenue = { pitchId: string; pitchName: string; pitchType: string; revenue: number; bookings: number };
 type RecentBooking = { id: string; pitchName: string; pitchType?: string; userName: string; bookingDate: string; timeRange: string; totalPrice: number; status: string };
 type TopCustomer = { userId: string; userName: string; bookings: number; totalSpent: number; favoritePitchType?: string };
-type RevenueData = { summary: { totalRevenue: number; totalBookings: number; activePitches: number; occupancyRate: number }; revenueChart: RevenuePoint[]; bookingStatusDistribution: StatusPoint[]; pitchRevenue: PitchRevenue[]; recentBookings: RecentBooking[]; topCustomers: TopCustomer[] };
+type TopService = { serviceId: string; serviceName: string; quantitySold: number; revenue: number };
+type RevenueData = { summary: { totalRevenue: number; serviceRevenue: number; servicesSold: number; totalBookings: number; activePitches: number; occupancyRate: number }; revenueChart: RevenuePoint[]; bookingStatusDistribution: StatusPoint[]; pitchRevenue: PitchRevenue[]; recentBookings: RecentBooking[]; topCustomers: TopCustomer[]; topServices: TopService[] };
 
 const today = new Date();
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -29,8 +29,6 @@ const Revenue: React.FC = () => {
   const [week, setWeek] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return iso(date); });
   const [month, setMonth] = useState(() => iso(today).slice(0, 7));
   const [year, setYear] = useState(String(today.getFullYear()));
-  const [customerPage, setCustomerPage] = useState(1);
-  const customerPageSize = 6;
   const range = () => {
     if (mode === 'all') return { fromDate: '2000-01-01', toDate: iso(today) };
     if (mode === 'week') { const start = new Date(`${week}T00:00:00`); const end = new Date(start); end.setDate(end.getDate() + 6); return { fromDate: iso(start), toDate: iso(end) }; }
@@ -43,8 +41,7 @@ const Revenue: React.FC = () => {
   const statuses = data?.bookingStatusDistribution || [];
   const recent = data?.recentBookings || [];
   const topCustomers = data?.topCustomers || [];
-  const pagedCustomers = topCustomers.slice((customerPage - 1) * customerPageSize, customerPage * customerPageSize);
-  useEffect(() => { setCustomerPage(1); }, [mode, week, month, year]);
+  const topServices = data?.topServices || [];
   const byType = useMemo(() => Array.from((data?.pitchRevenue || []).reduce((map, pitch) => {
     const label = typeLabel(pitch.pitchType); const item = map.get(label) || { label, revenue: 0, bookings: 0 };
     item.revenue += Number(pitch.revenue); item.bookings += Number(pitch.bookings); map.set(label, item); return map;
@@ -71,7 +68,7 @@ const Revenue: React.FC = () => {
   const donut = byType.map((item, index) => { const share = total ? item.revenue / total : 0; const segment = { ...item, color: colors[index % colors.length], dash: share * circumference, offset: -donutOffset }; donutOffset += share * circumference; return segment; });
 
   if (loading) return <div className="flex min-h-[560px] flex-col items-center justify-center gap-5"><Loader2 className="animate-spin text-blue-600" size={44} /><p className="text-xs font-black uppercase tracking-widest text-slate-400">Đang tổng hợp doanh thu</p></div>;
-  return <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-[1500px] space-y-5 overflow-hidden pb-16">
+  return <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mx-auto flex max-w-[1500px] flex-col gap-5 overflow-hidden pb-16">
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div><p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Báo cáo vận hành</p><h1 className="mt-2 text-3xl font-black text-slate-950">Doanh thu sân</h1><p className="mt-2 text-sm font-semibold text-slate-500">Theo dõi tiền thu, đơn đặt và hiệu quả theo từng loại sân.</p></div>
       <button className="inline-flex h-11 w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:border-blue-200 hover:text-blue-700"><Download size={16} />Xuất báo cáo</button>
@@ -91,7 +88,9 @@ const Revenue: React.FC = () => {
       { label: 'Doanh thu hoàn thành', value: money(total), icon: Wallet, tone: 'border-blue-200 bg-blue-50 text-blue-700' },
       { label: 'Đơn trong kỳ', value: String(data?.summary.totalBookings || 0), icon: CreditCard, tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
       { label: 'Loại sân có doanh thu', value: String(byType.length), icon: Activity, tone: 'border-amber-200 bg-amber-50 text-amber-700' },
-      { label: 'Tỷ lệ lấp đầy', value: `${Number(data?.summary.occupancyRate || 0).toFixed(1)}%`, icon: TrendingUp, tone: 'border-violet-200 bg-violet-50 text-violet-700' },
+      { label: 'Doanh thu dịch vụ', value: money(data?.summary.serviceRevenue), icon: TrendingUp, tone: 'border-violet-200 bg-violet-50 text-violet-700' },
+      { label: 'Sản phẩm đã bán', value: String(data?.summary.servicesSold || 0), icon: Trophy, tone: 'border-orange-200 bg-orange-50 text-orange-700' },
+      { label: 'Giá trị trung bình đơn', value: money((data?.summary.totalBookings || 0) ? total / Number(data?.summary.totalBookings || 1) : 0), icon: Award, tone: 'border-cyan-200 bg-cyan-50 text-cyan-700' },
     ].map(item => <article key={item.label} className={`rounded-2xl border p-4 ${item.tone}`}><item.icon size={20} /><p className="mt-4 text-[10px] font-black uppercase tracking-widest text-slate-500">{item.label}</p><p className="mt-2 truncate text-2xl font-black text-slate-950">{item.value}</p></article>)}</section>
     <section className="grid min-w-0 gap-5 xl:grid-cols-[1.35fr_0.65fr]">
       <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Xu hướng doanh thu</h2><p className="mt-1 text-xs font-bold text-slate-400">Doanh thu hoàn thành theo thời gian</p><div className="mt-5 w-full overflow-hidden"><svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="block h-auto w-full min-w-0" role="img" aria-label="Biểu đồ xu hướng doanh thu">{[0, .25, .5, .75, 1].map(value => <g key={value}><line x1={left} x2={chartWidth - right} y1={top + plotHeight * value} y2={top + plotHeight * value} stroke="#dbeafe" strokeDasharray="4 5" /><text x={left - 8} y={top + plotHeight * value + 4} textAnchor="end" fontSize="10" fontWeight="700" fill="#94a3b8">{compactMoney(maxChart * (1 - value))}</text></g>)}<line x1={left} x2={left} y1={top} y2={top + plotHeight} stroke="#bfdbfe" /><line x1={left} x2={chartWidth - right} y1={top + plotHeight} y2={top + plotHeight} stroke="#bfdbfe" /><polyline points={points} fill="none" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />{fullChart.map((item, index) => { const x = left + (fullChart.length === 1 ? plotWidth / 2 : index / (fullChart.length - 1) * plotWidth); const y = top + plotHeight - item.amount / maxChart * plotHeight; const showLabel = fullChart.length <= 12 || index % Math.ceil(fullChart.length / 8) === 0 || index === fullChart.length - 1; return <g key={item.date}><circle cx={x} cy={y} r="4" fill="white" stroke={item.amount ? '#2563eb' : '#cbd5e1'} strokeWidth="3"><title>{item.date}: {money(item.amount)}</title></circle>{showLabel && <text x={x} y={chartHeight - 10} textAnchor="middle" fontSize="9" fontWeight="700" fill="#94a3b8">{item.date.slice(5)}</text>}</g>; })}</svg></div></article>
@@ -101,15 +100,15 @@ const Revenue: React.FC = () => {
       <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Doanh thu theo loại sân</h2><p className="mt-1 text-xs font-bold text-slate-400">So sánh doanh thu và số đơn hoàn thành</p><div className="mt-6 space-y-5">{byType.map((item, index) => <div key={item.label}><div className="mb-2 flex flex-wrap justify-between gap-2 text-xs font-black"><span>{item.label}</span><span className="text-slate-400">{item.bookings} đơn · {money(item.revenue)}</span></div><div className="h-3 overflow-hidden rounded-full bg-slate-100"><motion.div initial={{ width: 0 }} animate={{ width: `${item.revenue / maxType * 100}%` }} className={`h-full rounded-full ${bars[index % bars.length]}`} /></div></div>)}</div>{!byType.length && <p className="mt-6 text-sm font-bold text-slate-400">Chưa có doanh thu trong kỳ đã chọn.</p>}</article>
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Cơ cấu doanh thu</h2><p className="mt-1 text-xs font-bold text-slate-400">Tỷ trọng theo loại sân</p><div className="mt-5 grid gap-5 sm:grid-cols-[170px_1fr] sm:items-center"><div className="relative mx-auto h-40 w-40"><svg viewBox="0 0 120 120" className="-rotate-90"><circle cx="60" cy="60" r="46" fill="none" stroke="#eff6ff" strokeWidth="16" />{donut.map(item => <circle key={item.label} cx="60" cy="60" r="46" fill="none" stroke={item.color} strokeWidth="16" strokeDasharray={`${item.dash} ${circumference - item.dash}`} strokeDashoffset={item.offset} />)}</svg><div className="absolute inset-0 grid place-items-center text-center"><div><p className="text-base font-black">{money(total)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Tổng thu</p></div></div></div><div className="space-y-3">{donut.map(item => <div key={item.label} className="flex items-center justify-between gap-2 text-xs font-black"><span className="flex min-w-0 items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><span className="truncate">{item.label}</span></span><span className="shrink-0 text-slate-400">{total ? Math.round(item.revenue / total * 100) : 0}%</span></div>)}</div></div></article>
     </section>
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black">Giao dịch gần đây</h2><p className="mt-1 text-xs font-bold text-slate-400">Đối soát nhanh các đơn mới nhất</p></div><CalendarDays className="shrink-0 text-blue-600" size={21} /></div><div className="mt-4 divide-y divide-slate-100">{recent.slice(0, 8).map(item => <div key={item.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_145px_105px_125px] sm:items-center"><div className="min-w-0"><p className="truncate font-black">{typeLabel(item.pitchType)}</p><p className="mt-1 truncate text-xs font-bold text-slate-400">{item.userName}</p></div><span className="text-xs font-bold text-slate-500">{item.bookingDate} · {item.timeRange}</span><span className="text-xs font-black text-slate-600">{statusLabel(item.status)}</span><span className="font-black sm:text-right">{money(item.totalPrice)}</span></div>)}</div>{!recent.length && <p className="mt-5 text-sm font-bold text-slate-400">Chưa có giao dịch trong kỳ đã chọn.</p>}</section>
-    <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+    <section className="order-9 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black">Giao dịch gần đây</h2><p className="mt-1 text-xs font-bold text-slate-400">Đối soát nhanh các đơn mới nhất</p></div><CalendarDays className="shrink-0 text-blue-600" size={21} /></div><div className="mt-4 divide-y divide-slate-100">{recent.slice(0, 8).map(item => <div key={item.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_145px_105px_125px] sm:items-center"><div className="min-w-0"><p className="truncate font-black">{typeLabel(item.pitchType)}</p><p className="mt-1 truncate text-xs font-bold text-slate-400">{item.userName}</p></div><span className="text-xs font-bold text-slate-500">{item.bookingDate} · {item.timeRange}</span><span className="text-xs font-black text-slate-600">{statusLabel(item.status)}</span><span className="font-black sm:text-right">{money(item.totalPrice)}</span></div>)}</div>{!recent.length && <p className="mt-5 text-sm font-bold text-slate-400">Chưa có giao dịch trong kỳ đã chọn.</p>}</section>
+    <section className="order-7 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-lg font-black">Khách hàng thân thiết</h2><p className="mt-1 text-xs font-bold text-slate-400">Top 3 khách đặt sân nhiều nhất trong kỳ đang chọn</p></div>
+        <div><h2 className="text-lg font-black">Khách hàng thân thiết</h2><p className="mt-1 text-xs font-bold text-slate-400">Toàn bộ khách hàng trong kỳ, xếp hạng theo số đơn và tổng chi tiêu</p></div>
         <Trophy className="text-amber-500" size={22} />
       </div>
       {topCustomers.length ? <div className="mt-5 grid gap-3 lg:grid-cols-3">
-        {pagedCustomers.map((customer, index) => {
-          const rank = (customerPage - 1) * customerPageSize + index;
+        {topCustomers.map((customer, index) => {
+          const rank = index;
           const RankIcon = rank === 0 ? Trophy : rank === 1 ? Medal : Award;
           const tone = rank === 0 ? 'border-amber-300 bg-amber-50 text-amber-700' : rank === 1 ? 'border-slate-300 bg-slate-50 text-slate-700' : rank === 2 ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-blue-100 bg-white text-blue-700';
           return <article key={customer.userId} className={`rounded-2xl border p-4 ${tone}`}>
@@ -118,7 +117,11 @@ const Revenue: React.FC = () => {
           </article>;
         })}
       </div> : <p className="mt-5 rounded-xl bg-slate-50 p-5 text-sm font-bold text-slate-400">Chưa có khách hàng hoàn thành đơn trong kỳ đã chọn.</p>}
-      <Pagination page={customerPage} totalItems={topCustomers.length} pageSize={customerPageSize} onPageChange={setCustomerPage} label="khách hàng" />
+    </section>
+    <section className="order-6 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">Dịch vụ bán chạy</h2><p className="mt-1 text-xs font-bold text-slate-400">Số lượng và doanh thu dịch vụ từ các đơn hợp lệ trong kỳ</p></div><div className="flex gap-2"><span className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">{data?.summary.servicesSold || 0} sản phẩm</span><span className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">{money(data?.summary.serviceRevenue)}</span></div></div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{topServices.slice(0, 6).map((service, index) => <article key={service.serviceId} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-start justify-between gap-3"><span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-100 text-xs font-black text-amber-700">#{index + 1}</span><p className="text-sm font-black text-emerald-700">{money(service.revenue)}</p></div><p className="mt-4 truncate text-sm font-black">{service.serviceName}</p><p className="mt-1 text-xs font-bold text-slate-400">{service.quantitySold} sản phẩm đã bán</p></article>)}</div>
+      {!topServices.length && <p className="mt-5 rounded-xl bg-slate-50 p-5 text-sm font-bold text-slate-400">Chưa có dịch vụ được bán trong kỳ đã chọn.</p>}
     </section>
   </motion.div>;
 };

@@ -19,6 +19,7 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .Include(p => p.SportCenter)
             .Include(p => p.TimeSlots)
             .Include(p => p.Images)
+            .Include(p => p.Reviews)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
@@ -29,6 +30,7 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .Include(p => p.SportCenter)
             .Include(p => p.TimeSlots)
             .Include(p => p.Images)
+            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
     }
 
@@ -54,12 +56,13 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(p => p.AverageRating)
+            .OrderByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0)
             .ThenByDescending(p => p.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Include(p => p.Images)
             .Include(p => p.SportCenter)
+            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Pitch>(items, totalCount, pageNumber, pageSize);
@@ -75,6 +78,7 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .Include(p => p.Images)
             .Include(p => p.TimeSlots)
             .Include(p => p.SportCenter)
+            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
     }
 
@@ -97,6 +101,7 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         var pitches = await query
             .Include(p => p.Images)
             .Include(p => p.SportCenter)
+            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
 
         // Filter by distance in memory (Haversine formula in Address value object)
@@ -186,7 +191,9 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
 
         if (minRating.HasValue)
         {
-            query = query.Where(p => p.AverageRating >= minRating.Value);
+            query = query.Where(p =>
+                p.Reviews.Any() &&
+                p.Reviews.Average(review => review.Rating) >= (double)minRating.Value);
         }
 
         // Price filtering based on TimeSlots
@@ -201,10 +208,11 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(p => p.AverageRating)
+            .OrderByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0)
             .ThenByDescending(p => p.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Pitch>(items, totalCount, pageNumber, pageSize);

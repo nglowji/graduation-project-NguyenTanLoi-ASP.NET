@@ -135,24 +135,26 @@ const Reviews: React.FC = () => {
     total: reviews.length,
     replied: reviews.filter(r => r.reply).length
   };
+  const pendingReviews = reviews.filter(review => !review.reply).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getPitchDetailUrl = (review: OwnerReview) =>
     `/san/${review.pitchId}-${slugify(review.pitchName || 'san')}`;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300 pb-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <header className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-700 text-white shadow-lg shadow-blue-950/10">
+        <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Public Feedback</span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Đánh giá khách hàng</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Lắng nghe và tương tác với cộng đồng người chơi.</p>
+          <h1 className="text-3xl font-black tracking-tight">Đánh giá khách hàng</h1>
+          <p className="text-sm font-semibold text-blue-100">Ưu tiên phản hồi sớm và theo dõi trải nghiệm riêng từng loại sân.</p>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-6 py-4 rounded-3xl flex items-center gap-6 shadow-sm group hover:border-blue-600/20 transition-all">
+          <div className="flex items-center gap-4 rounded-xl bg-white/10 px-5 py-3">
             <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
               <Star className="fill-current" size={24} />
             </div>
@@ -163,7 +165,7 @@ const Reviews: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="hidden lg:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-6 py-4 rounded-3xl items-center gap-6 shadow-sm">
+          <div className="hidden items-center gap-4 rounded-xl bg-emerald-300 px-5 py-3 text-blue-950 lg:flex">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
               <CheckCheck size={24} />
             </div>
@@ -172,8 +174,13 @@ const Reviews: React.FC = () => {
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">Đã phản hồi</p>
             </div>
           </div>
-        </div>
+        </div></div>
       </header>
+
+      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-rose-600">Cần phản hồi</p><h2 className="mt-1 text-xl font-black">{pendingReviews.length} đánh giá đang chờ trả lời</h2></div><button type="button" onClick={() => setReplyFilter('pending')} className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-black text-white">Xem tất cả cần trả lời</button></div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{pendingReviews.slice(0, 3).map(review => <button key={review.id} type="button" onClick={() => openReplyModal(review)} className="rounded-xl border border-rose-100 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-black">{review.userName}</p><span className="flex text-amber-400">{Array.from({ length: review.rating }).map((_, index) => <Star key={index} size={12} className="fill-current" />)}</span></div><p className="mt-2 text-[10px] font-black uppercase tracking-widest text-blue-600">{pitchTypeLabel(review.pitchType)}</p><p className="mt-3 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{review.comment}</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-black text-rose-600"><MessageSquare size={14} />Trả lời ngay</span></button>)}</div>
+      </section>
 
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/50 md:flex-row">
         <div className="relative flex-1 group/search">
