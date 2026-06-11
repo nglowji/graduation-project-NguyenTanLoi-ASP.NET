@@ -1,56 +1,178 @@
-import React from 'react';
-import { CheckCircle2, Flag, Image, MessageSquareWarning, Star, Store } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Clock3, Filter, MapPin, PackageCheck, Search, ShieldCheck, Star, Store, Trash2, UserRound, X } from 'lucide-react';
+import api from '../../../services/api';
 
-const queues = [
-  { title: 'Thông tin sân mới', desc: 'Kiểm tra tên sân, địa chỉ, loại sân, mô tả và khung giờ trước khi cho hiển thị.', icon: Store, count: 0, tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  { title: 'Hình ảnh sân', desc: 'Loại ảnh mờ, sai nội dung, ảnh không phải cơ sở thể thao hoặc vi phạm bản quyền.', icon: Image, count: 0, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  { title: 'Đánh giá, bình luận', desc: 'Ẩn đánh giá spam, công kích cá nhân hoặc thông tin nhạy cảm.', icon: Star, count: 0, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { title: 'Báo cáo vi phạm', desc: 'Xử lý báo cáo từ người dùng về sân, chủ sân, booking hoặc hành vi gian lận.', icon: MessageSquareWarning, count: 0, tone: 'bg-rose-50 text-rose-700 border-rose-100' },
-];
+type Tab = 'pitches' | 'services' | 'reviews';
+type Pitch = { id: string; pitchName: string; ownerName: string; ownerEmail: string; pitchType: string; address: string; submittedAt: string; status: string };
+type Service = { id: string; name: string; price: number; stockQuantity: number; sportCenterName: string; status: string; createdAt?: string };
+type Review = { id: string; rating: number; comment?: string; ownerReply?: string; userName: string; userEmail: string; pitchName: string; pitchType: string; sportCenterName: string; createdAt: string };
 
-const ContentModeration: React.FC = () => (
-  <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-600">Moderation center</p>
-      <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Kiểm duyệt nội dung</h1>
-      <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-        Quản lý thông tin sân mới, hình ảnh sân, đánh giá, bình luận và báo cáo vi phạm. Các hàng chờ này đã sẵn sàng để nối endpoint kiểm duyệt chi tiết.
-      </p>
-    </section>
+const money = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+const date = (value?: string) => {
+  if (!value) return 'Chưa rõ ngày';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('vi-VN');
+};
+const sport = (value?: string) => ({
+  OwnerRegistration: 'Hồ sơ chủ sân',
+  Football5: 'Bóng đá 5 người',
+  Football7: 'Bóng đá 7 người',
+  Football11: 'Bóng đá 11 người',
+  Badminton: 'Cầu lông',
+  Pickleball: 'Pickleball',
+  Tennis: 'Tennis',
+  Basketball: 'Bóng rổ',
+  Volleyball: 'Bóng chuyền',
+  TableTennis: 'Bóng bàn',
+} as Record<string, string>)[String(value || '')] || value || 'Nội dung';
 
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {queues.map((item) => {
-        const Icon = item.icon;
-        return (
-          <article key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl border ${item.tone}`}>
-              <Icon size={22} />
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-black text-slate-950 dark:text-white">{item.title}</h2>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{item.count}</span>
-            </div>
-            <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{item.desc}</p>
-            <button className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700">
-              <Flag size={16} />
-              Xem hàng chờ
-            </button>
-          </article>
-        );
-      })}
-    </section>
+const ContentModeration: React.FC = () => {
+  const [tab, setTab] = useState<Tab>('pitches');
+  const [status, setStatus] = useState('pending');
+  const [search, setSearch] = useState('');
+  const [rating, setRating] = useState('');
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
 
-    <section className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-      <div className="flex items-start gap-3">
-        <CheckCircle2 className="mt-0.5 text-emerald-700" size={22} />
-        <div>
-          <h2 className="font-black text-emerald-950">Nguyên tắc kiểm duyệt</h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800">
-            Nội dung hợp lệ phải đúng sân, đúng địa chỉ, không lừa đảo, không công kích cá nhân và không chứa thông tin nhạy cảm.
-          </p>
+  const load = useCallback(async () => {
+    setLoading(true);
+    setMessage('');
+    try {
+      if (tab === 'pitches') {
+        const result = await api.get('/admin/pitch-approvals', { params: { status } }) as any;
+        setItems(result?.items || []);
+      } else if (tab === 'services') {
+        const result = await api.get('/admin/service-approvals', { params: { status, search: search || undefined } }) as Service[];
+        setItems(result || []);
+      } else {
+        const result = await api.get('/admin/reviews', { params: { search: search || undefined, rating: rating || undefined, pageSize: 60 } }) as any;
+        setItems(result?.items || []);
+      }
+    } catch {
+      setItems([]);
+      setMessage('Không thể tải dữ liệu kiểm duyệt.');
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, status, search, rating]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(load, 220);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const runAction = async (url: string, method: 'patch' | 'delete', success: string) => {
+    if (method === 'delete' && !window.confirm('Xác nhận xóa nội dung này?')) return;
+    try {
+      await api[method](url);
+      setMessage(success);
+      load();
+    } catch {
+      setMessage('Thao tác thất bại. Vui lòng thử lại.');
+    }
+  };
+
+  const counts = useMemo(() => ({
+    visible: items.length,
+    pending: tab !== 'reviews' && status === 'pending' ? items.length : 0,
+    reviewBad: tab === 'reviews' ? items.filter((item: Review) => item.rating <= 3).length : 0,
+  }), [items, status, tab]);
+
+  const tabs = [
+    { id: 'pitches', label: 'Sân owner tạo', icon: Store, desc: 'Duyệt từng sân trước khi hoạt động' },
+    { id: 'services', label: 'Dịch vụ', icon: PackageCheck, desc: 'Duyệt hàng bán kèm' },
+    { id: 'reviews', label: 'Đánh giá', icon: Star, desc: 'Ẩn hoặc xóa vi phạm' },
+  ] as const;
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
+      <header className="border-b border-slate-200 pb-5">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-blue-700"><ShieldCheck size={18} /> Kiểm duyệt nội dung</div>
+            <h1 className="mt-3 text-3xl font-black text-slate-950">Kiểm duyệt sân và nội dung do chủ sân tạo</h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">Mỗi sân mới ở trạng thái chờ duyệt. Chỉ sau khi admin xác minh, sân mới được kích hoạt và xuất hiện với khách hàng.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-sm font-black">
+            <span className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-700">Hiển thị: {counts.visible}</span>
+            <span className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">Chờ duyệt: {counts.pending}</span>
+            <span className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">Sao thấp: {counts.reviewBad}</span>
+          </div>
         </div>
-      </div>
-    </section>
+      </header>
+
+      <section className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+        {tabs.map(({ id, label, icon: Icon, desc }) => (
+          <button key={id} onClick={() => setTab(id)} title={desc} className={`inline-flex h-12 items-center gap-2 rounded-xl px-4 text-sm font-black transition ${tab === id ? 'bg-blue-700 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'}`}>
+            <Icon size={18} />
+            {label}
+          </button>
+        ))}
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-2 text-sm font-black text-slate-700"><Filter size={18} className="text-blue-700" /> Bộ lọc kiểm duyệt</div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {tab !== 'reviews' && <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"><option value="pending">Đang chờ duyệt</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></select>}
+            {tab === 'reviews' && <select value={rating} onChange={(event) => setRating(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"><option value="">Tất cả đánh giá</option>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} sao</option>)}</select>}
+            {tab !== 'pitches' && <label className="relative"><Search className="absolute left-3 top-3 text-slate-400" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên, sân, nội dung..." className="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm font-semibold text-slate-700 sm:w-72" /></label>}
+          </div>
+        </div>
+
+        {message && <div className="border-b border-blue-100 bg-blue-50 px-5 py-3 text-sm font-bold text-blue-700">{message}</div>}
+
+        {tab === 'pitches' && !loading && items.length > 0 && <div className="hidden grid-cols-[minmax(220px,.8fr)_minmax(240px,.8fr)_minmax(280px,1.2fr)_150px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-400 xl:grid"><span>Sân và bộ môn</span><span>Chủ sân</span><span>Địa chỉ</span><span className="text-right">Xử lý</span></div>}
+        <div className="divide-y divide-slate-100">
+          {loading && <div className="py-20 text-center text-sm font-bold text-slate-400">Đang tải hàng chờ...</div>}
+          {!loading && !items.length && <div className="py-20 text-center"><Clock3 className="mx-auto text-slate-300" size={40} /><p className="mt-3 text-lg font-black text-slate-800">Không có nội dung phù hợp</p><p className="mt-1 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc quay lại sau.</p></div>}
+          {!loading && items.map((item) => (
+            <article key={item.id} className={`grid gap-4 px-4 py-4 transition hover:bg-blue-50/30 ${tab === 'pitches' ? 'xl:grid-cols-[minmax(220px,.8fr)_minmax(240px,.8fr)_minmax(280px,1.2fr)_150px]' : 'xl:grid-cols-[minmax(0,1fr)_auto]'} xl:items-center`}>
+              {tab === 'pitches' && <PitchRow item={item as Pitch} />}
+              {tab === 'services' && <ServiceRow item={item as Service} />}
+              {tab === 'reviews' && <ReviewRow item={item as Review} />}
+              <div className="flex flex-wrap gap-2 xl:justify-end">
+                {tab !== 'reviews' && status === 'pending' && <button onClick={() => runAction(`/admin/${tab === 'pitches' ? 'pitch-approvals' : 'service-approvals'}/${item.id}/approve`, 'patch', 'Đã duyệt nội dung.')} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white hover:bg-emerald-700"><Check size={16} />Duyệt</button>}
+                {tab === 'pitches' && status === 'pending' && <button onClick={() => runAction(`/admin/pitch-approvals/${item.id}/reject`, 'patch', 'Đã từ chối sân.')} className="inline-flex h-10 items-center gap-2 rounded-xl bg-amber-50 px-4 text-xs font-black text-amber-700 ring-1 ring-amber-100 hover:bg-amber-100"><X size={16} />Từ chối</button>}
+                {(tab === 'services' || tab === 'reviews') && <button onClick={() => runAction(`/admin/${tab === 'services' ? 'service-approvals' : 'reviews'}/${item.id}`, 'delete', 'Đã xóa nội dung.')} className="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-50 px-4 text-xs font-black text-rose-700 ring-1 ring-rose-100 hover:bg-rose-100"><Trash2 size={16} />Xóa</button>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const PitchRow: React.FC<{ item: Pitch }> = ({ item }) => (
+  <>
+    <div className="min-w-0">
+      <h3 className="truncate text-base font-black text-slate-950">{item.pitchName}</h3>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2"><span className="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-black text-blue-700">{sport(item.pitchType)}</span><span className="text-xs font-bold text-slate-400">Gửi {date(item.submittedAt)}</span></div>
+    </div>
+    <div className="min-w-0">
+      <p className="flex items-center gap-2 truncate text-sm font-black text-slate-800"><UserRound size={15} className="shrink-0 text-blue-600" />{item.ownerName}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.ownerEmail}</p>
+    </div>
+    <p className="flex min-w-0 items-start gap-2 text-sm font-semibold leading-5 text-slate-600"><MapPin size={15} className="mt-0.5 shrink-0 text-rose-500" /><span className="line-clamp-2">{item.address}</span></p>
+  </>
+);
+
+const ServiceRow: React.FC<{ item: Service }> = ({ item }) => (
+  <div className="min-w-0">
+    <div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black text-slate-950">{item.name}</h3><span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">{money(item.price)}</span></div>
+    <p className="mt-2 text-sm font-semibold text-slate-600">{item.sportCenterName}</p>
+    <p className="mt-1 text-xs font-bold text-slate-400">Tồn kho {item.stockQuantity} · {item.status === 'approved' ? 'Đang bán' : 'Chờ duyệt'}</p>
+  </div>
+);
+
+const ReviewRow: React.FC<{ item: Review }> = ({ item }) => (
+  <div className="min-w-0">
+    <div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black text-slate-950">{item.userName}</h3><span className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700">{item.rating}/5 sao</span><span className="text-xs font-black text-blue-700">{sport(item.pitchType)}</span></div>
+    <p className="mt-2 text-sm font-semibold text-slate-700">{item.comment || 'Không có nhận xét.'}</p>
+    <p className="mt-1 text-xs font-bold text-slate-400">{item.sportCenterName} · {item.pitchName} · {date(item.createdAt)}</p>
+    {item.ownerReply && <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">Chủ sân đã phản hồi: {item.ownerReply}</p>}
   </div>
 );
 

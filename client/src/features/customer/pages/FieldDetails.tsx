@@ -6,7 +6,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pitchService, type PitchResponse, type ReviewResponse } from '../../../services/pitchService';
-import { bookingService } from '../../../services/bookingService';
 import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
 import { formatCompactAddress } from '../../../utils/address';
@@ -179,6 +178,39 @@ const mapOsrmSteps = (route: any): RouteStep[] =>
       durationMin: Number(step.duration || 0) / 60,
     }))
     .filter((step: RouteStep) => step.instruction && step.distanceM >= 1);
+
+const getBestBrowserPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
+  const samples: GeolocationPosition[] = [];
+  let watchId: number | undefined;
+  const finish = () => {
+    if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+    const best = samples.sort((a, b) => a.coords.accuracy - b.coords.accuracy)[0];
+    if (best) resolve(best);
+    else reject(new Error('Thiết bị chưa cung cấp được vị trí. Hãy bật quyền vị trí chính xác rồi thử lại.'));
+  };
+
+  const timer = window.setTimeout(finish, 8000);
+  watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      samples.push(position);
+      if (position.coords.accuracy <= 100) {
+        window.clearTimeout(timer);
+        finish();
+      }
+    },
+    (error) => {
+      window.clearTimeout(timer);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      reject(new Error(error.code === error.PERMISSION_DENIED
+        ? 'Bạn chưa cấp quyền vị trí cho trình duyệt.'
+        : 'Thiết bị chưa cung cấp được vị trí chính xác. Hãy bật dịch vụ vị trí rồi thử lại.'));
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+  );
+});
+
+const isInsideVietnam = ({ lat, lng }: Coordinates) =>
+  lat >= 8.0 && lat <= 23.5 && lng >= 102.0 && lng <= 110.0;
 
 const resolveMapLink = async (mapLink?: string | null): Promise<Coordinates | null> => {
   const text = String(mapLink || '').trim();
@@ -511,28 +543,34 @@ const FieldDetails: React.FC = () => {
   const handleBooking = async () => {
     if (!selectedTime) return;
     setIsBooking(true);
-    let lockId: string | undefined;
     try {
       const servicesPayload = Object.entries(selectedServices).map(([id, qty]) => ({
         serviceId: id,
         quantity: qty
       }));
-
-      const lock = await bookingService.lock(selectedTime, selectedDate);
-      lockId = (lock as any).lockId || (lock as any).LockId;
-
-      const booking = await bookingService.create({
+      const slot = availableSlots.find((item) => item.id === selectedTime);
+      const selectedServiceDetails = availableServices
+        .filter((service) => selectedServices[service.id])
+        .map((service) => ({ ...service, quantity: selectedServices[service.id], lineTotal: service.price * selectedServices[service.id] }));
+      sessionStorage.setItem('bookingDraft', JSON.stringify({
         timeSlotId: selectedTime,
         bookingDate: selectedDate,
-        selectedServices: servicesPayload.length > 0 ? servicesPayload : undefined
-      });
-
-      // Navigate to review page instead of direct payment
-      navigate(`/booking-review/${booking.id}`);
+        selectedServices: servicesPayload.length > 0 ? servicesPayload : undefined,
+        preview: {
+          pitchName: pitch?.name,
+          pitchType: pitch?.type,
+          pitchAddress: pitch?.address,
+          startTime: slot?.startTime,
+          endTime: slot?.endTime,
+          fieldPrice: slot?.price || 0,
+          services: selectedServiceDetails,
+          totalPrice: calculateTotal(),
+        },
+      }));
+      navigate('/booking-review/new');
     } catch (error: any) {
       console.error("Booking failed:", error);
-      if (lockId) await bookingService.releaseLock(lockId).catch(() => undefined);
-      alert(error.message || "Đặt sân thất bại. Vui lòng thử lại.");
+      alert(error.message || "Không thể mở trang xác nhận. Vui lòng thử lại.");
     } finally {
       setIsBooking(false);
     }
@@ -581,18 +619,31 @@ const FieldDetails: React.FC = () => {
 
     setIsRouting(true);
     setRouteError('');
+    setUserLocation(null);
+    setRouteLine([]);
+    setRouteInfo(null);
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 30000,
-        });
-      });
-      const nextUserLocation = {
+      const position = await getBestBrowserPosition();
+      let nextUserLocation = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
       };
+
+      if (!isInsideVietnam(nextUserLocation)) {
+        const originAddress = window.prompt(
+          'Thiết bị đang trả về vị trí ngoài Việt Nam. Nhập địa chỉ xuất phát để chỉ đường chính xác:',
+          '',
+        )?.trim();
+        if (!originAddress) {
+          throw new Error('Không thể dùng vị trí thiết bị. Hãy nhập địa chỉ xuất phát để chỉ đường.');
+        }
+        const resolvedOrigin = await geocodeAddress(originAddress);
+        if (!resolvedOrigin) {
+          throw new Error('Không tìm thấy địa chỉ xuất phát. Hãy nhập địa chỉ chi tiết hơn.');
+        }
+        nextUserLocation = resolvedOrigin;
+      }
+
       setUserLocation(nextUserLocation);
 
       const [address, routeResponse] = await Promise.all([
@@ -615,6 +666,12 @@ const FieldDetails: React.FC = () => {
         userAddress: address,
         steps: mapOsrmSteps(route),
       });
+      if (position.coords.accuracy > 1000 && isInsideVietnam({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      })) {
+        setRouteError(`Đã vẽ đường đi. Vị trí thiết bị hiện có sai số khoảng ${Math.round(position.coords.accuracy / 1000)} km.`);
+      }
     } catch (error: any) {
       setRouteError(error?.message || 'Không thể lấy vị trí hiện tại.');
     } finally {
@@ -742,7 +799,7 @@ const FieldDetails: React.FC = () => {
                   className="inline-flex h-9 items-center gap-2 rounded-xl bg-blue-50 px-3 text-[10px] font-black uppercase tracking-widest text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isRouting ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
-                  Lấy vị trí của tôi
+                  Đường đi
                 </button>
               </div>
               <div className="mt-4 w-full overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg shadow-blue-950/10">
@@ -987,7 +1044,7 @@ const FieldDetails: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Tổng tiền</p>
                     <p className="text-2xl font-black text-blue-600 tracking-tight">{formatMoney(calculateTotal())}đ</p>
                   </div>
-                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="h-12 px-6 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Đặt ngay <ArrowRight size={16} /></>}</button>
+                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="h-12 px-6 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Xem và xác nhận <ArrowRight size={16} /></>}</button>
                 </div>
               </div>
               <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50"><ShieldCheck className="text-blue-500" size={18} /><p className="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest">Bảo mật & Hoàn tiền nhanh</p></div>

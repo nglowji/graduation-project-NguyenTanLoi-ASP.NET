@@ -66,6 +66,11 @@ const pageStyle = {
 const BookingReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isDraft = id === 'new';
+  const draft = useMemo(() => {
+    if (!isDraft) return null;
+    try { return JSON.parse(sessionStorage.getItem('bookingDraft') || 'null'); } catch { return null; }
+  }, [isDraft]);
 
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -93,6 +98,44 @@ const BookingReview: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
+        if (isDraft) {
+          if (!draft?.timeSlotId) throw new Error('Thông tin xác nhận đã hết hạn. Vui lòng chọn lại sân.');
+          const preview = draft.preview || {};
+          setBooking({
+            id: '',
+            timeSlotId: draft.timeSlotId,
+            pitchName: preview.pitchName || 'Sân thể thao',
+            bookingDate: draft.bookingDate,
+            startTime: preview.startTime || '',
+            endTime: preview.endTime || '',
+            totalPrice: Number(preview.totalPrice || 0),
+            depositAmount: Number(preview.totalPrice || 0) * 0.1,
+            status: 'Draft',
+            services: (preview.services || []).map((service: any) => ({
+              id: service.id,
+              serviceId: service.id,
+              serviceName: service.name,
+              price: Number(service.price || 0),
+              currency: 'VND',
+              quantity: Number(service.quantity || 0),
+              lineTotal: Number(service.lineTotal || 0),
+            })),
+            timeSlot: {
+              id: draft.timeSlotId,
+              startTime: preview.startTime || '',
+              endTime: preview.endTime || '',
+              price: Number(preview.fieldPrice || 0),
+              pitch: {
+                id: '',
+                name: preview.pitchName || 'Sân thể thao',
+                type: preview.pitchType || 'Tiêu chuẩn',
+                address: preview.pitchAddress || '',
+              },
+            },
+          });
+          setIsLoading(false);
+          return;
+        }
         const data = await bookingService.getById(id);
         setBooking(data);
         setCustomerName(data.user?.fullName || (data as any).userName || (data as any).customerName || '');
@@ -105,32 +148,33 @@ const BookingReview: React.FC = () => {
     };
 
     fetchBookingDetails();
-  }, [id]);
+  }, [id, isDraft, draft]);
 
   const details = useMemo(() => {
     const pitch = booking?.timeSlot?.pitch;
-    const services = booking?.services || [];
-    const fieldPrice = Number(booking?.timeSlot?.price ?? booking?.totalPrice ?? 0);
+    const preview = draft?.preview;
+    const services: NonNullable<BookingResponse['services']> = booking?.services || preview?.services || [];
+    const fieldPrice = Number(booking?.timeSlot?.price ?? preview?.fieldPrice ?? booking?.totalPrice ?? 0);
     const serviceTotal = services.reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
     const total = Number(booking?.totalPrice || fieldPrice + serviceTotal);
     const deposit = Number(booking?.depositAmount || 0);
 
     return {
-      bookingCode: booking?.checkInCode || booking?.id?.slice(0, 8).toUpperCase() || '--------',
-      pitchName: booking?.pitchName || pitch?.name || 'Sân thể thao',
-      pitchType: pitch?.type || 'Tiêu chuẩn',
-      pitchAddress: formatCompactAddress(pitch?.address || (booking as any)?.pitchAddress),
-      startTime: booking?.startTime || booking?.timeSlot?.startTime,
-      endTime: booking?.endTime || booking?.timeSlot?.endTime,
+      bookingCode: booking?.checkInCode || booking?.id?.slice(0, 8).toUpperCase() || 'TẠM TÍNH',
+      pitchName: booking?.pitchName || pitch?.name || preview?.pitchName || 'Sân thể thao',
+      pitchType: pitch?.type || preview?.pitchType || 'Tiêu chuẩn',
+      pitchAddress: formatCompactAddress(pitch?.address || (booking as any)?.pitchAddress || preview?.pitchAddress),
+      startTime: booking?.startTime || booking?.timeSlot?.startTime || preview?.startTime,
+      endTime: booking?.endTime || booking?.timeSlot?.endTime || preview?.endTime,
       services,
       fieldPrice: Math.max(fieldPrice, total - serviceTotal),
       serviceTotal,
-      total,
+      total: Number(preview?.totalPrice || total),
       deposit,
       remaining: Math.max(total - deposit, 0),
       expiresAt: booking?.createdAt ? new Date(booking.createdAt).getTime() + 15 * 60 * 1000 : null,
     };
-  }, [booking]);
+  }, [booking, draft]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -148,23 +192,36 @@ const BookingReview: React.FC = () => {
   };
 
   const handlePayment = async () => {
-    if (!booking) return;
+    if (!booking && !draft) return;
 
     if (holdExpired) {
       setError('Đơn giữ chỗ đã quá 15 phút. Vui lòng tải lại trang hoặc chọn lại khung giờ.');
       return;
     }
 
-    if (!customerName.trim() || !customerPhone.trim()) {
+    if (!isDraft && (!customerName.trim() || !customerPhone.trim())) {
       setError('Vui lòng kiểm tra họ tên và số điện thoại trước khi thanh toán.');
       return;
     }
 
     setIsProcessing(true);
     setError(null);
+    let lockId: string | undefined;
     try {
+      let confirmedBooking = booking;
+      if (isDraft) {
+        const lock = await bookingService.lock(draft.timeSlotId, draft.bookingDate);
+        lockId = (lock as any).lockId || (lock as any).LockId;
+        confirmedBooking = await bookingService.create({
+          timeSlotId: draft.timeSlotId,
+          bookingDate: draft.bookingDate,
+          selectedServices: draft.selectedServices,
+        });
+        setBooking(confirmedBooking);
+        sessionStorage.removeItem('bookingDraft');
+      }
       const paymentResponse = await paymentService.createPayment({
-        bookingId: booking.id,
+        bookingId: confirmedBooking!.id,
         returnUrl: `${window.location.origin}/payment-result`,
         provider: 'ZALOPAY',
       });
@@ -180,6 +237,7 @@ const BookingReview: React.FC = () => {
         window.location.href = paymentResponse.paymentUrl;
       }
     } catch (paymentError: any) {
+      if (lockId) await bookingService.releaseLock(lockId).catch(() => undefined);
       setError(paymentError.message || 'Không thể khởi tạo thanh toán. Vui lòng thử lại.');
     } finally {
       setIsProcessing(false);
@@ -514,7 +572,7 @@ const BookingReview: React.FC = () => {
                 disabled={isProcessing || holdExpired}
                 className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-[var(--accent)] px-5 py-4 text-xs font-black uppercase tracking-widest text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>Thanh toán online <ArrowRight size={18} /></>}
+                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>{isDraft ? 'Đặt sân và thanh toán' : 'Thanh toán online'} <ArrowRight size={18} /></>}
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">

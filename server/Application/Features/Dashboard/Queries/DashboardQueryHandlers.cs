@@ -46,7 +46,9 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
             .AsNoTracking()
             .CountAsync(center => !center.IsActive && _context.Users.Any(user => user.Id == center.OwnerId && user.Role == UserRole.Customer), cancellationToken);
 
-        const decimal commissionRate = 0.10m;
+        var commissionRate = await DashboardConfigurationReader.GetPlatformCommissionRateAsync(
+            _context,
+            cancellationToken);
         var thisMonthRevenue = thisMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
         var lastMonthRevenue = lastMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
 
@@ -163,7 +165,8 @@ public class GetOwnerBookingsQueryHandler : IRequestHandler<GetOwnerBookingsQuer
                 service.ServiceName,
                 service.Price.Amount,
                 service.Quantity,
-                service.Price.Amount * service.Quantity
+                service.Price.Amount * service.Quantity,
+                service.AddedByName
             )).ToList()
         )).ToList();
 
@@ -260,7 +263,6 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
 /// <summary>Handler for admin revenue report and commission tracing</summary>
 public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenueReportQuery, Result<AdminRevenueReportDto>>
 {
-    private const decimal CommissionRate = 0.10m;
     private readonly IApplicationDbContext _context;
 
     public GetAdminRevenueReportQueryHandler(IApplicationDbContext context)
@@ -311,9 +313,12 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             .Where(u => ownerIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, cancellationToken);
 
+        var commissionRate = await DashboardConfigurationReader.GetPlatformCommissionRateAsync(
+            _context,
+            cancellationToken);
         var grossRevenue = bookings.Sum(b => b.TotalPrice.Amount);
-        var platformCommission = grossRevenue * CommissionRate;
-        var previousCommission = previousBookings.Sum(b => b.TotalPrice.Amount) * CommissionRate;
+        var platformCommission = grossRevenue * commissionRate;
+        var previousCommission = previousBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
         var commissionGrowth = previousCommission > 0
             ? Math.Round((double)((platformCommission - previousCommission) / previousCommission * 100), 1)
             : 0;
@@ -323,7 +328,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             .Select(g => new AdminRevenueTrendPointDto(
                 g.Key.ToString("yyyy-MM-dd"),
                 g.Sum(b => b.TotalPrice.Amount),
-                g.Sum(b => b.TotalPrice.Amount) * CommissionRate,
+                g.Sum(b => b.TotalPrice.Amount) * commissionRate,
                 g.Count()))
             .OrderBy(item => item.Date)
             .ToList();
@@ -339,7 +344,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
                     owner?.FullName ?? "Unknown owner",
                     owner?.Email ?? "",
                     ownerGross,
-                    ownerGross * CommissionRate,
+                    ownerGross * commissionRate,
                     g.Count(),
                     g.Select(b => b.UserId).Distinct().Count());
             })
@@ -354,7 +359,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
                 return new AdminPitchTypeCommissionDto(
                     g.Key,
                     typeGross,
-                    typeGross * CommissionRate,
+                    typeGross * commissionRate,
                     g.Count());
             })
             .OrderByDescending(item => item.Commission)
@@ -376,7 +381,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
                     owner?.FullName ?? "Unknown owner",
                     owner?.Email ?? "",
                     b.TotalPrice.Amount,
-                    b.TotalPrice.Amount * CommissionRate,
+                    b.TotalPrice.Amount * commissionRate,
                     b.Status.ToString());
             })
             .ToList();
@@ -385,7 +390,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             grossRevenue,
             platformCommission,
             grossRevenue - platformCommission,
-            CommissionRate,
+            commissionRate,
             bookings.Count,
             bookings.Count(b => b.Status == BookingStatus.Completed),
             bookings.Count(b => b.Status == BookingStatus.Confirmed),
@@ -397,6 +402,34 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             pitchTypes,
             transactions
         ));
+    }
+}
+
+internal static class DashboardConfigurationReader
+{
+    public static async Task<decimal> GetPlatformCommissionRateAsync(
+        IApplicationDbContext context,
+        CancellationToken cancellationToken)
+    {
+        string? value;
+        try
+        {
+            value = await context.SystemConfigurations
+                .AsNoTracking()
+                .Where(item => item.Key == SystemConfiguration.Keys.PlatformCommissionPercentage)
+                .Select(item => item.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        catch
+        {
+            return 0.10m;
+        }
+
+        if (!decimal.TryParse(value, out var percentage))
+            percentage = 10m;
+
+        percentage = Math.Clamp(percentage, 0m, 100m);
+        return percentage / 100m;
     }
 }
 
@@ -453,34 +486,6 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
         var paged = await _pitchRepository.GetPagedAsync(1, 50, null, status, cancellationToken);
 
         var dtos = new List<PitchApprovalDto>();
-        if (status == PitchStatus.PendingApproval || status == PitchStatus.Active || status == PitchStatus.Inactive)
-        {
-            var ownerRole = status == PitchStatus.PendingApproval ? UserRole.Customer : UserRole.PitchOwner;
-            var centerIsActive = status == PitchStatus.Active;
-            var centers = await _context.SportCenters
-                .AsNoTracking()
-                .Where(center => center.IsActive == centerIsActive)
-                .Join(
-                    _context.Users.AsNoTracking().Where(user => user.Role == ownerRole),
-                    center => center.OwnerId,
-                    user => user.Id,
-                    (center, user) => new { center, user })
-                .OrderByDescending(item => item.center.CreatedAt)
-                .Take(50)
-                .ToListAsync(cancellationToken);
-
-            dtos.AddRange(centers.Select(item => new PitchApprovalDto(
-                item.center.Id,
-                item.center.Name,
-                item.user.FullName,
-                item.user.Email,
-                item.center.CreatedAt.ToString("o"),
-                "OwnerRegistration",
-                item.center.Address.GetFullAddress(),
-                centerIsActive ? "approved" : "pending"
-            )));
-        }
-
         foreach (var pitch in paged.Items)
         {
             var owner = await _userRepository.GetByIdAsync(pitch.OwnerId, cancellationToken);
@@ -491,7 +496,7 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
                 owner?.Email ?? "N/A",
                 pitch.CreatedAt.ToString("o"),
                 pitch.Type.ToString(),
-                pitch.SportCenter?.Address?.ToString() ?? "N/A",
+                pitch.SportCenter?.Address?.GetFullAddress() ?? "N/A",
                 pitch.Status == PitchStatus.PendingApproval ? "pending" : pitch.Status.ToString().ToLowerInvariant()
             ));
         }

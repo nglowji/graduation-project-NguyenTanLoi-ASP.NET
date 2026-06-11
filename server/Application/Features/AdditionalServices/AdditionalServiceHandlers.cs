@@ -64,7 +64,8 @@ public class ServiceHandlers :
             request.StockQuantity,
             request.ImageUrl);
             
-        service.ToggleActive(request.IsActive);
+        // New services must be reviewed by admin before they are sold publicly.
+        service.ToggleActive(false);
             
         _context.AdditionalServices.Add(service);
         await _context.SaveChangesAsync(cancellationToken);
@@ -86,7 +87,9 @@ public class ServiceHandlers :
             request.StockQuantity,
             request.ImageUrl);
             
-        service.ToggleActive(request.IsActive);
+        // Owners can update stock and content, but publishing stays under admin control.
+        if (!request.IsActive)
+            service.ToggleActive(false);
 
         await _context.SaveChangesAsync(cancellationToken);
         return Result<Unit>.Success(Unit.Value);

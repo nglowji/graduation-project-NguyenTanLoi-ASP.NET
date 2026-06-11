@@ -1,172 +1,94 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ShieldCheck, Search, CheckCircle, XCircle, Eye, MapPin, Calendar } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Clock3, Mail, MapPin, Phone, Search, ShieldCheck, UserRound, XCircle } from 'lucide-react';
 import api from '../../../services/api';
 
+type OwnerRegistration = {
+  id: string;
+  businessName: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone?: string;
+  address: string;
+  submittedAt: string;
+  status: string;
+};
+
+const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('vi-VN') : 'Chưa rõ ngày';
+
 const Approvals: React.FC = () => {
-  const [approvals, setApprovals] = useState<any[]>([]);
-  const [tab, setTab] = useState('pending');
-  const [isLoading, setIsLoading] = useState(true);
+  const [items, setItems] = useState<OwnerRegistration[]>([]);
+  const [status, setStatus] = useState('pending');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    fetchApprovals();
-  }, [tab]);
-
-  const fetchApprovals = async () => {
-    setIsLoading(true);
+  const load = async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/admin/pitch-approvals', { params: { status: tab } }) as any;
-      setApprovals(res?.items || res || []);
+      setItems(await api.get('/admin/owner-approvals', { params: { status } }) as OwnerRegistration[]);
     } catch {
-      setApprovals([]);
+      setItems([]);
+      setMessage('Không thể tải hồ sơ đăng ký chủ sân.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleApproval = async (id: string, action: 'approve' | 'reject') => {
+  useEffect(() => { load(); }, [status]);
+
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return items;
+    return items.filter(item => [item.businessName, item.applicantName, item.applicantEmail, item.applicantPhone, item.address]
+      .some(value => String(value || '').toLowerCase().includes(keyword)));
+  }, [items, search]);
+
+  const decide = async (id: string, action: 'approve' | 'reject') => {
     try {
-      await api.patch(`/admin/pitch-approvals/${id}/${action}`);
-      fetchApprovals();
+      await api.patch(`/admin/owner-approvals/${id}/${action}`);
+      setMessage(action === 'approve' ? 'Đã nâng cấp tài khoản thành chủ sân.' : 'Đã từ chối hồ sơ đăng ký.');
+      load();
     } catch {
-      alert('Thao tác thất bại');
+      setMessage('Không thể xử lý hồ sơ. Vui lòng thử lại.');
     }
   };
-
-  const pitchTypeLabel = (t: string) => ({ 
-    OwnerRegistration: 'Hồ sơ chủ sân',
-    Football5: 'Sân 5', Football7: 'Sân 7', Football11: 'Sân 11',
-    Tennis: 'Tennis', Badminton: 'Cầu lông' 
-  }[t] || t);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Verification Center</span>
+    <div className="mx-auto max-w-[1500px] space-y-5 pb-16">
+      <header className="border-b border-slate-200 pb-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-blue-700"><ShieldCheck size={18} /> Quản lý chủ sân</div>
+            <h1 className="mt-3 text-3xl font-black text-slate-950">Duyệt hồ sơ nâng cấp tài khoản</h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">Trang này chỉ xử lý hồ sơ đăng ký từ khách hàng. Khi được duyệt, tài khoản Customer sẽ trở thành PitchOwner và có quyền tạo sân.</p>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Duyệt yêu cầu</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Xét duyệt hồ sơ và năng lực của các chủ sân đăng ký mới.</p>
+          <div className="text-sm font-black text-slate-600">Có {filtered.length} hồ sơ phù hợp</div>
         </div>
-      </div>
+      </header>
 
-      <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-800 rounded-[2rem] shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-slate-50/50 dark:bg-transparent">
-          <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800 rounded-xl self-start">
-            {[
-              { id: 'pending', label: 'Đang chờ' },
-              { id: 'approved', label: 'Đã duyệt' },
-              { id: 'rejected', label: 'Từ chối' },
-            ].map((t) => (
-              <button 
-                key={t.id} 
-                onClick={() => setTab(t.id)}
-                className={`px-8 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
-                  tab === t.id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          
-          <div className="relative w-full sm:w-80 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={16} />
-            <input 
-              type="text" 
-              placeholder="Tìm tên sân, tên chủ..." 
-              className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-11 pr-5 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-all"
-            />
-          </div>
+      <section className="flex flex-col gap-3 border-b border-slate-200 pb-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex gap-2">
+          {[{ id: 'pending', label: 'Chờ xét duyệt' }, { id: 'approved', label: 'Đã nâng cấp' }].map(item => (
+            <button key={item.id} onClick={() => setStatus(item.id)} className={`h-11 rounded-xl px-4 text-sm font-black ${status === item.id ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>{item.label}</button>
+          ))}
         </div>
+        <label className="relative w-full xl:w-96"><Search className="absolute left-3 top-3 text-slate-400" size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Tìm người đăng ký, email, cơ sở..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold" /></label>
+      </section>
 
-        <div className="p-8">
-          {isLoading ? (
-            <div className="py-24 flex flex-col items-center gap-4">
-              <div className="w-10 h-10 border-4 border-slate-100 dark:border-slate-800 border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Đang xác minh hồ sơ...</p>
-            </div>
-          ) : approvals.length === 0 ? (
-            <div className="text-center py-24 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-800">
-              <ShieldCheck size={48} className="mx-auto mb-4 text-slate-200 dark:text-slate-700" />
-              <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Không có yêu cầu nào</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {approvals.map((a, i) => (
-                <motion.div 
-                  key={a.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="p-6 bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/[0.02] rounded-bl-[3rem]" />
-                  
-                  <div className="flex items-start justify-between mb-6 relative">
-                    <div className="flex gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-center justify-center text-blue-600 shadow-sm">
-                        <MapPin size={24} />
-                      </div>
-                      <div>
-                        <h4 className="font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors text-lg leading-tight">{a.pitchName}</h4>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-2">
-                          <Calendar size={12} className="text-blue-500" /> {new Date(a.submittedAt).toLocaleDateString('vi-VN')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest border border-slate-200 dark:border-slate-700">
-                      {pitchTypeLabel(a.pitchType)}
-                    </div>
-                  </div>
+      {message && <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">{message}</div>}
 
-                  <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/50 mb-6 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-blue-600 text-sm font-black shadow-sm border border-slate-100 dark:border-slate-700">
-                        {a.ownerName[0]}
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-900 dark:text-white">{a.ownerName}</p>
-                        <p className="text-[10px] font-bold text-slate-400">{a.ownerEmail}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium bg-white dark:bg-slate-800 py-2 px-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                      <MapPin size={12} className="text-red-500 shrink-0" /> 
-                      <span className="truncate">{a.address}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
-                    <button className="flex-1 py-3.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 group/btn">
-                      <Eye size={14} className="group-hover/btn:scale-110 transition-transform" /> Xem hồ sơ
-                    </button>
-                    {a.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => handleApproval(a.id, 'approve')}
-                          className="w-12 h-12 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center active:scale-95"
-                          title="Duyệt"
-                        >
-                          <CheckCircle size={20} />
-                        </button>
-                        <button 
-                          onClick={() => handleApproval(a.id, 'reject')}
-                          className="w-12 h-12 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center active:scale-95"
-                          title="Từ chối"
-                        >
-                          <XCircle size={20} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="hidden grid-cols-[minmax(240px,.85fr)_minmax(240px,.8fr)_minmax(260px,1fr)_150px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-400 lg:grid"><span>Cơ sở đăng ký</span><span>Người đăng ký</span><span>Địa chỉ và thời gian</span><span className="text-right">Xử lý</span></div>
+        {loading ? <div className="py-20 text-center text-sm font-bold text-slate-400">Đang tải hồ sơ...</div> : !filtered.length ? <div className="py-20 text-center"><Clock3 className="mx-auto text-slate-300" size={40} /><p className="mt-3 font-black text-slate-800">Không có hồ sơ phù hợp</p></div> :
+          <div className="divide-y divide-slate-100">{filtered.map(item => (
+            <article key={item.id} className="grid gap-4 px-4 py-4 hover:bg-blue-50/30 lg:grid-cols-[minmax(240px,.85fr)_minmax(240px,.8fr)_minmax(260px,1fr)_150px] lg:items-center">
+              <div className="min-w-0"><h2 className="truncate text-base font-black text-slate-950">{item.businessName}</h2><span className="mt-1.5 inline-flex rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-black text-blue-700">Hồ sơ nâng cấp chủ sân</span></div>
+              <div className="min-w-0 space-y-2"><p className="flex items-center gap-2 font-black text-slate-800"><UserRound size={16} className="text-blue-700" />{item.applicantName}</p><p className="flex items-center gap-2 truncate text-sm font-semibold text-slate-500"><Mail size={15} />{item.applicantEmail}</p><p className="flex items-center gap-2 text-sm font-semibold text-slate-500"><Phone size={15} />{item.applicantPhone || 'Chưa cập nhật SĐT'}</p></div>
+              <div className="min-w-0"><p className="flex items-start gap-2 text-sm font-semibold leading-5 text-slate-600"><MapPin size={15} className="mt-0.5 shrink-0 text-rose-500" /><span className="line-clamp-2">{item.address}</span></p><p className="mt-1.5 text-xs font-bold text-slate-400">Gửi ngày {formatDate(item.submittedAt)}</p></div>
+              <div className="flex justify-end gap-2">{item.status === 'pending' ? <><button onClick={() => decide(item.id, 'approve')} title="Duyệt và nâng cấp tài khoản" className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-600 text-white"><CheckCircle2 size={19} /></button><button onClick={() => decide(item.id, 'reject')} title="Từ chối hồ sơ" className="grid h-10 w-10 place-items-center rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-100"><XCircle size={19} /></button></> : <span className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Đã là chủ sân</span>}</div>
+            </article>
+          ))}</div>}
+      </section>
     </div>
   );
 };

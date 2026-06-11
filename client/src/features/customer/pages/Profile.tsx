@@ -1102,11 +1102,11 @@ const Profile: React.FC = () => {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiền cọc</p>
                                 <p className="text-sm font-black text-slate-950">{formatMoney(getBookingDepositAmount(item))}</p>
                               </div>
-                              <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:ml-auto lg:w-32 lg:grid-cols-1">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedBookingId(isExpanded ? null : item.id)}
-                                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+                                  className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
                                 >
                                   <Eye size={16} />
                                   {isExpanded ? 'Ẩn bớt' : 'Chi tiết'}
@@ -1115,7 +1115,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/booking-review/${item.id}`)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-center text-xs font-bold leading-tight text-emerald-700 transition hover:bg-emerald-100"
                                   >
                                     <CreditCard size={16} />
                                     Thanh toán cọc
@@ -1125,7 +1125,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleCancelBooking(item)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2.5 text-xs font-bold text-red-600 transition hover:bg-red-100"
+                                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2.5 text-xs font-bold text-red-600 transition hover:bg-red-100"
                                   >
                                     <X size={16} />
                                     Hủy đơn
@@ -1135,7 +1135,7 @@ const Profile: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => openReviewForm(item.id)}
-                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-2.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
+                                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-2.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
                                   >
                                     <Star size={16} />
                                     Đánh giá

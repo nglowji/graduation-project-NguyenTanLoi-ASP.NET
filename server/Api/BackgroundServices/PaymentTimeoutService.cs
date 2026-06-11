@@ -12,7 +12,7 @@ public class PaymentTimeoutService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PaymentTimeoutService> _logger;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(5);
+    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
     private readonly TimeSpan _paymentTimeout = TimeSpan.FromMinutes(15);
 
     public PaymentTimeoutService(
@@ -49,6 +49,7 @@ public class PaymentTimeoutService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
         var notificationService = scope.ServiceProvider.GetRequiredService<IBookingNotificationService>();
+        var cacheService = scope.ServiceProvider.GetRequiredService<ICacheService>();
 
         var cutoffTime = DateTime.UtcNow.Subtract(_paymentTimeout);
 
@@ -97,6 +98,11 @@ public class PaymentTimeoutService : BackgroundService
                 booking.TimeSlot.PitchId,
                 booking.TimeSlotId,
                 booking.BookingDate,
+                cancellationToken
+            );
+
+            await cacheService.RemoveAsync(
+                $"available_slots_{booking.TimeSlot.PitchId}_{booking.BookingDate:yyyyMMdd}",
                 cancellationToken
             );
         }

@@ -21,6 +21,7 @@ public interface IApplicationDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<AdditionalService> AdditionalServices { get; }
     DbSet<BookingService> BookingServices { get; }
+    DbSet<SystemConfiguration> SystemConfigurations { get; }
 
     DatabaseFacade Database { get; }
 

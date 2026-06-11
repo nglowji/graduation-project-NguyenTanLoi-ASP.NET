@@ -202,11 +202,14 @@ const Services: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <header className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><Package size={23} /></span>
+          <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Service inventory</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Dịch vụ & kho hàng</h1>
           <p className="mt-2 text-sm font-semibold text-slate-500">Quản lý dịch vụ bán kèm, tồn kho và trạng thái kinh doanh.</p>
+          </div>
         </div>
 
         <button
@@ -219,25 +222,25 @@ const Services: React.FC = () => {
         </button>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="grid gap-3 rounded-2xl bg-slate-100/70 p-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng dịch vụ</p><p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang bán</p><p className="mt-1 text-2xl font-black text-emerald-600">{stats.active}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><AlertCircle size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp hết hàng</p><p className="mt-1 text-2xl font-black text-amber-600">{stats.lowStock}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-red-600"><Archive size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-red-600">Hết hàng</p><p className="mt-1 text-2xl font-black text-red-600">{stats.outOfStock}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><WalletCards size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p><p className="mt-1 text-lg font-black text-slate-950 dark:text-white">{formatMoney(stats.inventoryValue)}</p></div></div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
         <div className="mb-4 flex flex-wrap gap-2">
           {([
             ['all', 'Tất cả'],
@@ -319,7 +322,7 @@ const Services: React.FC = () => {
         </div>}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl bg-slate-100/70 p-3">
         {isLoading ? (
           <div className="flex min-h-90 flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={38} />
@@ -332,13 +335,16 @@ const Services: React.FC = () => {
             <p className="mt-2 text-sm font-semibold text-slate-400">Thêm dịch vụ mới để bán kèm khi đặt sân.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="space-y-3">
+            <div className="hidden grid-cols-[minmax(240px,1fr)_150px_130px_130px_112px] gap-4 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 xl:grid">
+              <span>Dịch vụ</span><span>Đơn giá</span><span>Tồn kho</span><span>Trạng thái</span><span className="text-right">Thao tác</span>
+            </div>
             {filteredServices.map((service) => {
               const isExpanded = expandedServiceId === service.id;
               const stock = Number(service.stockQuantity || 0);
 
               return (
-                <div key={service.id} className="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                <div key={service.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="grid gap-4 p-4 xl:grid-cols-[minmax(240px,1fr)_150px_130px_130px_112px] xl:items-center">
                     <div className="flex min-w-0 items-center gap-4">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -381,8 +387,8 @@ const Services: React.FC = () => {
                   </div>
 
                   {isExpanded && (
-                    <div className="grid gap-4 border-t border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/40 md:grid-cols-3">
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="grid gap-4 bg-slate-50/80 p-5 md:grid-cols-3">
+                      <div className="rounded-xl bg-white p-4 shadow-sm">
                         <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <Box size={14} className="text-blue-600" />
                           Thông tin
@@ -391,7 +397,7 @@ const Services: React.FC = () => {
                         <p className="mt-2 text-xs font-semibold text-slate-500">ID: {service.id.substring(0, 8).toUpperCase()}</p>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="rounded-xl bg-white p-4 shadow-sm">
                         <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <DollarSign size={14} className="text-emerald-600" />
                           Kho hàng
@@ -412,7 +418,7 @@ const Services: React.FC = () => {
                         </dl>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="rounded-xl bg-white p-4 shadow-sm">
                         <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Thao tác</p>
                         <button type="button" onClick={() => openEdit(service)} className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black text-white transition hover:bg-blue-700">
                           <Archive size={15} />

@@ -173,6 +173,8 @@ public class BookingsController : ApiControllerBase
                 .ThenInclude(slot => slot.Pitch)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (booking?.TimeSlot?.Pitch == null) return NotFoundResponse("Booking not found");
+        if (booking.Status != BookingStatus.Confirmed)
+            return BadRequestResponse("Only confirmed bookings can receive additional services");
 
         var ownerId = requesterId;
         if (User.IsInRole("PitchStaff"))
@@ -213,7 +215,8 @@ public class BookingsController : ApiControllerBase
                     return BadRequestResponse($"Service {service.Name} does not have enough stock");
                 }
 
-                _context.BookingServices.Add(BookingService.Create(id, service.Id, service.Name, service.Price, quantity));
+                var addedBy = await _userRepository.GetByIdAsync(requesterId, cancellationToken);
+                _context.BookingServices.Add(BookingService.Create(id, service.Id, service.Name, service.Price, quantity, addedBy?.FullName));
                 additionalTotal += service.Price.Amount * quantity;
             }
 

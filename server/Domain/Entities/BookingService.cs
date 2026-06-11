@@ -10,13 +10,14 @@ public class BookingService : BaseEntity
 
     private BookingService() { }
 
-    private BookingService(Guid bookingId, Guid serviceId, string serviceName, Money price, int quantity)
+    private BookingService(Guid bookingId, Guid serviceId, string serviceName, Money price, int quantity, string? addedByName)
     {
         BookingId = bookingId;
         ServiceId = serviceId;
         ServiceName = serviceName;
         Price = price;
         Quantity = quantity;
+        AddedByName = addedByName;
     }
 
     public Guid BookingId { get; private set; }
@@ -28,11 +29,12 @@ public class BookingService : BaseEntity
     public string ServiceName { get; private set; } = string.Empty;
     public Money Price { get; private set; } = null!;
     public int Quantity { get; private set; }
+    public string? AddedByName { get; private set; }
 
-    public static BookingService Create(Guid bookingId, Guid serviceId, string serviceName, Money price, int quantity = 1)
+    public static BookingService Create(Guid bookingId, Guid serviceId, string serviceName, Money price, int quantity = 1, string? addedByName = null)
     {
         ValidateCreationParameters(bookingId, serviceId, serviceName, price, quantity);
-        return new BookingService(bookingId, serviceId, serviceName, price, quantity);
+        return new BookingService(bookingId, serviceId, serviceName, price, quantity, addedByName);
     }
 
     private static void ValidateCreationParameters(Guid bookingId, Guid serviceId, string serviceName, Money price, int quantity)

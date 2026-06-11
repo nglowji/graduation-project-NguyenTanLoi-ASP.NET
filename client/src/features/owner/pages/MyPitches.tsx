@@ -79,7 +79,7 @@ const MyPitches: React.FC = () => {
   const [filterIndoor, setFilterIndoor] = useState<'all' | 'indoor' | 'outdoor'>('all');
   const [filterPrice, setFilterPrice] = useState<'all' | 'under200' | '200to400' | 'over400'>('all');
   const [filterSlots, setFilterSlots] = useState<'all' | 'available' | 'empty'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'inactive'>('all');
   const [filterRating, setFilterRating] = useState<'all' | 'rated' | 'unrated'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'name' | 'priceAsc' | 'priceDesc' | 'slotsDesc'>('newest');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -149,6 +149,16 @@ const MyPitches: React.FC = () => {
     `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
   const isPitchActive = (pitch: PitchRow) => String(pitch.status || '').toLowerCase() === 'active';
+  const isPitchPendingApproval = (pitch: PitchRow) =>
+    String(pitch.status || '').toLowerCase().includes('pendingapproval');
+  const getPitchStatusLabel = (pitch: PitchRow) =>
+    isPitchPendingApproval(pitch) ? 'Chờ admin duyệt' : isPitchActive(pitch) ? 'Hoạt động' : 'Tạm ngưng';
+  const getPitchStatusClass = (pitch: PitchRow) =>
+    isPitchPendingApproval(pitch)
+      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+      : isPitchActive(pitch)
+        ? 'bg-emerald-50 text-emerald-700'
+        : 'bg-slate-100 text-slate-500';
 
   const filteredPitches = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -178,7 +188,11 @@ const MyPitches: React.FC = () => {
         filterSlots === 'all' ||
         (filterSlots === 'available' && slotCount > 0) ||
         (filterSlots === 'empty' && slotCount === 0);
-      const matchesStatus = filterStatus === 'all' || (filterStatus === 'active' ? isPitchActive(pitch) : !isPitchActive(pitch));
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'active' && isPitchActive(pitch)) ||
+        (filterStatus === 'pending' && isPitchPendingApproval(pitch)) ||
+        (filterStatus === 'inactive' && !isPitchActive(pitch) && !isPitchPendingApproval(pitch));
       const matchesRating = filterRating === 'all' || (filterRating === 'rated' ? Number(pitch.totalReviews || 0) > 0 : Number(pitch.totalReviews || 0) === 0);
       return matchesSearch && matchesSport && matchesType && matchesIndoor && matchesPrice && matchesSlots && matchesStatus && matchesRating;
     }).sort((a, b) => {
@@ -206,6 +220,10 @@ const MyPitches: React.FC = () => {
   };
 
   const togglePitchStatus = async (pitch: PitchRow) => {
+    if (isPitchPendingApproval(pitch)) {
+      window.alert('Sân đang chờ admin duyệt nên chưa thể kích hoạt.');
+      return;
+    }
     const nextActive = !isPitchActive(pitch);
     await api.patch(`/pitches/${pitch.id}/status`, { isActive: nextActive });
     setPitches((current) => current.map((item) => (
@@ -304,7 +322,8 @@ const MyPitches: React.FC = () => {
         <div className="absolute right-0 top-12 z-40 max-h-72 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
           <button type="button" onClick={() => navigate(`/field/${pitch.id}`)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold text-blue-700 hover:bg-blue-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50"><Eye size={15} /></span>Xem chi tiết</button>
           <button type="button" onClick={() => navigate(`/dashboard/owner/pitches/edit/${pitch.id}`)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold text-indigo-700 hover:bg-indigo-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-50"><Edit2 size={15} /></span>Chỉnh sửa sân</button>
-          <button type="button" onClick={() => togglePitchStatus(pitch)} className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold ${isPitchActive(pitch) ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'}`}><span className={`grid h-8 w-8 place-items-center rounded-lg ${isPitchActive(pitch) ? 'bg-amber-50' : 'bg-emerald-50'}`}>{isPitchActive(pitch) ? <PauseCircle size={15} /> : <PlayCircle size={15} />}</span>{isPitchActive(pitch) ? 'Tạm ngưng sân' : 'Kích hoạt sân'}</button>
+          {!isPitchPendingApproval(pitch) && <button type="button" onClick={() => togglePitchStatus(pitch)} className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold ${isPitchActive(pitch) ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'}`}><span className={`grid h-8 w-8 place-items-center rounded-lg ${isPitchActive(pitch) ? 'bg-amber-50' : 'bg-emerald-50'}`}>{isPitchActive(pitch) ? <PauseCircle size={15} /> : <PlayCircle size={15} />}</span>{isPitchActive(pitch) ? 'Tạm ngưng sân' : 'Kích hoạt sân'}</button>}
+          {isPitchPendingApproval(pitch) && <div className="rounded-lg bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-700">Sân đang chờ admin kiểm duyệt. Bạn vẫn có thể chỉnh sửa thông tin trong thời gian chờ.</div>}
           <div className="my-1 border-t border-slate-100" />
           <button type="button" onClick={() => deletePitch(pitch.id)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-red-50"><Trash2 size={15} /></span>Xóa sân</button>
         </div>
@@ -314,43 +333,44 @@ const MyPitches: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-700 text-white shadow-lg shadow-blue-950/10">
+      <header className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
         <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200">Kho sân vận hành</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">Sân của tôi</h1>
-          <p className="mt-2 text-sm font-semibold text-blue-100">Kiểm tra trạng thái, khung giờ và giá bán của toàn bộ sân.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Kho sân vận hành</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Sân của tôi</h1>
+          <p className="mt-2 text-sm font-bold text-slate-500">Kiểm tra trạng thái, khung giờ và giá bán của toàn bộ sân.</p>
         </div>
 
         <button
           type="button"
           onClick={() => navigate('/dashboard/owner/pitches/create')}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 text-sm font-black text-blue-950 shadow-sm transition hover:bg-amber-200"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
         >
           <Plus size={18} strokeWidth={3} />
           Thêm sân
         </button></div>
-        <div className="grid grid-cols-3 divide-x divide-blue-500 border-t border-blue-500 bg-blue-800/60">
-          <div className="p-4 text-center"><b className="text-2xl">{stats.total}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Tổng sân</p></div>
-          <div className="p-4 text-center"><b className="text-2xl text-emerald-300">{stats.active}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Đang mở</p></div>
-          <div className="p-4 text-center"><b className="text-2xl text-amber-300">{stats.needsSlots}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-200">Cần mở giờ</p></div>
+        <div className="grid grid-cols-3 gap-3 bg-slate-100/70 p-3">
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-slate-950">{stats.total}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng sân</p></div>
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-emerald-600">{stats.active}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Đang mở</p></div>
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-amber-600">{stats.needsSlots}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Cần mở giờ</p></div>
         </div>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Clock3 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ mở</p><p className="mt-1 text-2xl font-black text-blue-600">{stats.activeSlots}</p></div></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><Home size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trong nhà</p><p className="mt-1 text-2xl font-black text-indigo-600">{stats.indoor}</p></div></div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
         <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4">
           {[
             { label: 'Tất cả sân', active: filterStatus === 'all' && filterSlots === 'all', action: () => { setFilterStatus('all'); setFilterSlots('all'); } },
             { label: 'Đang hoạt động', active: filterStatus === 'active' && filterSlots === 'all', action: () => { setFilterStatus('active'); setFilterSlots('all'); } },
+            { label: 'Chờ admin duyệt', active: filterStatus === 'pending', action: () => { setFilterStatus('pending'); setFilterSlots('all'); } },
             { label: 'Tạm ngưng', active: filterStatus === 'inactive', action: () => setFilterStatus('inactive') },
             { label: 'Chưa có khung giờ', active: filterSlots === 'empty', action: () => { setFilterSlots('empty'); setFilterStatus('all'); } },
           ].map((item) => <button key={item.label} type="button" onClick={item.action} className={`rounded-full px-4 py-2 text-xs font-black transition ${item.active ? 'bg-blue-700 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}>{item.label}</button>)}
@@ -499,7 +519,7 @@ const MyPitches: React.FC = () => {
         )}
       </section>
 
-      <section className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${viewMode === 'table' ? 'overflow-visible' : 'p-4'}`}>
+      <section className={`rounded-2xl bg-slate-100/70 shadow-sm ${viewMode === 'table' ? 'overflow-visible p-3' : 'p-4'}`}>
         {isLoading ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
             <div className="h-11 w-11 animate-spin rounded-full border-4 border-slate-100 border-t-blue-600 dark:border-slate-800 dark:border-t-blue-500" />
@@ -553,10 +573,8 @@ const MyPitches: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className={`inline-flex rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-widest ${
-                    isPitchActive(pitch) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {isPitchActive(pitch) ? 'Hoạt động' : 'Tạm ngưng'}
+                  <span className={`inline-flex rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-widest ${getPitchStatusClass(pitch)}`}>
+                    {getPitchStatusLabel(pitch)}
                   </span>
                 </div>
 
@@ -575,7 +593,7 @@ const MyPitches: React.FC = () => {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-base font-black text-slate-950 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</h3><p className="mt-2 flex items-center gap-1 truncate text-xs font-semibold text-slate-400"><MapPin size={13} />{pitch.address || 'Chưa cập nhật địa chỉ'}</p></div>{renderActions(pitch)}</div>
                   <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">{getPitchCategory(pitch)?.label || 'Thể thao'}</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{getActiveSlotCount(pitch)} giờ mở</span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700"><Star size={11} className="mr-1 inline" />{Number(pitch.averageRating || 0).toFixed(1)}</span></div>
-                  <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3"><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá từ</p><p className="mt-1 text-lg font-black text-blue-600">{formatMoney(getMinPrice(pitch))}</p></div><span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${isPitchActive(pitch) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{isPitchActive(pitch) ? 'Hoạt động' : 'Tạm ngưng'}</span></div>
+                  <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3"><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá từ</p><p className="mt-1 text-lg font-black text-blue-600">{formatMoney(getMinPrice(pitch))}</p></div><span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getPitchStatusClass(pitch)}`}>{getPitchStatusLabel(pitch)}</span></div>
                 </div>
               </article>
             ))}

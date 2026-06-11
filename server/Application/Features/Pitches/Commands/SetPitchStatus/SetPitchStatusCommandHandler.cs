@@ -1,5 +1,6 @@
 using Application.Common.DTOs;
 using Application.Common.Interfaces;
+using Domain.Enums;
 using Domain.Exceptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,9 @@ public class SetPitchStatusCommandHandler : IRequestHandler<SetPitchStatusComman
 
             if (pitch.OwnerId != request.OwnerId)
                 return Result<Unit>.Failure("Bạn không có quyền cập nhật sân này.");
+
+            if (request.IsActive && pitch.Status == PitchStatus.PendingApproval)
+                return Result<Unit>.Failure("Sân đang chờ admin duyệt nên chưa thể kích hoạt.");
 
             if (request.IsActive)
                 pitch.Activate();

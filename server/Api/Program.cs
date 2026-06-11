@@ -15,8 +15,6 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -208,9 +206,13 @@ try
     Log.Information("=========================================================");
     app.Run();
 }
+catch (IOException ex) when (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase))
+{
+    Log.Fatal("Backend không thể khởi động vì cổng đang được một tiến trình khác sử dụng. Hãy dừng backend cũ trước khi chạy lại.");
+}
 catch (Exception ex)
 {
-    Log.Fatal(ex, "❌ LỖI NGHIÊM TRỌNG: Server khởi động thất bại hoặc Database có vấn đề!");
+    Log.Fatal(ex, "Backend khởi động thất bại.");
 }
 finally
 {

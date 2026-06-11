@@ -108,7 +108,8 @@ public record OwnerBookingServiceDto(
     string ServiceName,
     decimal Price,
     int Quantity,
-    decimal LineTotal
+    decimal LineTotal,
+    string? AddedByName
 );
 
 public record OwnerPitchSummaryDto(
