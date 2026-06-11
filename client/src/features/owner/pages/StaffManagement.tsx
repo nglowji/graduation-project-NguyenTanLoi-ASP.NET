@@ -115,12 +115,13 @@ const StaffManagement: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <header className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><Users size={22} /></span><div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Personnel hub</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Quản lý nhân viên</h1>
           <p className="mt-2 text-sm font-semibold text-slate-500">Nhân viên có thể đăng nhập trang quản trị với quyền hạn chế: tổng quan, lịch đặt sân và đánh giá.</p>
-        </div>
+        </div></div>
 
         <button
           type="button"
@@ -132,25 +133,25 @@ const StaffManagement: React.FC = () => {
         </button>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="grid gap-3 rounded-2xl bg-slate-100/70 p-3 md:grid-cols-3">
+        <div className="rounded-xl bg-white p-5 shadow-sm">
           <Users className="mb-5 text-blue-600" size={24} />
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng nhân viên</p>
           <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl bg-white p-5 shadow-sm">
           <CheckCircle2 className="mb-5 text-emerald-600" size={24} />
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang hoạt động</p>
           <p className="mt-2 text-2xl font-black text-emerald-600">{stats.active}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl bg-white p-5 shadow-sm">
           <Shield className="mb-5 text-amber-600" size={24} />
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tạm khóa</p>
           <p className="mt-2 text-2xl font-black text-amber-600">{stats.inactive}</p>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-500/20 dark:bg-blue-500/10">
+      <section className="rounded-2xl bg-blue-50 p-5 ring-1 ring-blue-100">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
             <h2 className="text-base font-black text-slate-950 dark:text-white">Quyền hạn nhân viên</h2>
@@ -173,7 +174,7 @@ const StaffManagement: React.FC = () => {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
@@ -189,7 +190,7 @@ const StaffManagement: React.FC = () => {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-2xl bg-slate-100/70 p-3">
         {isLoading ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center gap-4">
             <div className="h-11 w-11 animate-spin rounded-full border-4 border-slate-100 border-t-blue-600 dark:border-slate-800 dark:border-t-blue-500" />
@@ -202,9 +203,9 @@ const StaffManagement: React.FC = () => {
             <p className="mt-2 text-sm font-semibold text-slate-400">Thêm nhân viên để hỗ trợ vận hành lịch đặt sân.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="grid gap-3 lg:grid-cols-2">
             {filteredStaff.map((item) => (
-              <div key={item.id} className="grid gap-4 p-5 transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40 xl:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_140px_120px] xl:items-center">
+              <motion.div whileHover={{ y: -2 }} key={item.id} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${item.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                     {item.fullName.charAt(0).toUpperCase()}
@@ -215,7 +216,7 @@ const StaffManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-3">
                   <p className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-300">
                     <Mail size={13} className="text-blue-600" />
                     {item.email}
@@ -226,13 +227,13 @@ const StaffManagement: React.FC = () => {
                   </p>
                 </div>
 
-                <span className={`inline-flex h-9 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${
+                <span className={`mt-4 inline-flex h-9 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${
                   item.isActive ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-red-50 text-red-700 ring-1 ring-red-100'
                 }`}>
                   {item.isActive ? 'Đang hoạt động' : 'Tạm khóa'}
                 </span>
 
-                <div className="flex gap-2 xl:justify-end">
+                <div className="mt-4 flex gap-2 justify-end">
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(item.id)}
@@ -250,7 +251,7 @@ const StaffManagement: React.FC = () => {
                     <Trash2 size={17} />
                   </button>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}

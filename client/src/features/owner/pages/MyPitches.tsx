@@ -85,7 +85,6 @@ const MyPitches: React.FC = () => {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
-  const [expandedPitchId, setExpandedPitchId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -333,23 +332,23 @@ const MyPitches: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
+      <header className="overflow-hidden rounded-2xl bg-blue-700 text-white shadow-xl shadow-blue-900/15">
         <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Kho sân vận hành</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Sân của tôi</h1>
-          <p className="mt-2 text-sm font-bold text-slate-500">Kiểm tra trạng thái, khung giờ và giá bán của toàn bộ sân.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-100">Kho sân vận hành</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Sân của tôi</h1>
+          <p className="mt-2 text-sm font-bold text-blue-100">Kiểm tra trạng thái, khung giờ và giá bán của toàn bộ sân.</p>
         </div>
 
         <button
           type="button"
           onClick={() => navigate('/dashboard/owner/pitches/create')}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-blue-700 shadow-lg shadow-blue-950/20 transition hover:bg-blue-50"
         >
           <Plus size={18} strokeWidth={3} />
           Thêm sân
         </button></div>
-        <div className="grid grid-cols-3 gap-3 bg-slate-100/70 p-3">
+        <div className="grid grid-cols-3 gap-3 bg-blue-800/50 p-3">
           <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-slate-950">{stats.total}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng sân</p></div>
           <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-emerald-600">{stats.active}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Đang mở</p></div>
           <div className="rounded-xl bg-white p-4 text-center shadow-sm"><b className="text-2xl text-amber-600">{stats.needsSlots}</b><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Cần mở giờ</p></div>
@@ -533,10 +532,9 @@ const MyPitches: React.FC = () => {
           </div>
         ) : viewMode === 'table' ? (
           <div className="min-w-0">
-            <div className="grid grid-cols-[minmax(220px,1.5fr)_minmax(90px,.7fr)_90px_110px_100px_120px_56px] items-center gap-3 rounded-t-2xl border-b border-slate-100 bg-blue-50 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-blue-700 dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="grid grid-cols-[minmax(240px,1.7fr)_minmax(100px,.8fr)_120px_105px_125px_96px] items-center gap-3 rounded-t-2xl border-b border-slate-100 bg-blue-50 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-blue-700 dark:border-slate-800 dark:bg-slate-950/40">
               <span>Sân</span>
               <span>Môn</span>
-              <span>Thông tin</span>
               <span>Giá từ</span>
               <span className="whitespace-nowrap">Khung giờ</span>
               <span>Trạng thái</span>
@@ -545,13 +543,13 @@ const MyPitches: React.FC = () => {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {paginatedPitches.map((pitch) => (
               <div key={pitch.id}>
-              <div className="grid grid-cols-[minmax(220px,1.5fr)_minmax(90px,.7fr)_90px_110px_100px_120px_56px] items-center gap-3 px-5 py-4 transition hover:bg-blue-50/50 dark:hover:bg-slate-800/40">
+              <div className="grid grid-cols-[minmax(240px,1.7fr)_minmax(100px,.8fr)_120px_105px_125px_96px] items-center gap-3 px-5 py-4 transition hover:bg-blue-50/50 dark:hover:bg-slate-800/40">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="h-14 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
                     <img src={getPitchImage(pitch)} alt={pitch.name || 'Sân'} className="h-full w-full object-cover" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-slate-950 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</p>
+                    <button type="button" onClick={() => navigate(`/field/${pitch.id}`)} className="block max-w-full truncate text-left text-sm font-black text-slate-950 transition hover:text-blue-700 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</button>
                     <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{getPitchTypeLabel(pitch)} · {pitch.isIndoor ? 'Trong nhà' : 'Ngoài trời'}</p>
                   </div>
                 </div>
@@ -561,8 +559,6 @@ const MyPitches: React.FC = () => {
                     {getPitchCategory(pitch)?.label || 'Thể thao'}
                   </span>
                 </div>
-
-                <div><button type="button" onClick={() => setExpandedPitchId((current) => current === pitch.id ? null : pitch.id)} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-50"><Eye size={13} />Chi tiết</button></div>
 
                 <div>
                   <p className="text-sm font-black text-slate-950 dark:text-white">{formatMoney(getMinPrice(pitch))}</p>
@@ -578,9 +574,11 @@ const MyPitches: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex justify-end">{renderActions(pitch)}</div>
+                <div className="flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => navigate(`/field/${pitch.id}`)} className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-700 transition hover:bg-blue-700 hover:text-white" title="Xem chi tiết"><Eye size={17} /></button>
+                  {renderActions(pitch)}
+                </div>
               </div>
-              {expandedPitchId === pitch.id && <div className="grid gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300"><p className="flex items-center gap-2"><MapPin size={14} className="text-blue-600" />{pitch.address || 'Chưa cập nhật địa chỉ'}</p><p className="flex items-center gap-2"><Star size={14} className="text-amber-500" />{Number(pitch.averageRating || 0).toFixed(1)} điểm · {pitch.totalReviews || 0} đánh giá</p><p className="flex items-center gap-2"><Building2 size={14} className="text-indigo-600" />{getPitchTypeLabel(pitch)} · {pitch.isIndoor ? 'Trong nhà' : 'Ngoài trời'}</p></div>}
               </div>
             ))}
             </div>
@@ -591,7 +589,7 @@ const MyPitches: React.FC = () => {
               <article key={pitch.id} className="relative overflow-visible rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
                 <img src={getPitchImage(pitch)} alt={pitch.name || 'Sân'} className="h-36 w-full rounded-t-xl object-cover" />
                 <div className="p-4">
-                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-base font-black text-slate-950 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</h3><p className="mt-2 flex items-center gap-1 truncate text-xs font-semibold text-slate-400"><MapPin size={13} />{pitch.address || 'Chưa cập nhật địa chỉ'}</p></div>{renderActions(pitch)}</div>
+                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><button type="button" onClick={() => navigate(`/field/${pitch.id}`)} className="block max-w-full truncate text-left text-base font-black text-slate-950 transition hover:text-blue-700 dark:text-white">{pitch.name || 'Sân chưa đặt tên'}</button><p className="mt-2 flex items-center gap-1 truncate text-xs font-semibold text-slate-400"><MapPin size={13} />{pitch.address || 'Chưa cập nhật địa chỉ'}</p></div>{renderActions(pitch)}</div>
                   <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">{getPitchCategory(pitch)?.label || 'Thể thao'}</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{getActiveSlotCount(pitch)} giờ mở</span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700"><Star size={11} className="mr-1 inline" />{Number(pitch.averageRating || 0).toFixed(1)}</span></div>
                   <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3"><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá từ</p><p className="mt-1 text-lg font-black text-blue-600">{formatMoney(getMinPrice(pitch))}</p></div><span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getPitchStatusClass(pitch)}`}>{getPitchStatusLabel(pitch)}</span></div>
                 </div>

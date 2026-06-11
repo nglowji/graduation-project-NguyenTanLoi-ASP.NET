@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  ArrowUpDown,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -259,7 +260,7 @@ const Bookings: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5 pb-16">
-      <header className="grid overflow-hidden rounded-2xl bg-slate-950 text-white shadow-xl shadow-slate-950/10 lg:grid-cols-[1fr_440px]">
+      <header className="grid overflow-hidden rounded-2xl bg-blue-700 text-white shadow-xl shadow-blue-950/10 lg:grid-cols-[1fr_440px]">
         <div className="flex gap-4 p-7">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30"><CalendarDays size={26} /></span>
         <div>
@@ -270,17 +271,17 @@ const Bookings: React.FC = () => {
 
         </div>
         <div className="grid grid-cols-3 gap-2 bg-white/5 p-3">
-          <div className="grid place-content-center rounded-xl bg-white px-4 py-5 text-center shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p>
-            <p className="text-2xl font-black text-slate-950">{counts.total}</p>
+          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><CreditCard size={19} /></span>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p><p className="mt-1 text-2xl font-black text-slate-950">{counts.total}</p></div>
           </div>
-          <div className="grid place-content-center rounded-xl bg-white px-4 py-5 text-center shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p>
-            <p className="text-xl font-black text-amber-600">{counts.pending}</p>
+          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><Clock size={19} /></span>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p><p className="mt-1 text-2xl font-black text-amber-600">{counts.pending}</p></div>
           </div>
-          <div className="grid place-content-center rounded-xl bg-white px-4 py-5 text-center shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p>
-            <p className="text-xl font-black text-emerald-600">{counts.confirmed}</p>
+          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p><p className="mt-1 text-2xl font-black text-emerald-600">{counts.confirmed}</p></div>
           </div>
         </div>
       </header>
@@ -336,8 +337,11 @@ const Bookings: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="hidden grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] gap-4 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 xl:grid">
-              <span>Khách hàng</span><span>Loại sân và thời gian</span><span>Tổng tiền</span><span>Trạng thái</span><span />
+            <div className="hidden grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] gap-4 rounded-xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 shadow-sm xl:grid">
+              <span className="flex items-center gap-2"><Phone size={14} className="text-blue-600" />Khách hàng</span>
+              <button type="button" onClick={() => setSortBy(sortBy === 'dateDesc' ? 'dateAsc' : 'dateDesc')} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-blue-50 ${sortBy !== 'amountDesc' ? 'bg-blue-50 text-blue-700' : ''}`}><CalendarDays size={14} className="text-blue-600" /><span>Loại sân và thời gian</span><ArrowUpDown size={13} className="ml-auto" /><span className="sr-only">{sortBy === 'dateAsc' ? 'Cũ nhất trước' : 'Mới nhất trước'}</span></button>
+              <button type="button" onClick={() => setSortBy('amountDesc')} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-blue-50 ${sortBy === 'amountDesc' ? 'bg-blue-50 text-blue-700' : ''}`}><CreditCard size={14} className="text-blue-600" /><span>Tổng tiền</span><ArrowUpDown size={13} className="ml-auto" /></button>
+              <span className="flex items-center gap-2"><Activity size={14} className="text-blue-600" />Trạng thái</span><span />
             </div>
             {pagedBookings.map((booking) => {
               const isExpanded = expandedBookingId === booking.id;
