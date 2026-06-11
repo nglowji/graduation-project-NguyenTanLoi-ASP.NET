@@ -13,17 +13,13 @@ import {
   LogOut,
   MapPin,
   Menu,
-  Moon,
-  Search,
   ShieldCheck,
   Star,
-  Sun,
   TrendingUp,
   Users,
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import api from '../services/api';
 import smartSportLogo from '../assets/logo-smartsport.svg';
 
@@ -60,7 +56,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -72,6 +67,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
     ['/dashboard/owner', '/dashboard/owner/bookings', '/dashboard/owner/reviews'].includes(item.path)
   );
   const navItems = isAdmin ? adminNavItems : isStaff ? staffNavItems : ownerNavItems;
+  const currentPage = navItems.find((item) => item.path === location.pathname) || navItems[0];
   const mobileQuickItems = useMemo(() => {
     const activeItem = navItems.find((item) => item.path === location.pathname);
     const baseItems = navItems.slice(0, 4);
@@ -167,10 +163,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         />
       )}
 
-      <aside className={`${collapsed ? 'lg:w-22' : 'lg:w-68'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-20 shrink-0 items-center overflow-hidden border-b border-slate-200 px-5">
+      <aside className={`${collapsed ? 'lg:w-20' : 'lg:w-64'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[300px] flex-col border-r border-slate-200/80 bg-white transition-all duration-300 lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex h-18 shrink-0 items-center overflow-hidden px-4">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5 shadow-sm"><img src={smartSportLogo} alt="SmartSport" className="h-full w-full object-contain" /></div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 p-1.5 shadow-sm shadow-blue-600/20"><img src={smartSportLogo} alt="SmartSport" className="h-full w-full object-contain" /></div>
             {!collapsed && (
               <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col truncate">
                 <span className="text-lg font-extrabold leading-tight tracking-tight text-slate-950">SmartSport</span>
@@ -190,7 +186,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
           </button>
         </div>
 
-        <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto overflow-x-hidden px-3 py-5">
+        <div className="custom-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
           <div className="space-y-1">
             {!collapsed && <p className="mb-3 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vận hành</p>}
             {navItems.map((item) => {
@@ -201,18 +197,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                   key={item.path}
                   to={item.path}
                   onClick={closeMobileMenu}
-                  className={`group relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-sm font-bold transition-all duration-200 ${
+                  className={`group relative mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-200 ${
                     isActive
-                      ? 'border-blue-100 bg-blue-50 text-blue-700'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                   }`}
                 >
-                  {isActive && <motion.span layoutId="sidebar-active-line" className="absolute -left-3 h-7 w-1 rounded-r-full bg-blue-600" />}
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-white text-blue-700 shadow-sm' : 'bg-slate-50 text-slate-500 group-hover:bg-white group-hover:text-blue-700'}`}>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-slate-500 group-hover:text-blue-700'}`}>
                     <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                   </div>
                   {!collapsed && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 truncate">{item.label}</motion.span>}
-                  {isActive && !collapsed && <motion.div layoutId="active-indicator" className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                  {isActive && !collapsed && <motion.div layoutId="active-indicator" className="h-1.5 w-1.5 rounded-full bg-white" />}
                 </Link>
               );
             })}
@@ -220,15 +215,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
 
           <div className="space-y-1">
             {!collapsed && <p className="mb-3 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Hệ thống</p>}
-            <button
-              onClick={toggleTheme}
-              className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-950"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-              </div>
-              {!collapsed && <span>{theme === 'light' ? 'Chế độ tối' : 'Chế độ sáng'}</span>}
-            </button>
             <Link
               to="/"
               onClick={closeMobileMenu}
@@ -245,7 +231,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         <div className="mt-auto border-t border-slate-200 p-3">
           {!collapsed && <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-600 text-sm font-black text-white">{(auth.user?.fullName?.[0] || (isAdmin ? 'A' : 'O')).toUpperCase()}</span>
-            <div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{auth.user?.fullName || (isAdmin ? 'Administrator' : 'Chủ sân')}</p><p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">{isAdmin ? 'Quản trị hệ thống' : isStaff ? 'Nhân viên sân' : 'Đối tác SmartSport'}</p></div>
+            <div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{auth.user?.fullName || (isAdmin ? 'Administrator' : 'Chủ sân')}</p><p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">{isAdmin ? 'Quản trị viên' : isStaff ? 'Nhân viên sân' : 'Chủ sân'}</p></div>
           </div>}
           <button
             onClick={handleLogout}
@@ -260,7 +246,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
       </aside>
 
       <div className="relative flex h-full min-w-0 flex-1 flex-col">
-        <header className="relative z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-800/50 dark:bg-[#1E293B] sm:h-20 sm:px-6 lg:px-8">
+        <header className="relative z-40 flex h-18 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-white px-4 sm:px-6 lg:px-7">
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <button
               onClick={() => {
@@ -273,14 +259,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
               <span className="hidden lg:inline-flex">{collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}</span>
             </button>
 
-            <div className="group hidden min-w-60 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 transition-all focus-within:border-slate-300 dark:border-slate-800 dark:bg-slate-800/50 dark:focus-within:border-slate-600 md:flex">
-              <Search size={18} className="text-slate-400 transition-colors group-focus-within:text-slate-600 dark:group-focus-within:text-slate-300" />
-              <input type="text" placeholder="Tìm kiếm..." className="w-full border-none bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white" />
+            <div className="hidden min-w-0 md:block">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">{isAdmin ? 'Khu vực quản trị' : 'Trung tâm vận hành'}</p>
+              <h2 className="mt-0.5 truncate text-lg font-black text-slate-950">{currentPage.label}</h2>
             </div>
           </div>
 
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-            <div className="hidden">
+            <div>
               <div className="relative">
                 <button
                   type="button"
@@ -392,7 +378,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                   {auth.user?.fullName || (isAdmin ? 'Administrator' : 'Pitch Owner')}
                 </span>
                 <span className={`mt-1.5 text-[10px] font-black uppercase tracking-wider ${isAdmin ? 'text-indigo-600' : 'text-blue-600'}`}>
-                  {isAdmin ? 'Super Admin' : isStaff ? 'Pitch Staff' : 'Premium Partner'}
+                  {isAdmin ? 'Quản trị viên' : isStaff ? 'Nhân viên sân' : 'Chủ sân'}
                 </span>
               </div>
               <div className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border ${accentBg} ${accentBorder} shadow-sm`}>
