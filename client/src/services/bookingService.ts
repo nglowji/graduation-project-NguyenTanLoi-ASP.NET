@@ -53,6 +53,17 @@ export interface BookingResponse {
   };
 }
 
+type CreateBookingApiResult = string | {
+  id?: string;
+  data?: string;
+  value?: string;
+};
+
+const extractBookingId = (result: CreateBookingApiResult) => {
+  if (typeof result === 'string') return result;
+  return result.id || result.data || result.value;
+};
+
 export const bookingService = {
   lock: async (timeSlotId: string, bookingDate: string): Promise<{ lockId: string }> => {
     return await api.post('/bookings/lock', { timeSlotId, bookingDate });
@@ -63,11 +74,8 @@ export const bookingService = {
   },
 
   create: async (request: CreateBookingRequest): Promise<BookingResponse> => {
-    const bookingResult = await api.post('/bookings', request) as any;
-    const bookingId =
-      typeof bookingResult === 'string'
-        ? bookingResult
-        : bookingResult?.id || bookingResult?.data || bookingResult?.value;
+    const bookingResult = await api.post('/bookings', request) as CreateBookingApiResult;
+    const bookingId = extractBookingId(bookingResult);
 
     if (!bookingId) {
       throw new Error('Booking was created but the API did not return a booking id.');

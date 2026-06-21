@@ -9,6 +9,8 @@ namespace Application.Features.Payments.Queries.GetPaymentTransaction;
 public class GetPaymentTransactionQueryHandler 
     : IRequestHandler<GetPaymentTransactionQuery, Result<PaymentTransactionDto>>
 {
+    private static readonly TimeSpan SynchronizationInterval = TimeSpan.FromSeconds(55);
+
     private readonly IApplicationDbContext _context;
     private readonly IPaymentGatewayResolver _paymentGatewayResolver;
     private readonly ILogger<GetPaymentTransactionQueryHandler> _logger;
@@ -30,7 +32,7 @@ public class GetPaymentTransactionQueryHandler
         var transactionEntity = await _context.PaymentTransactions
             .AsNoTracking()
             .Where(pt => pt.Id == request.TransactionId)
-            .Select(pt => new { pt.Id, pt.Gateway, pt.Status })
+            .Select(pt => new { pt.Id, pt.Gateway, pt.Status, pt.CreatedAt, pt.UpdatedAt })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (transactionEntity == null)
@@ -39,7 +41,7 @@ public class GetPaymentTransactionQueryHandler
             return Result<PaymentTransactionDto>.Failure("Transaction not found");
         }
 
-        if (transactionEntity.Status is Domain.Enums.PaymentStatus.Pending or Domain.Enums.PaymentStatus.Processing)
+        if (ShouldSynchronize(transactionEntity.Status, transactionEntity.CreatedAt, transactionEntity.UpdatedAt))
         {
             try
             {
@@ -77,5 +79,17 @@ public class GetPaymentTransactionQueryHandler
         }
 
         return Result<PaymentTransactionDto>.Success(transaction);
+    }
+
+    private static bool ShouldSynchronize(
+        Domain.Enums.PaymentStatus status,
+        DateTime createdAt,
+        DateTime? updatedAt)
+    {
+        if (status is not (Domain.Enums.PaymentStatus.Pending or Domain.Enums.PaymentStatus.Processing))
+            return false;
+
+        var lastCheckedAt = updatedAt ?? createdAt;
+        return DateTime.UtcNow - lastCheckedAt >= SynchronizationInterval;
     }
 }

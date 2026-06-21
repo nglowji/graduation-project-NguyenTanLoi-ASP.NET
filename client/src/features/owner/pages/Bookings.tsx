@@ -260,35 +260,36 @@ const Bookings: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5 pb-16">
-      <header className="grid overflow-hidden rounded-2xl bg-blue-700 text-white shadow-xl shadow-blue-950/10 lg:grid-cols-[1fr_440px]">
-        <div className="flex gap-4 p-7">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30"><CalendarDays size={26} /></span>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Điều phối lịch sân</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Lịch đặt sân</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-300">Theo dõi khách, giờ chơi, thanh toán và trạng thái xử lý.</p>
+      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Điều phối lịch sân</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Lịch đặt sân</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">Theo dõi khách, giờ chơi, thanh toán và trạng thái xử lý trong một màn hình.</p>
+          </div>
+          <span className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-50 px-4 text-sm font-black text-blue-700 ring-1 ring-blue-100">
+            <CalendarDays size={17} />
+            {filteredBookings.length} đơn đang hiển thị
+          </span>
         </div>
-
-        </div>
-        <div className="grid grid-cols-3 gap-2 bg-white/5 p-3">
-          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <button type="button" onClick={() => setTab('all')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><CreditCard size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p><p className="mt-1 text-2xl font-black text-slate-950">{counts.total}</p></div>
-          </div>
-          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p><p className="mt-1 text-2xl font-black text-slate-950">{counts.total}</p><p className="mt-2 text-xs font-semibold text-slate-500">Bấm để xem toàn bộ lịch đặt sân.</p></div>
+          </button>
+          <button type="button" onClick={() => setTab('pendingdeposit')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-amber-200 hover:bg-amber-50">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><Clock size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p><p className="mt-1 text-2xl font-black text-amber-600">{counts.pending}</p></div>
-          </div>
-          <div className="flex items-center justify-center gap-3 rounded-xl bg-white px-4 py-5 shadow-sm">
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p><p className="mt-1 text-2xl font-black text-amber-600">{counts.pending}</p><p className="mt-2 text-xs font-semibold text-slate-500">Ưu tiên nhắc khách thanh toán cọc.</p></div>
+          </button>
+          <button type="button" onClick={() => setTab('confirmed')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p><p className="mt-1 text-2xl font-black text-emerald-600">{counts.confirmed}</p></div>
-          </div>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p><p className="mt-1 text-2xl font-black text-emerald-600">{counts.confirmed}</p><p className="mt-2 text-xs font-semibold text-slate-500">Chuẩn bị sân và nhân sự theo giờ chơi.</p></div>
+          </button>
         </div>
       </header>
-
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+          <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 ">
             {tabs.map((item) => (
               <button
                 key={item.id}
@@ -296,8 +297,8 @@ const Bookings: React.FC = () => {
                 onClick={() => setTab(item.id)}
                 className={`rounded-lg px-4 py-2.5 text-xs font-black transition ${
                   tab === item.id
-                    ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-900'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-white text-blue-700 shadow-sm '
+                    : 'text-slate-500 hover:text-slate-900 '
                 }`}
               >
                 {item.label}
@@ -311,19 +312,19 @@ const Bookings: React.FC = () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Tìm khách, sân, mã đơn..."
-              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
             />
           </div>
         </div>
         <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-3 md:grid-cols-3">
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white" /></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-white"><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   " /></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   "><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
+          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   "><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
         </div>
         {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
 
-      <section className="rounded-2xl bg-slate-100/70 p-3">
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         {isLoading ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={38} />
@@ -332,7 +333,7 @@ const Bookings: React.FC = () => {
         ) : filteredBookings.length === 0 ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
             <CalendarDays size={52} className="mb-4 text-slate-200" />
-            <h3 className="text-lg font-black text-slate-800 dark:text-white">Không có đơn phù hợp</h3>
+            <h3 className="text-lg font-black text-slate-800 ">Không có đơn phù hợp</h3>
             <p className="mt-2 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
           </div>
         ) : (
@@ -351,11 +352,11 @@ const Bookings: React.FC = () => {
                   <div className="grid gap-4 p-4 xl:grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] xl:items-center">
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700 dark:bg-slate-800">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700 ">
                           {getCustomerName(booking).charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-950 dark:text-white">{getCustomerName(booking)}</p>
+                          <p className="truncate text-sm font-black text-slate-950 ">{getCustomerName(booking)}</p>
                           <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-400">
                             <Phone size={12} />
                             {getCustomerPhone(booking)}
@@ -365,7 +366,7 @@ const Bookings: React.FC = () => {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-base font-black text-slate-900 dark:text-white">
+                      <p className="truncate text-base font-black text-slate-900 ">
                         <Activity size={15} className="mr-2 inline text-blue-600" />
                         {getPitchType(booking)}
                       </p>
@@ -389,7 +390,7 @@ const Bookings: React.FC = () => {
 
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng tiền</p>
-                      <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{formatMoney(getTotal(booking))}</p>
+                      <p className="mt-1 text-sm font-black text-slate-950 ">{formatMoney(getTotal(booking))}</p>
                     </div>
 
                     <span className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${getStatusClass(booking.status)}`}>
@@ -416,15 +417,15 @@ const Bookings: React.FC = () => {
                         <dl className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Mã đơn</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{booking.checkInCode || booking.id.substring(0, 8).toUpperCase()}</dd>
+                            <dd className="text-right text-slate-800 ">{booking.checkInCode || booking.id.substring(0, 8).toUpperCase()}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Địa chỉ</dt>
-                            <dd className="max-w-[180px] truncate text-right text-slate-800 dark:text-slate-200">{getPitchAddress(booking)}</dd>
+                            <dd className="max-w-[180px] truncate text-right text-slate-800 ">{getPitchAddress(booking)}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Liên hệ</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{getCustomerPhone(booking)}</dd>
+                            <dd className="text-right text-slate-800 ">{getCustomerPhone(booking)}</dd>
                           </div>
                         </dl>
                       </div>
@@ -437,7 +438,7 @@ const Bookings: React.FC = () => {
                         <dl className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Tổng tiền</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(getTotal(booking))}</dd>
+                            <dd className="text-right text-slate-800 ">{formatMoney(getTotal(booking))}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Hóa đơn phát sinh</dt>
@@ -449,11 +450,11 @@ const Bookings: React.FC = () => {
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Còn lại</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{formatMoney(getRemaining(booking))}</dd>
+                            <dd className="text-right text-slate-800 ">{formatMoney(getRemaining(booking))}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Ghi nhận</dt>
-                            <dd className="text-right text-slate-800 dark:text-slate-200">{isCompletedBooking(booking) ? 'Đã thanh toán đủ' : 'Còn thu tại sân'}</dd>
+                            <dd className="text-right text-slate-800 ">{isCompletedBooking(booking) ? 'Đã thanh toán đủ' : 'Còn thu tại sân'}</dd>
                           </div>
                         </dl>
                         {getExtraServices(booking).length > 0 && (

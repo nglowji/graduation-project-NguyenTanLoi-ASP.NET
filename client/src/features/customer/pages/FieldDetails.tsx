@@ -181,16 +181,16 @@ const mapOsrmSteps = (route: any): RouteStep[] =>
 
 const getBestBrowserPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
   const samples: GeolocationPosition[] = [];
-  let watchId: number | undefined;
+  const watch = { id: undefined as number | undefined };
   const finish = () => {
-    if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+    if (watch.id !== undefined) navigator.geolocation.clearWatch(watch.id);
     const best = samples.sort((a, b) => a.coords.accuracy - b.coords.accuracy)[0];
     if (best) resolve(best);
     else reject(new Error('Thiết bị chưa cung cấp được vị trí. Hãy bật quyền vị trí chính xác rồi thử lại.'));
   };
 
   const timer = window.setTimeout(finish, 8000);
-  watchId = navigator.geolocation.watchPosition(
+  watch.id = navigator.geolocation.watchPosition(
     (position) => {
       samples.push(position);
       if (position.coords.accuracy <= 100) {
@@ -200,7 +200,7 @@ const getBestBrowserPosition = () => new Promise<GeolocationPosition>((resolve, 
     },
     (error) => {
       window.clearTimeout(timer);
-      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      if (watch.id !== undefined) navigator.geolocation.clearWatch(watch.id);
       reject(new Error(error.code === error.PERMISSION_DENIED
         ? 'Bạn chưa cấp quyền vị trí cho trình duyệt.'
         : 'Thiết bị chưa cung cấp được vị trí chính xác. Hãy bật dịch vụ vị trí rồi thử lại.'));
@@ -587,7 +587,7 @@ const FieldDetails: React.FC = () => {
   if (!pitch) {
     return (
       <div className="min-h-screen bg-slate-50 pb-16 pt-28 font-sans text-slate-900">
-        <div className="mx-auto max-w-[1480px] px-4 sm:px-6">
+        <div className="mx-auto max-w-370 px-4 sm:px-6">
           <div className="rounded-2xl border border-blue-100 bg-white p-8 text-center shadow-sm">
             <p className="text-sm font-bold text-slate-600">Không tìm thấy sân phù hợp.</p>
             <button
@@ -700,10 +700,10 @@ const FieldDetails: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16 pt-24 font-sans text-slate-900">
-      <div className="mx-auto max-w-[1480px] px-4 sm:px-6">
+    <div className="min-h-screen bg-white pb-16 pt-24 font-sans text-slate-900">
+      <div className="mx-auto max-w-370 px-4 sm:px-6">
         {/* Header Section */}
-        <div className="mb-6 rounded-2xl border border-blue-100 bg-cyan-50 p-5 sm:p-7">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <button 
             onClick={() => navigate('/explore')}
             className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group"
@@ -724,7 +724,7 @@ const FieldDetails: React.FC = () => {
                 Từ {formatMoney(pitch.minPrice)}đ/giờ
               </div>
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{pitch.name}</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-950">{pitch.name}</h1>
             <div className="flex items-center gap-2 text-slate-500 font-semibold text-sm">
               <MapPin size={14} className="text-red-500 shrink-0" />
               <span>{fullAddress}</span>
@@ -737,7 +737,7 @@ const FieldDetails: React.FC = () => {
           <div className="min-w-0 space-y-6">
             {/* ULTRA COMPACT GALLERY */}
             <div className="space-y-3">
-              <div className="group relative aspect-[16/8] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="group relative aspect-16/7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={activeImageIndex}
@@ -786,7 +786,7 @@ const FieldDetails: React.FC = () => {
             </div>
 
             {/* OpenStreetMap */}
-            <section className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
                   <MapIcon size={12} className="text-blue-600" />
@@ -802,9 +802,9 @@ const FieldDetails: React.FC = () => {
                   Đường đi
                 </button>
               </div>
-              <div className="mt-4 w-full overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg shadow-blue-950/10">
+              <div className="mt-4 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="relative">
-                  <div ref={mapContainerRef} className="h-[380px] w-full bg-blue-50" />
+                  <div ref={mapContainerRef} className="h-72 w-full bg-blue-50 sm:h-75" />
                   <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700 shadow-lg">
                       <i className="h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-blue-100" /> Sân thể thao
@@ -814,7 +814,7 @@ const FieldDetails: React.FC = () => {
                     </span>}
                   </div>
                   {pitchLocation && (
-                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-blue-950/20">
+                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-sm">
                       Điểm đến đã xác định
                     </div>
                   )}
@@ -924,61 +924,73 @@ const FieldDetails: React.FC = () => {
 
             {/* Reviews */}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div><h3 className="text-xl font-black text-slate-950">Đánh giá khách hàng</h3><p className="mt-1 text-sm font-semibold text-slate-500">{pitch.totalReviews || 0} lượt đánh giá</p></div>
-                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-700">
-                  <Star size={20} className="fill-current" /> <span className="text-2xl">{Number(pitch.averageRating ?? 0).toFixed(1)}</span> / 5.0
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-blue-600">Đánh giá khách hàng</p>
+                  <h3 className="mt-1 text-xl font-black text-slate-950">Trải nghiệm tại sân</h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{pitch.totalReviews || 0} lượt nhận xét từ khách đã đặt sân.</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-right">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Điểm trung bình</p>
+                  <p className="mt-1 flex items-center justify-end gap-1 text-2xl font-black text-amber-600"><Star size={19} className="fill-current" />{Number(pitch.averageRating ?? 0).toFixed(1)}<span className="text-sm text-amber-700">/5</span></p>
                 </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-2">{[0, 5, 4, 3, 2, 1].map((rating) => <button key={rating} type="button" onClick={() => setReviewFilter(rating)} className={`rounded-lg px-3 py-2 text-xs font-black ${reviewFilter === rating ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}>{rating === 0 ? 'Tất cả' : `${rating} sao`}</button>)}</div>
-              <div className="mt-5 space-y-3">
+
+              <div className="mt-5 grid gap-5 border-y border-slate-100 py-5 md:grid-cols-[150px_minmax(0,1fr)] md:items-center">
+                <div className="text-center md:text-left">
+                  <p className="text-4xl font-black text-amber-500">{Number(pitch.averageRating ?? 0).toFixed(1)}</p>
+                  <div className="mt-2 flex justify-center gap-0.5 md:justify-start">{Array.from({ length: 5 }).map((_, index) => <Star key={index} size={15} className={index < Math.round(Number(pitch.averageRating ?? 0)) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'} />)}</div>
+                </div>
+                <div className="space-y-2">
+                  {[5, 4, 3, 2, 1].map((rating) => {
+                    const count = (pitch.reviews || []).filter((review) => Number(review.rating) === rating).length;
+                    const total = Math.max(Number(pitch.totalReviews || pitch.reviews?.length || 0), 1);
+                    return <button key={rating} type="button" onClick={() => setReviewFilter(rating)} className="grid w-full grid-cols-[48px_minmax(0,1fr)_32px] items-center gap-3 text-left">
+                      <span className="text-xs font-black text-slate-600">{rating} sao</span>
+                      <span className="h-2 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-amber-400" style={{ width: `${count / total * 100}%` }} /></span>
+                      <span className="text-right text-xs font-bold text-slate-400">{count}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {[0, 5, 4, 3, 2, 1].map((rating) => <button key={rating} type="button" onClick={() => setReviewFilter(rating)} className={`rounded-full px-4 py-2 text-xs font-black transition ${reviewFilter === rating ? 'bg-amber-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700'}`}>{rating === 0 ? `Tất cả (${pitch.totalReviews || 0})` : `${rating} sao`}</button>)}
+              </div>
+
+              <div className="mt-5 space-y-4">
                 {pagedReviews.length > 0 ? pagedReviews.map((rev) => (
-                  <div key={rev.id} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-300 border border-slate-100"><User size={16} /></div>
-                        <div>
-                          <p className="text-xs font-black text-slate-900">{rev.userName}</p>
-                          <p className="text-[10px] font-bold text-slate-400">{new Date(rev.createdAt).toLocaleDateString('vi-VN')}</p>
+                  <article key={rev.id} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-start gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-600">{rev.userName?.charAt(0)?.toUpperCase() || <User size={16} />}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div><p className="text-sm font-black text-slate-950">{rev.userName}</p><p className="mt-1 text-xs font-semibold text-slate-400">{new Date(rev.createdAt).toLocaleDateString('vi-VN')}</p></div>
+                          <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, index) => <Star key={index} size={15} className={index < Number(rev.rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'} />)}</div>
                         </div>
-                      </div>
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 5 }).map((_, idx) => (
-                          <Star key={idx} size={16} className={`${idx < rev.rating ? 'text-amber-400 fill-current' : 'text-slate-200'}`} />
-                        ))}
+                        <p className="mt-3 text-sm font-medium leading-6 text-slate-700">{rev.comment || 'Khách hàng hài lòng về dịch vụ.'}</p>
+                        {rev.ownerReply && <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Phản hồi từ chủ sân</p><p className="mt-1 text-sm font-medium leading-6 text-slate-600">{rev.ownerReply}</p></div>}
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-slate-600">{rev.comment || "Khách hàng hài lòng về dịch vụ."}</p>
-                    {rev.ownerReply && (
-                      <div className="ml-11 rounded-xl border border-blue-100 bg-white p-3">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Phản hồi từ chủ sân</p>
-                        <p className="mt-2 text-sm font-medium leading-6 text-slate-600">{rev.ownerReply}</p>
-                      </div>
-                    )}
-                  </div>
-                )) : (
-                  <div className="py-8 text-center bg-slate-50/30 rounded-2xl border border-dashed border-slate-100">
-                    <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest">Chưa có đánh giá</p>
-                  </div>
-                )}
+                  </article>
+                )) : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-10 text-center"><p className="text-sm font-bold text-slate-500">Chưa có đánh giá phù hợp</p></div>}
               </div>
-              <Pagination page={reviewPage} totalItems={filteredReviews.length} pageSize={reviewPageSize} onPageChange={setReviewPage} label="đánh giá" />
+              {filteredReviews.length > reviewPageSize && <Pagination page={reviewPage} totalItems={filteredReviews.length} pageSize={reviewPageSize} onPageChange={setReviewPage} label="đánh giá" />}
             </section>
           </div>
-
           {/* RIGHT COLUMN (Sticky) */}
           <aside className="w-full">
-            <div className="sticky top-32 space-y-6">
-              <div className="space-y-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-lg shadow-blue-950/5">
+            <div className="sticky top-28 space-y-5">
+              <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-end justify-between">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Giá thuê</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Giá thuê</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-black text-slate-900">{formatMoney(pitch.minPrice)}đ</span>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">/ Giờ</span>
                     </div>
                   </div>
-                  <CheckCircle2 size={20} className="text-emerald-500" />
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={18} /></span>
                 </div>
 
                 <div className="space-y-5">
@@ -992,8 +1004,8 @@ const FieldDetails: React.FC = () => {
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">{timelineSlots.filter((slot) => slot.isAvailable).length} khung</span>
                     </label>
                     {timelineSlots.length > 0 ? (
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-2">
-                        <div className="grid max-h-[360px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                        <div className="grid max-h-96 grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
                           {timelineSlots.map((slot) => {
                             const isSelected = selectedTime === slot.id;
                             return (
@@ -1006,7 +1018,7 @@ const FieldDetails: React.FC = () => {
                                   !slot.isAvailable
                                     ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300'
                                     : isSelected
-                                      ? 'border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                                      ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
                                       : 'border-white bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50'
                                 }`}
                               >
@@ -1039,12 +1051,12 @@ const FieldDetails: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                <div className="flex items-center justify-between border-t border-slate-100 pt-5">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Tổng tiền</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng tiền</p>
                     <p className="text-2xl font-black text-blue-600 tracking-tight">{formatMoney(calculateTotal())}đ</p>
                   </div>
-                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="h-12 px-6 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Xem và xác nhận <ArrowRight size={16} /></>}</button>
+                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-blue-700 px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Xem và xác nhận <ArrowRight size={16} /></>}</button>
                 </div>
               </div>
               <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50"><ShieldCheck className="text-blue-500" size={18} /><p className="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest">Bảo mật & Hoàn tiền nhanh</p></div>
@@ -1057,4 +1069,3 @@ const FieldDetails: React.FC = () => {
 };
 
 export default FieldDetails;
-

@@ -1,185 +1,39 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ListChecks, CreditCard, Map, UserPlus, Settings, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { CalendarCheck, ChartNoAxesCombined, CreditCard, MapPin, Settings2, UserPlus } from 'lucide-react';
+
+const playerSteps = [
+  ['01', MapPin, 'Chọn sân phù hợp', 'Lọc theo môn, vị trí, mức giá và đánh giá.'],
+  ['02', CalendarCheck, 'Giữ khung giờ', 'Xem lịch trống thực tế, thêm dịch vụ khi cần.'],
+  ['03', CreditCard, 'Thanh toán cọc', 'Xác nhận nhanh, theo dõi đơn trong hồ sơ.'],
+] as const;
+
+const ownerSteps = [
+  ['01', UserPlus, 'Đăng ký cơ sở', 'Gửi thông tin sân để hệ thống xét duyệt.'],
+  ['02', Settings2, 'Thiết lập vận hành', 'Thêm sân, giá, khung giờ và dịch vụ bán kèm.'],
+  ['03', ChartNoAxesCombined, 'Theo dõi hoạt động', 'Quản lý lịch đặt, đánh giá và doanh thu mỗi ngày.'],
+] as const;
 
 const WorkflowSection: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'player' | 'owner'>('player');
+  const [mode, setMode] = useState<'player' | 'owner'>('player');
+  const steps = mode === 'player' ? playerSteps : ownerSteps;
 
-  return (
-    <section className="py-24 bg-white relative overflow-hidden">
-      <div className="container mx-auto px-6 max-w-6xl">
-        
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Cách thức hoạt động
-          </h2>
-          <p className="text-slate-600 text-xl">Đơn giản, nhanh chóng và minh bạch cho tất cả mọi người.</p>
+  return <section className="border-y border-slate-200 bg-slate-50 py-16 sm:py-20">
+    <div className="mx-auto max-w-7xl px-5 sm:px-6">
+      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div><p className="text-xs font-black uppercase tracking-widest text-blue-700">Cách vận hành</p><h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Mọi bước đều có trạng thái rõ ràng</h2></div>
+        <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1">
+          <button type="button" onClick={() => setMode('player')} className={`h-10 rounded-lg px-4 text-sm font-black transition ${mode === 'player' ? 'bg-blue-700 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Người chơi</button>
+          <button type="button" onClick={() => setMode('owner')} className={`h-10 rounded-lg px-4 text-sm font-black transition ${mode === 'owner' ? 'bg-blue-700 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Chủ sân</button>
         </div>
-
-        {/* Tab Switcher */}
-        <div className="flex justify-center mb-16">
-          <div className="bg-slate-100 p-2 rounded-full flex gap-2 relative shadow-inner">
-            <motion.div 
-              className="absolute inset-y-2 w-[calc(50%-0.5rem)] bg-primary rounded-full shadow-md"
-              initial={false}
-              animate={{
-                left: activeTab === 'player' ? '0.5rem' : '50%'
-              }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            />
-            
-            <button 
-              onClick={() => setActiveTab('player')}
-              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'player' ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Người chơi
-            </button>
-            <button 
-              onClick={() => setActiveTab('owner')}
-              className={`relative z-10 px-10 py-4 rounded-full font-bold text-lg transition-colors w-48 ${activeTab === 'owner' ? 'text-white' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Chủ sân
-            </button>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="relative min-h-[500px]">
-          <AnimatePresence mode="wait">
-            
-            {activeTab === 'player' && (
-              <motion.div
-                key="player-content"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pb-12 md:pb-16"
-              >
-                {/* Bước 1 */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                    <Sparkles size={32} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">01.</span>Gợi Ý Thông Minh</h3>
-                  <p className="text-slate-600 text-lg leading-relaxed">Hệ thống AI phân tích thói quen và vị trí để đề xuất sân bóng, sân tennis phù hợp nhất kèm bộ lọc nâng cao.</p>
-                </div>
-
-                {/* Bước 2 */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                    <ListChecks size={32} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">02.</span>Đặt Sân & Dịch Vụ</h3>
-                  <p className="text-slate-600 text-lg leading-relaxed">Xem chi tiết tình trạng sân, lịch trống và thêm trực tiếp các dịch vụ đi kèm như nước uống, áo bib, thuê bóng.</p>
-                </div>
-
-                {/* Bước 3 */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                    <CreditCard size={32} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">03.</span>Thanh Toán An Toàn</h3>
-                  <p className="text-slate-600 text-lg leading-relaxed">Thanh toán đặt cọc nhanh chóng qua VNPAY, MoMo, thẻ tín dụng với hệ thống bảo mật tuyệt đối.</p>
-                </div>
-
-                {/* Bước 4 */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200 hover:border-primary/50 hover:shadow-xl transition-all duration-300 md:translate-y-12">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                    <Map size={32} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3"><span className="text-primary mr-2">04.</span>Bản Đồ Chỉ Đường</h3>
-                  <p className="text-slate-600 text-lg leading-relaxed">Tích hợp bản đồ thông minh hướng dẫn lộ trình ngắn nhất đến sân, sẵn sàng cho trận đấu thăng hoa.</p>
-                </div>
-
-              </motion.div>
-            )}
-
-            {activeTab === 'owner' && (
-              <motion.div
-                key="owner-content"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col gap-12"
-              >
-                {/* 3 Bước cho Chủ sân */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="bg-emerald-50 rounded-4xl p-8 border-2 border-emerald-100 hover:border-emerald-300 transition-colors">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-emerald-600/30">
-                      <UserPlus size={32} />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-900 mb-3">01. Mở Tài Khoản</h3>
-                    <p className="text-slate-600 font-medium text-lg leading-relaxed">Đăng ký tài khoản Đối tác hoàn toàn miễn phí chỉ trong vòng 3 phút.</p>
-                  </div>
-                  <div className="bg-teal-50 rounded-4xl p-8 border-2 border-teal-100 hover:border-teal-300 transition-colors">
-                    <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-teal-600/30">
-                      <Settings size={32} />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-900 mb-3">02. Thiết Lập Sân</h3>
-                    <p className="text-slate-600 font-medium text-lg leading-relaxed">Đăng tải hình ảnh sân bãi và thiết lập giá tiền theo từng khung giờ linh hoạt.</p>
-                  </div>
-                  <div className="bg-cyan-50 rounded-4xl p-8 border-2 border-cyan-100 hover:border-cyan-300 transition-colors">
-                    <div className="w-16 h-16 rounded-2xl bg-cyan-600 text-white flex items-center justify-center mb-6 shadow-lg shadow-cyan-600/30">
-                      <TrendingUp size={32} />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-900 mb-3">03. Tăng Doanh Thu</h3>
-                    <p className="text-slate-600 font-medium text-lg leading-relaxed">Nhận thông báo đặt lịch tự động, quản lý dòng tiền an toàn không lo bị bùng lịch.</p>
-                  </div>
-                </div>
-
-                {/* Khối Giải thích Mô hình 10% */}
-                <div className="bg-slate-900 rounded-[3rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl">
-                  <div className="flex-1">
-                    <h3 className="text-3xl md:text-4xl font-black text-white mb-8 uppercase tracking-wide leading-tight">
-                      Mô hình kinh doanh<br/><span className="text-green-400">Siêu Lợi Nhuận</span>
-                    </h3>
-                    <ul className="space-y-6">
-                      <li className="flex items-start gap-4">
-                        <CheckCircle2 className="text-green-400 shrink-0 mt-1" size={28} strokeWidth={3} />
-                        <div>
-                          <p className="text-white text-xl font-bold mb-1">Miễn phí 100% Khởi tạo</p>
-                          <p className="text-slate-400 font-medium">Không thu phí đăng ký tài khoản và đăng tải sân bãi.</p>
-                        </div>
-                      </li>
-                      <li className="flex items-start gap-4">
-                        <CheckCircle2 className="text-green-400 shrink-0 mt-1" size={28} strokeWidth={3} />
-                        <div>
-                          <p className="text-white text-xl font-bold mb-1">Win - Win</p>
-                          <p className="text-slate-400 font-medium">Chỉ thu chiết khấu khi có khách hàng đặt sân thành công.</p>
-                        </div>
-                      </li>
-                      <li className="flex items-start gap-4">
-                        <CheckCircle2 className="text-green-400 shrink-0 mt-1" size={28} strokeWidth={3} />
-                        <div>
-                          <p className="text-white text-xl font-bold mb-1 text-yellow-400">Không thu phí Dịch vụ đi kèm</p>
-                          <p className="text-slate-400 font-medium">Bạn giữ 100% doanh thu từ việc bán nước, thuê áo bib, thuê bóng.</p>
-                        </div>
-                      </li>
-                    </ul>
-                  </div>
-                  
-                  {/* Cục 10% Siêu nét */}
-                  <div className="w-full md:w-auto bg-green-500 rounded-4xl p-10 flex flex-col items-center justify-center shrink-0 shadow-2xl shadow-green-500/20 transform md:rotate-3 hover:rotate-0 transition-transform duration-300">
-                    <span className="text-green-950 text-xl font-black uppercase tracking-widest mb-2">Phí nền tảng</span>
-                    <span className="text-white text-8xl md:text-9xl font-black leading-none drop-shadow-sm">
-                      10%
-                    </span>
-                    <span className="text-green-900 font-bold text-lg mt-4 px-6 py-2 bg-white/20 rounded-full">Trên mỗi đơn đặt sân</span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-        </div>
-
       </div>
-    </section>
-  );
+      <div className="mt-8 grid gap-3 md:grid-cols-3">
+        {steps.map(([number, Icon, title, description]) => <article key={number} className="border-t-2 border-slate-200 bg-white p-5 transition hover:border-blue-600">
+          <div className="flex items-center justify-between"><span className="text-xs font-black tracking-widest text-slate-400">{number}</span><Icon size={21} className="text-blue-700" /></div>
+          <h3 className="mt-8 text-lg font-black text-slate-950">{title}</h3><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+        </article>)}
+      </div>
+    </div>
+  </section>;
 };
-
-
 
 export default WorkflowSection;

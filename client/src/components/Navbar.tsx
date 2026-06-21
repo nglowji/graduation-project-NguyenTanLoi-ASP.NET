@@ -105,7 +105,7 @@ const Navbar: React.FC = () => {
     <motion.nav
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="fixed left-0 right-0 top-0 z-[100] border-b border-slate-200 bg-surface-light/95 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-lg"
+      className="fixed left-0 right-0 top-0 z-100 border-b border-slate-200 bg-white/95 backdrop-blur-lg"
     >
       <div className="container mx-auto flex h-20 items-center justify-between px-4 sm:px-6">
         <Link to="/" className="group flex min-w-0 items-center gap-2">
@@ -113,7 +113,7 @@ const Navbar: React.FC = () => {
           <span className="truncate text-xl font-black tracking-tight text-slate-900 transition-colors group-hover:text-primary">SmartSport</span>
         </Link>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1 md:flex">
           {publicLinks.map((item) => (
             <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
           ))}
@@ -149,6 +149,7 @@ const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                aria-label={`Mở menu ${accountRoleLabel}`}
                 className={`flex items-center gap-2 rounded-xl border bg-white px-2 py-1.5 shadow-sm transition-all ${isAccountMenuOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-blue-100 hover:border-blue-200 hover:bg-blue-50'}`}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 font-black text-blue-700">
@@ -156,7 +157,7 @@ const Navbar: React.FC = () => {
                 </div>
                 <div className="hidden text-left sm:block">
                   <p className="text-[10px] font-bold leading-none text-slate-400">Xin chào</p>
-                  <p className="mt-1 max-w-[120px] truncate text-sm font-black leading-none text-slate-900">{user?.fullName}</p>
+                  <p className="mt-1 max-w-30 truncate text-sm font-black leading-none text-slate-900">{user?.fullName}</p>
                 </div>
                 <ChevronDown size={16} className={`text-slate-400 transition-transform ${isAccountMenuOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -165,28 +166,25 @@ const Navbar: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10"
+                  className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-62 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10"
                 >
-                  <div className="border-b border-slate-200 bg-slate-950 p-4 text-white">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500 text-lg font-black text-white">
+                  <div className="border-b border-slate-100 bg-white p-3 text-slate-900">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white">
                         {user?.fullName?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black">{user?.fullName || 'Tài khoản'}</p>
-                        <p className="truncate text-xs font-semibold text-slate-300">{user?.email || 'Chưa cập nhật email'}</p>
+                        <p className="truncate text-xs font-semibold text-slate-500">{user?.email || 'Chưa cập nhật email'}</p>
                       </div>
-                    </div>
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-100">
-                      {accountRoleLabel}
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 p-2.5">
+                  <div className="space-y-1 p-2">
                     {(isAdmin || isOwner) && (
                       <Link
                         to={isAdmin ? '/dashboard/admin' : '/dashboard/owner'}
-                        className="flex items-center gap-3 rounded-xl bg-blue-50 px-3 py-2.5 text-sm font-black text-blue-800 transition hover:bg-blue-600 hover:text-white"
+                        className="flex items-center gap-2.5 rounded-lg bg-blue-50 px-3 py-2 text-sm font-black text-blue-800 transition hover:bg-blue-600 hover:text-white"
                         onClick={() => setIsAccountMenuOpen(false)}
                       >
                         <LayoutDashboard size={18} />
@@ -196,7 +194,7 @@ const Navbar: React.FC = () => {
 
                     <Link
                       to="/profile"
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-black text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
                       onClick={() => setIsAccountMenuOpen(false)}
                     >
                       <User size={18} />
@@ -206,7 +204,7 @@ const Navbar: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-black text-red-600 transition hover:bg-red-600 hover:text-white"
+                      className="flex w-full items-center gap-2.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-black text-red-600 transition hover:bg-red-600 hover:text-white"
                     >
                       <LogOut size={18} />
                       Đăng xuất
@@ -297,7 +295,7 @@ const Navbar: React.FC = () => {
 };
 
 const NavLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
-  <Link to={to} className="group relative text-sm font-bold text-slate-600 transition-colors hover:text-primary">
+  <Link to={to} className="rounded-full px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-white hover:text-primary">
     {children}
     <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-primary transition-all group-hover:w-full" />
   </Link>

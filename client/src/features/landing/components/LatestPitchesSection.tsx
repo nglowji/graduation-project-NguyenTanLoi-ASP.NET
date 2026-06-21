@@ -8,6 +8,11 @@ const fallbackImage = 'https://images.unsplash.com/photo-1574629810360-7efbbe195
 const formatMoney = (value?: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
 
+const typeLabel = (value?: string) => ({
+  Football5: 'Bóng đá 5 người', Football7: 'Bóng đá 7 người', Football11: 'Bóng đá 11 người',
+  Badminton: 'Cầu lông', Pickleball: 'Pickleball', Tennis: 'Quần vợt', Basketball: 'Bóng rổ', Volleyball: 'Bóng chuyền', TableTennis: 'Bóng bàn',
+}[String(value || '')] || 'Sân thể thao');
+
 const LatestPitchesSection: React.FC = () => {
   const navigate = useNavigate();
   const [pitches, setPitches] = useState<PitchResponse[]>([]);
@@ -19,7 +24,7 @@ const LatestPitchesSection: React.FC = () => {
     const fetchLatest = async () => {
       setIsLoading(true);
       try {
-        const result = await pitchService.search({ pageNumber: 1, pageSize: 6, sortBy: 'newest' });
+        const result = await pitchService.search({ pageNumber: 1, pageSize: 6, sortBy: 'rating_desc' });
         if (mounted) setPitches(Array.isArray(result?.items) ? result.items : []);
       } catch {
         if (mounted) setPitches([]);
@@ -39,10 +44,10 @@ const LatestPitchesSection: React.FC = () => {
       <div className="container mx-auto max-w-7xl px-5 sm:px-6">
         <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <span className="text-xs font-black uppercase tracking-[0.28em] text-primary">Sân mới nhất</span>
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Vừa được cập nhật trên SmartSport</h2>
+            <span className="text-xs font-black uppercase tracking-[0.28em] text-primary">Gợi ý cho bạn</span>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Những sân được người chơi quan tâm</h2>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-500 sm:text-base">
-              Xem nhanh các sân đang hoạt động, giá khởi điểm, khu vực và đánh giá trước khi vào trang tìm kiếm đầy đủ.
+              Gợi ý ưu tiên theo mức đánh giá và loại sân được cộng đồng đặt nhiều.
             </p>
           </div>
           <button
@@ -82,7 +87,7 @@ const LatestPitchesSection: React.FC = () => {
                   <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
                     <img src={image} alt={pitch.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm">
-                      {pitch.typeDisplay || 'Sân thể thao'}
+                      {typeLabel(pitch.typeDisplay)}
                     </div>
                   </div>
                   <div className="p-5">

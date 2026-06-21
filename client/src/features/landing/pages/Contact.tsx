@@ -19,12 +19,12 @@ const Contact: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 bg-slate-50">
-      <section className="bg-blue-700 px-5 py-14 text-white">
+    <main className="flex-1 bg-slate-50 pt-20">
+      <section className="border-b border-blue-900 bg-blue-950 px-5 py-14 text-slate-50 [&_p.text-slate-500]:text-blue-100 [&_p.text-blue-600]:text-blue-200">
         <div className="mx-auto max-w-6xl">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200">Kết nối với SmartSport</p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">Bạn cần hỗ trợ điều gì?</h1>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-blue-100">Gửi câu hỏi, phản ánh hoặc đề xuất. Nội dung được chuyển đến đội ngũ quản trị để tiếp nhận và phản hồi.</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Kết nối với SmartSport</p>
+          <h1 className="mt-3 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl">Bạn cần hỗ trợ điều gì?</h1>
+          <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">Gửi câu hỏi, phản ánh hoặc đề xuất. Đội ngũ quản trị sẽ tiếp nhận và phản hồi đúng nội dung bạn cần.</p>
         </div>
       </section>
 

@@ -1,0 +1,470 @@
+# Copy tung block curl ben duoi, dan vao o Import cua Postman.
+# Sau khi import, thay cac bien {{...}} trong Postman neu can.
+
+curl --location '{{baseUrl}}/'
+
+curl --location '{{baseUrl}}/api/health'
+
+curl --location '{{baseUrl}}/api/v1/auth/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "customer.postman@example.com",
+  "password": "Password123!",
+  "fullName": "Postman Customer",
+  "phoneNumber": "0900000001",
+  "address": "TP HCM",
+  "role": 1
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "owner.postman@example.com",
+  "password": "Password123!",
+  "fullName": "Postman Owner",
+  "phoneNumber": "0900000002",
+  "address": "Binh Thanh, TP HCM",
+  "businessName": "Postman Sport Center",
+  "ward": "Phuong 25",
+  "district": "Binh Thanh",
+  "city": "TP HCM",
+  "role": 2
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "customer.postman@example.com",
+  "password": "Password123!"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "owner.postman@example.com",
+  "password": "Password123!"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/profile' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location --request POST '{{baseUrl}}/api/v1/auth/refresh-token' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location --request POST '{{baseUrl}}/api/v1/auth/logout' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location '{{baseUrl}}/api/v1/auth/forgot-password' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "customer.postman@example.com"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/verify-reset-otp' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "customer.postman@example.com",
+  "otp": "123456"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/reset-password' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "email": "customer.postman@example.com",
+  "resetToken": "{{resetToken}}",
+  "newPassword": "Password123!"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/google-login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "accessToken": "{{googleAccessToken}}"
+}'
+
+curl --location '{{baseUrl}}/api/v1/auth/facebook-login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "accessToken": "{{facebookAccessToken}}"
+}'
+
+curl --location '{{baseUrl}}/api/v1/users/profile' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/users/profile' \
+--header 'Authorization: Bearer {{token}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "fullName": "Postman Customer Updated",
+  "phoneNumber": "0900000099",
+  "address": "Quan 1, TP HCM",
+  "mapLink": "https://maps.google.com/?q=10.7769,106.7009"
+}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/search?pageNumber=1&pageSize=20'
+
+curl --location '{{baseUrl}}/api/v1/pitches/search?searchTerm=Postman&type=1&minPrice=100000&maxPrice=500000&district=Binh%20Thanh&sortBy=price_asc&pageNumber=1&pageSize=10'
+
+curl --location '{{baseUrl}}/api/v1/pitches/resolve-map-link?url=https%3A%2F%2Fmaps.google.com%2F%3Fq%3D10.801%2C106.714'
+
+curl --location '{{baseUrl}}/api/v1/pitches' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "name": "Postman Pitch 5A",
+  "address": "123 Dien Bien Phu, Binh Thanh, TP HCM",
+  "mapLink": "https://maps.google.com/?q=10.801,106.714",
+  "latitude": 10.801,
+  "longitude": 106.714,
+  "description": "Auto test pitch",
+  "pitchType": 1,
+  "isIndoor": false,
+  "images": [
+    "https://example.com/pitch.jpg"
+  ],
+  "timeSlots": [
+    {
+      "startTime": "06:00:00",
+      "endTime": "07:00:00",
+      "price": 200000
+    },
+    {
+      "startTime": "18:00:00",
+      "endTime": "19:00:00",
+      "price": 350000
+    }
+  ]
+}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/{{pitchId}}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/{{pitchId}}/available-slots?date={{bookingDate}}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/{{pitchId}}/timeslots?date={{bookingDate}}'
+
+curl --location --request PUT '{{baseUrl}}/api/v1/pitches/{{pitchId}}' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "name": "Postman Pitch 5A Updated",
+  "address": "123 Dien Bien Phu, Binh Thanh, TP HCM",
+  "mapLink": "https://maps.google.com/?q=10.801,106.714",
+  "latitude": 10.801,
+  "longitude": 106.714,
+  "description": "Updated by Postman",
+  "pitchType": 1,
+  "isIndoor": false,
+  "images": [
+    "https://example.com/pitch-updated.jpg"
+  ],
+  "timeSlots": [
+    {
+      "startTime": "06:00:00",
+      "endTime": "07:00:00",
+      "price": 220000
+    }
+  ],
+  "services": [
+    {
+      "name": "Nuoc suoi",
+      "price": 10000,
+      "icon": "water"
+    }
+  ]
+}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/pitches/{{pitchId}}/status' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "isActive": true
+}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/my' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/pitches/{{pitchId}}' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/additional-services' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "name": "Nuoc suoi Postman",
+  "price": 10000,
+  "icon": "water",
+  "stockQuantity": 100,
+  "imageUrl": "https://example.com/water.jpg",
+  "isActive": true
+}'
+
+curl --location '{{baseUrl}}/api/v1/additional-services/my' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/additional-services/pitch/{{pitchId}}'
+
+curl --location --request PUT '{{baseUrl}}/api/v1/additional-services/{{serviceId}}' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "name": "Nuoc suoi Postman Updated",
+  "price": 12000,
+  "icon": "water",
+  "stockQuantity": 80,
+  "imageUrl": "https://example.com/water-updated.jpg",
+  "isActive": true
+}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/additional-services/{{serviceId}}' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/lock' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "timeSlotId": "{{timeSlotId}}",
+  "bookingDate": "{{bookingDate}}",
+  "lockDurationMinutes": 10
+}'
+
+curl --location --request POST '{{baseUrl}}/api/v1/bookings/release-lock/{{lockId}}' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/bookings' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "timeSlotId": "{{timeSlotId}}",
+  "bookingDate": "{{bookingDate}}",
+  "selectedServices": [
+    {
+      "serviceId": "{{serviceId}}",
+      "quantity": 1
+    }
+  ]
+}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/{{bookingId}}' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/my-bookings?pageNumber=1&pageSize=10' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/owner?pageNumber=1&pageSize=20' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/bookings/{{bookingId}}/confirm' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/{{bookingId}}/services' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '[
+  {
+    "serviceId": "{{serviceId}}",
+    "quantity": 2
+  }
+]'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/bookings/{{bookingId}}/complete' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/bookings/{{bookingId}}/cancel' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "reason": "Khach hang thay doi lich"
+}'
+
+curl --location '{{baseUrl}}/api/v1/payments/create' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "bookingId": "{{bookingId}}",
+  "returnUrl": "http://localhost:5173/payment-result",
+  "provider": "VNPAY"
+}'
+
+curl --location '{{baseUrl}}/api/v1/payments/create' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "bookingId": "{{bookingId}}",
+  "returnUrl": "http://localhost:5173/payment-result",
+  "provider": "ZALOPAY"
+}'
+
+curl --location '{{baseUrl}}/api/v1/payments/transactions/{{transactionId}}' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/payments/my-history?pageNumber=1&pageSize=10' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/payments/callback?vnp_ResponseCode=00&vnp_TxnRef={{transactionId}}'
+
+curl --location '{{baseUrl}}/api/v1/payments/zalopay/callback' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "data": "{{zaloPayData}}",
+  "mac": "{{zaloPayMac}}",
+  "type": 1
+}'
+
+curl --location '{{baseUrl}}/api/v1/pitches/{{pitchId}}/reviews?pageNumber=1&pageSize=10'
+
+curl --location '{{baseUrl}}/api/v1/bookings/{{bookingId}}/reviews' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "rating": 5,
+  "comment": "San tot, test bang Postman thanh cong"
+}'
+
+curl --location '{{baseUrl}}/api/v1/bookings/{{bookingId}}/reviews' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location --request PUT '{{baseUrl}}/api/v1/bookings/{{bookingId}}/reviews' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "rating": 4,
+  "comment": "Cap nhat danh gia bang Postman"
+}'
+
+curl --location '{{baseUrl}}/api/v1/owner/reviews' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/owner/reviews/{{reviewId}}/reply' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "content": "Cam on ban da danh gia"
+}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/bookings/{{bookingId}}/reviews' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/owner/staff' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/owner/staff' \
+--header 'Authorization: Bearer {{ownerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "fullName": "Postman Staff",
+  "email": "staff.postman@example.com",
+  "phoneNumber": "0900000003",
+  "password": "Password123!"
+}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/owner/staff/{{staffId}}/toggle-status' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/owner/staff/{{staffId}}' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/dashboard/owner/stats' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/dashboard/owner/revenue?days=30' \
+--header 'Authorization: Bearer {{ownerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/notifications' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/notifications/{{notificationId}}/read' \
+--header 'Authorization: Bearer {{token}}'
+
+curl --location '{{baseUrl}}/api/v1/waitlist/join' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "timeSlotId": "{{timeSlotId}}",
+  "date": "{{bookingDate}}"
+}'
+
+curl --location '{{baseUrl}}/api/v1/recommendations/personalized?limit=5' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/ai/chat' \
+--header 'Authorization: Bearer {{customerToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "message": "Goi y san bong gan Binh Thanh",
+  "sessionId": "postman-session"
+}'
+
+curl --location '{{baseUrl}}/api/v1/ai/recommendations?query=san%20bong%205&latitude=10.801&longitude=106.714' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/ai/directions?fromLatitude=10.7769&fromLongitude=106.7009&toPitchId={{pitchId}}&travelMode=driving' \
+--header 'Authorization: Bearer {{customerToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/users?pageNumber=1&pageSize=20' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/users' \
+--header 'Authorization: Bearer {{adminToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "fullName": "Admin Created User",
+  "email": "admin.created.user@example.com",
+  "phoneNumber": "0900000004",
+  "password": "Password123!",
+  "role": 1,
+  "address": "TP HCM"
+}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/users/{{userId}}/suspend' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/admin/users/{{userId}}' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/system/commission' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/system/commission' \
+--header 'Authorization: Bearer {{adminToken}}' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "percentage": 10
+}'
+
+curl --location '{{baseUrl}}/api/v1/admin/pitch-approvals?status=pending' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/pitch-approvals/{{pitchId}}/approve' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/pitch-approvals/{{pitchId}}/reject' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/owner-approvals?status=pending' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/owner-approvals/{{centerId}}/approve' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/owner-approvals/{{centerId}}/reject' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/service-approvals?status=pending' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request PATCH '{{baseUrl}}/api/v1/admin/service-approvals/{{serviceId}}/approve' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/admin/service-approvals/{{serviceId}}' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/admin/reviews?pageNumber=1&pageSize=20' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location --request DELETE '{{baseUrl}}/api/v1/admin/reviews/{{reviewId}}' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/dashboard/admin/stats' \
+--header 'Authorization: Bearer {{adminToken}}'
+
+curl --location '{{baseUrl}}/api/v1/dashboard/admin/revenue?days=30' \
+--header 'Authorization: Bearer {{adminToken}}'

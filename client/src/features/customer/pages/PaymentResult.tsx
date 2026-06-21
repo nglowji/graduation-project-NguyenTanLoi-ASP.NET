@@ -28,9 +28,12 @@ const formatDate = (value?: string) => {
 };
 
 const shortTime = (value?: string) => (value ? value.substring(0, 5) : '--:--');
-const isConfirmedBooking = (status?: string) => String(status || '').toLowerCase().includes('confirm');
-const isSuccessfulTransaction = (status?: string) => String(status || '').toLowerCase() === 'success';
-const isFailedTransaction = (status?: string) => String(status || '').toLowerCase() === 'failed';
+const PAYMENT_STATUS_POLL_INTERVAL_MS = 60_000;
+const normalizeStatus = (status?: string) => String(status || '').toLowerCase();
+const isConfirmedBooking = (status?: string) => normalizeStatus(status).includes('confirm');
+const isPendingDepositBooking = (status?: string) => normalizeStatus(status).includes('pending');
+const isSuccessfulTransaction = (status?: string) => normalizeStatus(status) === 'success';
+const isFailedTransaction = (status?: string) => normalizeStatus(status) === 'failed';
 const MAX_CONFIRMATION_ATTEMPTS = 10;
 
 const PaymentResult: React.FC = () => {
@@ -51,7 +54,8 @@ const PaymentResult: React.FC = () => {
     successParam === 'true' ||
     isConfirmedBooking(booking?.status) ||
     isSuccessfulTransaction(transaction?.status);
-  const isFailed = successParam === 'false' || isFailedTransaction(transaction?.status);
+  const canRetryDeposit = Boolean(bookingId && isPendingDepositBooking(booking?.status) && !isSuccess);
+  const isFailed = !canRetryDeposit && (successParam === 'false' || isFailedTransaction(transaction?.status));
 
   useEffect(() => {
     const fetchBookingDetails = async () => {
@@ -124,7 +128,7 @@ const PaymentResult: React.FC = () => {
           setIsPendingConfirmation(false);
         }
       }
-    }, 3000);
+    }, PAYMENT_STATUS_POLL_INTERVAL_MS);
 
     return () => {
       isActive = false;
@@ -188,18 +192,22 @@ const PaymentResult: React.FC = () => {
     <main className="min-h-screen bg-slate-50 px-4 pt-28 pb-20 text-slate-900 sm:px-6 lg:pt-32">
       <div className="mx-auto max-w-2xl">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
-          <div className={`px-6 py-10 text-center ${isSuccess ? 'bg-emerald-50' : 'bg-red-50'}`}>
+          <div className={`px-6 py-10 text-center ${isSuccess ? 'bg-emerald-50' : canRetryDeposit ? 'bg-amber-50' : 'bg-red-50'}`}>
             {isSuccess ? (
               <CheckCircle2 className="mx-auto mb-4 text-emerald-500" size={72} />
+            ) : canRetryDeposit ? (
+              <Clock className="mx-auto mb-4 text-amber-500" size={72} />
             ) : (
               <XCircle className="mx-auto mb-4 text-red-500" size={72} />
             )}
-            <h1 className={`text-3xl font-black tracking-tight ${isSuccess ? 'text-emerald-950' : 'text-red-950'}`}>
-              {isSuccess ? 'Thanh toán thành công' : 'Thanh toán chưa hoàn tất'}
+            <h1 className={`text-3xl font-black tracking-tight ${isSuccess ? 'text-emerald-950' : canRetryDeposit ? 'text-amber-950' : 'text-red-950'}`}>
+              {isSuccess ? 'Thanh toán thành công' : canRetryDeposit ? 'Thanh toán cọc chưa hoàn tất' : 'Thanh toán chưa hoàn tất'}
             </h1>
-            <p className={`mx-auto mt-3 max-w-md text-sm font-semibold leading-6 ${isSuccess ? 'text-emerald-700' : 'text-red-700'}`}>
+            <p className={`mx-auto mt-3 max-w-md text-sm font-semibold leading-6 ${isSuccess ? 'text-emerald-700' : canRetryDeposit ? 'text-amber-700' : 'text-red-700'}`}>
               {isSuccess
                 ? 'Tiền cọc 10% đã được ghi nhận. Đơn đặt sân của bạn đã được xác nhận.'
+                : canRetryDeposit
+                ? 'Bạn đã thoát khỏi cổng thanh toán hoặc giao dịch chưa được xác nhận. Đơn vẫn đang chờ cọc, bạn có thể thanh toán lại.'
                 : message || 'Giao dịch bị hủy hoặc không thể xác nhận. Bạn có thể quay lại đơn đặt sân để thử thanh toán lại.'}
             </p>
           </div>
@@ -252,6 +260,14 @@ const PaymentResult: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-3">
+              {canRetryDeposit && bookingId && (
+                <Link
+                  to={`/booking-review/${bookingId}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-4 text-xs font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-500/20 transition hover:bg-amber-400"
+                >
+                  Quay lại thanh toán cọc <ArrowRight size={18} />
+                </Link>
+              )}
               <Link
                 to="/profile?tab=bookings"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"

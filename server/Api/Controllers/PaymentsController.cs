@@ -15,6 +15,7 @@ namespace Api.Controllers;
 [Route("api/v1/[controller]")]
 public class PaymentsController : ApiControllerBase
 {
+    private const string ProviderZaloPay = "ZALOPAY";
     private readonly IMediator _mediator;
     private readonly IConfiguration _configuration;
 
@@ -37,23 +38,15 @@ public class PaymentsController : ApiControllerBase
             return Unauthorized();
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-        var configuredReturnUrl = _configuration["VnPay:ReturnUrl"];
-        if (request.Provider.Equals("ZALOPAY", StringComparison.OrdinalIgnoreCase))
-            configuredReturnUrl = _configuration["ZaloPay:ReturnUrl"];
-
-        var returnUrl = string.IsNullOrWhiteSpace(configuredReturnUrl)
-            ? request.ReturnUrl
-            : configuredReturnUrl;
-
-        var callbackUrl = request.Provider.Equals("ZALOPAY", StringComparison.OrdinalIgnoreCase)
-            ? BuildZaloPayCallbackUrl()
-            : null;
+        var provider = NormalizeProvider(request.Provider);
+        var returnUrl = ResolveReturnUrl(provider, request.ReturnUrl);
+        var callbackUrl = IsZaloPay(provider) ? BuildZaloPayCallbackUrl() : null;
 
         var command = new CreatePaymentCommand(
             request.BookingId,
             returnUrl,
             ipAddress,
-            request.Provider,
+            provider,
             callbackUrl);
 
         var result = await _mediator.Send(command, cancellationToken);
@@ -169,6 +162,27 @@ public class PaymentsController : ApiControllerBase
             query.Add($"message={Uri.EscapeDataString(message)}");
 
         return $"{baseUrl}?{string.Join("&", query)}";
+    }
+
+    private string ResolveReturnUrl(string provider, string requestReturnUrl)
+    {
+        var configuredReturnUrl = IsZaloPay(provider)
+            ? _configuration["ZaloPay:ReturnUrl"]
+            : _configuration["VnPay:ReturnUrl"];
+
+        return string.IsNullOrWhiteSpace(configuredReturnUrl)
+            ? requestReturnUrl
+            : configuredReturnUrl;
+    }
+
+    private static string NormalizeProvider(string provider)
+    {
+        return provider.Trim().ToUpperInvariant();
+    }
+
+    private static bool IsZaloPay(string provider)
+    {
+        return provider.Equals(ProviderZaloPay, StringComparison.OrdinalIgnoreCase);
     }
 
     private string BuildZaloPayCallbackUrl()

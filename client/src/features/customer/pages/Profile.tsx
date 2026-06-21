@@ -162,8 +162,8 @@ const Profile: React.FC = () => {
     if (!silent) setIsLoadingBookings(true);
     try {
       const [bookingResult, paymentResult] = await Promise.allSettled([
-        bookingService.getMyBookings(),
-        paymentService.getMyHistory(1, 100),
+        bookingService.getMyBookings({ pageNumber: 1, pageSize: 500 }),
+        paymentService.getMyHistory(1, 500),
       ]);
 
       if (bookingResult.status === 'rejected') {
@@ -218,8 +218,8 @@ const Profile: React.FC = () => {
 
   const fetchSystemNotifications = async () => {
     try {
-      const res = await api.get('/notifications') as any;
-      const items = Array.isArray(res) ? res : [];
+      const res = await api.get('/notifications', { params: { pageNumber: 1, pageSize: 500 } }) as any;
+      const items = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
       setSystemNotifications(items);
 
       if (items.some((item: SystemNotificationItem) => String(item.type).toLowerCase().includes('approved'))) {
@@ -542,6 +542,7 @@ const Profile: React.FC = () => {
   }, [filteredNotificationItems.length, notificationPage]);
 
   useEffect(() => {
+    if (String(activeTab) === 'notifications') return;
     if (activeTab !== 'notifications' || notificationItems.length === 0) return;
 
     const unreadIds = notificationItems
@@ -701,14 +702,14 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 pt-28 font-body">
+    <div className="min-h-screen bg-slate-100 pb-16 pt-24 font-body">
       <div className="container mx-auto px-6">
         <div className="max-w-7xl mx-auto">
           
-          <div className="mb-6 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
-            <div className="grid gap-5 bg-cyan-50 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="flex min-w-0 items-center gap-4">
-                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-blue-700 text-2xl font-black text-white shadow-lg shadow-blue-700/20">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-700 text-xl font-black text-white shadow-lg shadow-blue-700/20">
                   {user?.fullName?.charAt(0) || 'U'}
                 </div>
                 <div className="min-w-0">
@@ -718,15 +719,15 @@ const Profile: React.FC = () => {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
                   <p className="text-xl font-black text-blue-700">{bookings.length}</p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đơn sân</p>
                 </div>
-                <div className="rounded-2xl border border-rose-100 bg-white px-4 py-3">
+                <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
                   <p className="text-xl font-black text-rose-600">{notificationItems.filter((item) => !item.isRead).length}</p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thông báo</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-3">
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                   <p className="text-xl font-black text-emerald-600">{user?.emailConfirmed ? 'OK' : '!'}</p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</p>
                 </div>
@@ -734,21 +735,21 @@ const Profile: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6 lg:flex-row">
+          <div className="flex flex-col gap-5 lg:flex-row">
             {/* Left Sidebar */}
-            <aside className="w-full lg:w-80 shrink-0">
-              <div className="sticky top-28 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm">
+            <aside className="w-full shrink-0 lg:w-64">
+              <div className="sticky top-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 {/* User Brief */}
-                <div className="border-b border-blue-50 bg-white p-6 text-center">
+                <div className="border-b border-slate-100 bg-slate-50 p-5 text-center">
                   <div className="relative inline-block mb-4 group">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-700 text-3xl font-black text-white shadow-xl shadow-blue-500/20">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-700 text-2xl font-black text-white shadow-xl shadow-blue-500/20">
                       {user?.fullName?.charAt(0) || 'U'}
                     </div>
-                    <button className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-white text-slate-400 shadow-lg transition-all hover:text-blue-600 group-hover:scale-110 active:scale-90">
+                    <button type="button" aria-label="Cập nhật ảnh đại diện" className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-white text-slate-400 shadow-lg transition-all hover:text-blue-600 group-hover:scale-110 active:scale-90">
                       <Camera size={18} />
                     </button>
                   </div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">{user?.fullName}</h2>
+                  <h2 className="text-base font-black text-slate-900 tracking-tight">{user?.fullName}</h2>
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       {user?.role === 3 ? 'Quản trị viên' : user?.role === 2 ? 'Chủ sân' : 'Thành viên'}
@@ -759,20 +760,20 @@ const Profile: React.FC = () => {
                 </div>
 
                 {/* Nav Menu */}
-                <nav className="p-4">
+                <nav className="p-2.5">
                   <div className="space-y-1">
                     {menuItems.map((item) => (
                       <button
                         key={item.id}
                         onClick={() => handleTabChange(item.id as TabType)}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
+                        className={`w-full flex items-center justify-between p-3 rounded-xl transition-all group ${
                           activeTab === item.id 
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                           : 'text-slate-500 hover:bg-blue-50 hover:text-blue-700'
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          <div className={`rounded-xl p-2 transition-colors ${activeTab === item.id ? 'bg-white/15 text-white' : item.color + ' bg-slate-50 group-hover:bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`rounded-lg p-2 transition-colors ${activeTab === item.id ? 'bg-white/15 text-white' : item.color + ' bg-slate-50 group-hover:bg-white'}`}>
                             {item.icon}
                           </div>
                           <span className="text-sm font-black tracking-tight">{item.label}</span>
@@ -782,7 +783,7 @@ const Profile: React.FC = () => {
                     ))}
                   </div>
 
-                  <div className="mt-8 pt-8 border-t border-slate-50">
+                  <div className="hidden">
                     <button 
                       onClick={logout}
                       className="w-full flex items-center gap-4 p-4 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-black text-sm"
@@ -808,10 +809,10 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600">
                             <User size={24} />
                           </div>
                           <div>
@@ -849,7 +850,7 @@ const Profile: React.FC = () => {
                                 value={formData.fullName}
                                 readOnly={!isEditing}
                                 onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all ${
+                                className={`w-full border rounded-xl py-3.5 pl-12 pr-5 font-bold text-sm outline-none transition-all ${
                                   isEditing 
                                   ? 'bg-white border-primary ring-4 ring-primary/5' 
                                   : 'bg-slate-50 border-slate-100 text-slate-500'
@@ -868,7 +869,7 @@ const Profile: React.FC = () => {
                                 type="email" 
                                 value={formData.email}
                                 disabled
-                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-14 pr-6 font-bold text-sm cursor-not-allowed"
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-12 pr-5 font-bold text-sm cursor-not-allowed"
                               />
                             </div>
                           </div>
@@ -883,7 +884,7 @@ const Profile: React.FC = () => {
                                 value={formData.phoneNumber}
                                 readOnly={!isEditing}
                                 onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
-                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all ${
+                                className={`w-full border rounded-xl py-3.5 pl-12 pr-5 font-bold text-sm outline-none transition-all ${
                                   isEditing 
                                   ? 'bg-white border-primary ring-4 ring-primary/5' 
                                   : 'bg-slate-50 border-slate-100 text-slate-500'
@@ -906,7 +907,7 @@ const Profile: React.FC = () => {
                                 setSelectedDistrict(null);
                                 setSelectedWard(null);
                               }}
-                              className={`w-full border rounded-2xl py-4 px-6 font-bold text-sm outline-none transition-all appearance-none cursor-pointer ${
+                              className={`w-full border rounded-xl py-3.5 px-5 font-bold text-sm outline-none transition-all appearance-none cursor-pointer ${
                                 isEditing ? 'bg-white border-primary ring-4 ring-primary/5' : 'bg-slate-50 border-slate-100 text-slate-500'
                               }`}
                             >
@@ -927,7 +928,7 @@ const Profile: React.FC = () => {
                                     if (d) setSelectedDistrict(d);
                                     setSelectedWard(null);
                                   }}
-                                  className="w-full bg-white border-primary border rounded-2xl py-4 px-6 font-bold text-sm outline-none ring-4 ring-primary/5 appearance-none cursor-pointer"
+                                  className="w-full bg-white border-primary border rounded-xl py-3.5 px-5 font-bold text-sm outline-none ring-4 ring-primary/5 appearance-none cursor-pointer"
                                 >
                                   <option value="">Chọn Quận / Huyện</option>
                                   {districts.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
@@ -942,7 +943,7 @@ const Profile: React.FC = () => {
                                     const w = wards.find(x => x.code === code);
                                     if (w) setSelectedWard(w);
                                   }}
-                                  className="w-full bg-white border-primary border rounded-2xl py-4 px-6 font-bold text-sm outline-none ring-4 ring-primary/5 appearance-none cursor-pointer"
+                                  className="w-full bg-white border-primary border rounded-xl py-3.5 px-5 font-bold text-sm outline-none ring-4 ring-primary/5 appearance-none cursor-pointer"
                                 >
                                   <option value="">Chọn Phường / Xã</option>
                                   {wards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
@@ -961,7 +962,7 @@ const Profile: React.FC = () => {
                                 readOnly={!isEditing}
                                 onChange={(e) => setFormData({...formData, address: e.target.value})}
                                 rows={2}
-                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all resize-none ${
+                                className={`w-full border rounded-xl py-3.5 pl-12 pr-5 font-bold text-sm outline-none transition-all resize-none ${
                                   isEditing ? 'bg-white border-primary ring-4 ring-primary/5' : 'bg-slate-50 border-slate-100 text-slate-500'
                                 }`}
                                 placeholder="Số nhà, tên đường..."
@@ -979,7 +980,7 @@ const Profile: React.FC = () => {
                                 value={formData.mapLink}
                                 readOnly={!isEditing}
                                 onChange={(e) => setFormData({...formData, mapLink: e.target.value})}
-                                className={`w-full border rounded-2xl py-4 pl-14 pr-6 font-bold text-sm outline-none transition-all ${
+                                className={`w-full border rounded-xl py-3.5 pl-12 pr-5 font-bold text-sm outline-none transition-all ${
                                   isEditing ? 'bg-white border-primary ring-4 ring-primary/5' : 'bg-slate-50 border-slate-100 text-slate-500'
                                 }`}
                                 placeholder="https://www.google.com/maps/place/..."
@@ -993,7 +994,7 @@ const Profile: React.FC = () => {
                             <button 
                               type="submit"
                               disabled={isSaving}
-                              className="flex items-center gap-3 rounded-2xl bg-blue-600 px-10 py-4 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-95"
+                              className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-95"
                             >
                               {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                               Lưu thay đổi
@@ -1003,7 +1004,7 @@ const Profile: React.FC = () => {
                       </form>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-3xl border border-blue-100 bg-blue-700 p-8 text-white shadow-lg shadow-blue-600/15">
+                    <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-blue-700 p-6 text-white shadow-lg shadow-blue-600/15">
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                           <ShieldCheck size={20} />
@@ -1026,7 +1027,7 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
                       <div>
                         <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Lịch đặt sân</p>
                         <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950 font-heading">Lịch sử đặt sân</h3>
@@ -1049,7 +1050,7 @@ const Profile: React.FC = () => {
                       ))}
                     </div>
                     {isLoadingBookings ? (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-20 shadow-sm">
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải lịch sử đặt sân...</p>
                       </div>
@@ -1114,7 +1115,7 @@ const Profile: React.FC = () => {
                                 {canOpenPaymentPage(item) && (
                                   <button
                                     type="button"
-                                    onClick={() => navigate(`/booking-review/${item.id}`)}
+                                    onClick={() => navigate(`/booking-review/${item.id}?pay=1`)}
                                     className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-center text-xs font-bold leading-tight text-emerald-700 transition hover:bg-emerald-100"
                                   >
                                     <CreditCard size={16} />
@@ -1315,7 +1316,7 @@ const Profile: React.FC = () => {
                         );
                       })
                     ) : (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white py-20 shadow-sm">
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 shadow-sm">
                         <ShoppingBag size={64} className="text-slate-200 mb-6" />
                         <h4 className="text-xl font-black text-slate-900 mb-2">Chưa có đơn đặt sân nào</h4>
                         <p className="text-slate-400 font-bold mb-8 text-center max-w-xs">Bắt đầu khám phá và đặt sân bóng yêu thích của bạn ngay hôm nay!</p>
@@ -1342,7 +1343,7 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="rounded-3xl border border-blue-100 bg-cyan-50 p-6">
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
                       <div>
                         <p className="text-xs font-black uppercase tracking-widest text-blue-700">Trung tâm thông báo</p>
                         <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-950 font-heading">Thông báo</h3>
@@ -1366,12 +1367,12 @@ const Profile: React.FC = () => {
                     </div>
 
                     {isLoadingBookings ? (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-20 shadow-sm">
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-20 shadow-sm">
                         <Loader2 className="animate-spin text-primary mb-4" size={40} />
                         <p className="text-slate-400 font-bold">Đang tải thông báo...</p>
                       </div>
                     ) : filteredNotificationItems.length > 0 ? (
-                      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="divide-y divide-slate-100">
                           {pagedNotificationItems.map((item) => (
                             <button
@@ -1417,7 +1418,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white py-24 shadow-sm">
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-24 shadow-sm">
                         <div className="relative mb-8">
                           <div className="w-24 h-24 rounded-4xl bg-slate-50 flex items-center justify-center text-slate-200">
                             <Bell size={48} />
@@ -1444,7 +1445,7 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-8"
                   >
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
                       <div className="flex items-center gap-4 mb-10">
                         <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                           <ShieldCheck size={24} />
@@ -1455,7 +1456,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-5 rounded-3xl border border-slate-100 bg-slate-50 p-6 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-6">
                           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${user?.emailConfirmed ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'}`}>
                             {user?.emailConfirmed ? <MailCheck size={32} /> : <AlertCircle size={32} />}
@@ -1481,7 +1482,7 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="relative flex items-center justify-between overflow-hidden rounded-3xl border border-blue-100 bg-blue-700 p-8 text-white shadow-lg shadow-blue-600/15">
+                    <div className="relative flex items-center justify-between overflow-hidden rounded-2xl border border-blue-100 bg-blue-700 p-6 text-white shadow-lg shadow-blue-600/15">
                        <div className="relative z-10">
                           <h4 className="text-xl font-black mb-2">Đổi mật khẩu</h4>
                           <p className="text-sm font-bold text-white/40 mb-6">Bạn nên thay đổi mật khẩu định kỳ để bảo vệ tài khoản.</p>

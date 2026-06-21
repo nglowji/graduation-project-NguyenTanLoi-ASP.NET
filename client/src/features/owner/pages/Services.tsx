@@ -202,12 +202,12 @@ const Services: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
         <div className="flex gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><Package size={23} /></span>
           <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Service inventory</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Dịch vụ & kho hàng</h1>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Kho dịch vụ</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 ">Dịch vụ & kho hàng</h1>
           <p className="mt-2 text-sm font-semibold text-slate-500">Quản lý dịch vụ bán kèm, tồn kho và trạng thái kinh doanh.</p>
           </div>
         </div>
@@ -215,32 +215,36 @@ const Services: React.FC = () => {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
         >
           <Plus size={18} strokeWidth={3} />
           Thêm dịch vụ
         </button>
       </header>
 
-      <section className="grid gap-3 rounded-2xl bg-slate-100/70 p-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng dịch vụ</p><p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{stats.total}</p></div></div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 xl:grid-cols-5">
+        <button type="button" onClick={() => { setStatusFilter('all'); setStockFilter('all'); }} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng dịch vụ</p><p className="mt-1 text-2xl font-black text-slate-950">{stats.total}</p></div></div>
+          <p className="mt-3 text-xs font-semibold text-slate-500">Bấm để xem toàn bộ dịch vụ đang quản lý.</p>
+        </button>
+        <button type="button" onClick={() => setStatusFilter('active')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang bán</p><p className="mt-1 text-2xl font-black text-emerald-600">{stats.active}</p></div></div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <p className="mt-3 text-xs font-semibold text-slate-500">Theo dõi các món khách có thể mua kèm.</p>
+        </button>
+        <button type="button" onClick={() => setStockFilter('low')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-200 hover:bg-amber-50">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><AlertCircle size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp hết hàng</p><p className="mt-1 text-2xl font-black text-amber-600">{stats.lowStock}</p></div></div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <p className="mt-3 text-xs font-semibold text-slate-500">Nên nhập thêm trước giờ cao điểm.</p>
+        </button>
+        <button type="button" onClick={() => setStockFilter('out')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-red-200 hover:bg-red-50">
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-red-600"><Archive size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-red-600">Hết hàng</p><p className="mt-1 text-2xl font-black text-red-600">{stats.outOfStock}</p></div></div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><WalletCards size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p><p className="mt-1 text-lg font-black text-slate-950 dark:text-white">{formatMoney(stats.inventoryValue)}</p></div></div>
-        </div>
+          <p className="mt-3 text-xs font-semibold text-slate-500">Ẩn hoặc cập nhật tồn kho để tránh bán nhầm.</p>
+        </button>
+        <button type="button" onClick={() => setSortBy('stockDesc')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><WalletCards size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p><p className="mt-1 text-lg font-black text-slate-950">{formatMoney(stats.inventoryValue)}</p></div></div>
+          <p className="mt-3 text-xs font-semibold text-slate-500">Bấm để ưu tiên món tồn kho nhiều.</p>
+        </button>
       </section>
-
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-wrap gap-2">
           {([
             ['all', 'Tất cả'],
@@ -256,7 +260,7 @@ const Services: React.FC = () => {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm dịch vụ theo tên..."
-            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
           />
         </div>
           <button type="button" onClick={() => setIsFiltersOpen((value) => !value)} className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black uppercase tracking-widest transition ${isFiltersOpen || activeFilterCount > 0 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
@@ -267,7 +271,7 @@ const Services: React.FC = () => {
           <p className="text-sm font-bold text-slate-400 lg:text-right">{filteredServices.length} / {services.length} dịch vụ</p>
         </div>
 
-        {isFiltersOpen && <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+        {isFiltersOpen && <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4  /40">
         <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
           <span className="text-slate-400">Trạng thái</span>
           {(
@@ -284,7 +288,7 @@ const Services: React.FC = () => {
               className={`rounded-full px-3 py-1 transition ${
                 statusFilter === item.id
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200  '
               }`}
             >
               {item.label}
@@ -307,7 +311,7 @@ const Services: React.FC = () => {
               className={`rounded-full px-3 py-1 transition ${
                 stockFilter === item.id
                   ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200  '
               }`}
             >
               {item.label}
@@ -322,16 +326,16 @@ const Services: React.FC = () => {
         </div>}
       </section>
 
-      <section className="rounded-2xl bg-slate-100/70 p-3">
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         {isLoading ? (
-          <div className="flex min-h-90 flex-col items-center justify-center gap-4">
+          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={38} />
             <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải dịch vụ</p>
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="flex min-h-90 flex-col items-center justify-center text-center">
+          <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
             <Package size={54} className="mb-4 text-slate-200" />
-            <h3 className="text-lg font-black text-slate-800 dark:text-white">Chưa có dịch vụ phù hợp</h3>
+            <h3 className="text-lg font-black text-slate-800 ">Chưa có dịch vụ phù hợp</h3>
             <p className="mt-2 text-sm font-semibold text-slate-400">Thêm dịch vụ mới để bán kèm khi đặt sân.</p>
           </div>
         ) : (
@@ -347,7 +351,7 @@ const Services: React.FC = () => {
                 <div key={service.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="grid gap-4 p-4 xl:grid-cols-[minmax(240px,1fr)_150px_130px_130px_112px] xl:items-center">
                     <div className="flex min-w-0 items-center gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ">
                         {service.imageUrl ? (
                           <img src={service.imageUrl} alt={service.name || 'Dịch vụ'} className="h-full w-full object-cover" />
                         ) : (
@@ -355,7 +359,7 @@ const Services: React.FC = () => {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-950 dark:text-white">{service.name || 'Dịch vụ chưa đặt tên'}</p>
+                        <p className="truncate text-sm font-black text-slate-950 ">{service.name || 'Dịch vụ chưa đặt tên'}</p>
                         <p className="mt-1 text-xs font-bold text-slate-400">{service.isActive !== false ? 'Đang bán' : 'Tạm ẩn'} · Tồn kho {stock}</p>
                       </div>
                     </div>
@@ -367,7 +371,7 @@ const Services: React.FC = () => {
 
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tồn kho</p>
-                      <p className={`mt-1 text-sm font-black ${stock > 0 ? 'text-slate-950 dark:text-white' : 'text-red-600'}`}>{stock}</p>
+                      <p className={`mt-1 text-sm font-black ${stock > 0 ? 'text-slate-950 ' : 'text-red-600'}`}>{stock}</p>
                     </div>
 
                     <span className={`inline-flex h-9 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${
@@ -380,7 +384,7 @@ const Services: React.FC = () => {
                       <button type="button" onClick={() => setExpandedServiceId(isExpanded ? null : service.id)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Xem chi tiết">
                         <Eye size={17} />
                       </button>
-                      <button type="button" onClick={() => handleDelete(service.id)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:bg-slate-800" title="Xóa">
+                      <button type="button" onClick={() => handleDelete(service.id)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition hover:bg-red-50 hover:text-red-600 " title="Xóa">
                         <Trash2 size={17} />
                       </button>
                     </div>
@@ -393,7 +397,7 @@ const Services: React.FC = () => {
                           <Box size={14} className="text-blue-600" />
                           Thông tin
                         </p>
-                        <p className="text-sm font-black text-slate-950 dark:text-white">{service.name || 'Dịch vụ'}</p>
+                        <p className="text-sm font-black text-slate-950 ">{service.name || 'Dịch vụ'}</p>
                         <p className="mt-2 text-xs font-semibold text-slate-500">ID: {service.id.substring(0, 8).toUpperCase()}</p>
                       </div>
 
@@ -405,15 +409,15 @@ const Services: React.FC = () => {
                         <dl className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Đơn giá</dt>
-                            <dd className="text-slate-800 dark:text-slate-200">{formatMoney(service.price)}</dd>
+                            <dd className="text-slate-800 ">{formatMoney(service.price)}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Tồn kho</dt>
-                            <dd className="text-slate-800 dark:text-slate-200">{stock}</dd>
+                            <dd className="text-slate-800 ">{stock}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Giá trị</dt>
-                            <dd className="text-slate-800 dark:text-slate-200">{formatMoney(stock * Number(service.price || 0))}</dd>
+                            <dd className="text-slate-800 ">{formatMoney(stock * Number(service.price || 0))}</dd>
                           </div>
                         </dl>
                       </div>
@@ -447,7 +451,7 @@ const Services: React.FC = () => {
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+              className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
             >
               <aside className="hidden">
                 <div className="flex h-full flex-col justify-between">
@@ -476,17 +480,20 @@ const Services: React.FC = () => {
               </aside>
 
               <div className="flex max-h-[90vh] flex-col">
-                <div className="flex items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-950 dark:text-white">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 p-5 sm:p-6">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></div>
+                    <div className="min-w-0">
+                    <h3 className="text-2xl font-black text-slate-950 ">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
                     <p className="mt-1 text-sm font-semibold text-slate-500">Thông tin nhập ở đây sẽ hiển thị cho khách khi đặt sân.</p>
+                    </div>
                   </div>
-                  <button type="button" onClick={() => setIsDrawerOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:text-slate-900 dark:bg-slate-800 dark:hover:text-white">
+                  <button type="button" onClick={() => setIsDrawerOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:text-slate-900  ">
                     <X size={20} />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="overflow-y-auto p-6">
+                <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6">
                   {error && (
                     <div className="mb-5 flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
                       <AlertCircle size={18} />
@@ -494,8 +501,8 @@ const Services: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="space-y-6">
-                    <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,.75fr)]">
+                    <div className="rounded-2xl border border-slate-200 p-4">
                       <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-400">Thông tin chính</p>
                       <div className="space-y-4">
                         <div>
@@ -504,7 +511,7 @@ const Services: React.FC = () => {
                             required
                             value={formData.name}
                             onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
                             placeholder="VD: Nước suối Lavie 500ml"
                           />
                         </div>
@@ -517,7 +524,7 @@ const Services: React.FC = () => {
                               inputMode="numeric"
                               value={formData.price}
                               onChange={(event) => setFormData({ ...formData, price: event.target.value.replace(/[^0-9]/g, '') })}
-                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
                               placeholder="0"
                             />
                           </div>
@@ -529,7 +536,7 @@ const Services: React.FC = () => {
                               min="0"
                               value={formData.stockQuantity}
                               onChange={(event) => setFormData({ ...formData, stockQuantity: event.target.value })}
-                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
                               placeholder="0"
                             />
                           </div>
@@ -537,10 +544,10 @@ const Services: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                    <div className="rounded-2xl border border-slate-200 p-4">
                       <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-400">Hiển thị</p>
                       <div className="grid gap-4 md:grid-cols-[96px_minmax(0,1fr)]">
-                        <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
+                        <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl bg-slate-100 ">
                           {formData.imageUrl ? <img src={formData.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={24} className="text-slate-300" />}
                         </div>
                         <div>
@@ -548,7 +555,7 @@ const Services: React.FC = () => {
                           <input
                             value={formData.imageUrl}
                             onChange={(event) => setFormData({ ...formData, imageUrl: event.target.value })}
-                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
                             placeholder="https://..."
                           />
                         </div>
@@ -570,8 +577,8 @@ const Services: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
-                    <button type="button" onClick={() => setIsDrawerOpen(false)} className="h-12 flex-1 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-widest text-slate-500 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="mt-6 flex gap-3 border-t border-slate-100 pt-5">
+                    <button type="button" onClick={() => setIsDrawerOpen(false)} className="h-12 flex-1 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-widest text-slate-500 transition hover:bg-slate-50  ">
                       Hủy
                     </button>
                     <button type="submit" disabled={isSubmitting} className="flex h-12 flex-2 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-60">

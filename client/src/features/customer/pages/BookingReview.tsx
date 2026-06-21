@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -23,10 +23,12 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { bookingService, type BookingResponse } from '../../../services/bookingService';
-import { paymentService } from '../../../services/paymentService';
+import { paymentService, type PaymentProvider } from '../../../services/paymentService';
 import { formatCompactAddress } from '../../../utils/address';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
+const PAYMENT_STATUS_POLL_INTERVAL_MS = 60_000;
+type PaymentUiStatus = 'idle' | 'pending' | 'success' | 'failed';
 
 const formatMoney = (value?: number | null) => `${moneyFormatter.format(Number(value || 0))}đ`;
 
@@ -44,14 +46,41 @@ const formatDate = (value?: string) => {
 };
 
 const shortTime = (value?: string) => (value ? value.substring(0, 5) : '--:--');
+const normalizeStatus = (status?: string) => String(status || '').toLowerCase();
 
 const statusLabel = (status?: string) => {
-  const normalized = String(status || '').toLowerCase();
+  const normalized = normalizeStatus(status);
   if (normalized.includes('pending')) return 'Chờ thanh toán cọc';
   if (normalized.includes('confirm')) return 'Đã xác nhận';
   if (normalized.includes('cancel')) return 'Đã hủy';
   if (normalized.includes('complete')) return 'Hoàn tất';
   return status || 'Đang xử lý';
+};
+
+const pitchTypeLabel = (type?: string) => {
+  const normalized = String(type || '').trim();
+  const labels: Record<string, string> = {
+    Football5: 'Sân bóng đá 5 người',
+    Football7: 'Sân bóng đá 7 người',
+    Football11: 'Sân bóng đá 11 người',
+    Tennis: 'Sân tennis',
+    Badminton: 'Sân cầu lông',
+    Pickleball: 'Sân pickleball',
+    Basketball: 'Sân bóng rổ',
+    Volleyball: 'Sân bóng chuyền',
+    TableTennis: 'Sân bóng bàn',
+    '1': 'Sân bóng đá 5 người',
+    '2': 'Sân bóng đá 7 người',
+    '3': 'Sân bóng đá 11 người',
+    '4': 'Sân tennis',
+    '5': 'Sân cầu lông',
+    '6': 'Sân pickleball',
+    '7': 'Sân bóng rổ',
+    '8': 'Sân bóng chuyền',
+    '9': 'Sân bóng bàn',
+  };
+
+  return labels[normalized] || normalized || 'Sân thể thao';
 };
 
 const pageStyle = {
@@ -66,6 +95,8 @@ const pageStyle = {
 const BookingReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoPayStarted = useRef(false);
   const isDraft = id === 'new';
   const draft = useMemo(() => {
     if (!isDraft) return null;
@@ -78,14 +109,14 @@ const BookingReview: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentUiStatus>('idle');
   const [now, setNow] = useState(() => Date.now());
   const [paymentModal, setPaymentModal] = useState<{
     isOpen: boolean;
     paymentUrl: string;
     qrCode?: string | null;
     transactionId?: string;
-    provider?: 'VNPAY' | 'ZALOPAY';
+    provider?: PaymentProvider;
   }>({
     isOpen: false,
     paymentUrl: '',
@@ -206,6 +237,7 @@ const BookingReview: React.FC = () => {
 
     setIsProcessing(true);
     setError(null);
+    setPaymentStatus('idle');
     let lockId: string | undefined;
     try {
       let confirmedBooking = booking;
@@ -219,6 +251,7 @@ const BookingReview: React.FC = () => {
         });
         setBooking(confirmedBooking);
         sessionStorage.removeItem('bookingDraft');
+        navigate(`/booking-review/${confirmedBooking.id}`, { replace: true });
       }
       const paymentResponse = await paymentService.createPayment({
         bookingId: confirmedBooking!.id,
@@ -254,6 +287,13 @@ const BookingReview: React.FC = () => {
   };
 
   useEffect(() => {
+    if (autoPayStarted.current || isLoading || !booking || searchParams.get('pay') !== '1') return;
+
+    autoPayStarted.current = true;
+    handlePayment();
+  }, [booking, isLoading, searchParams]);
+
+  useEffect(() => {
     if (!paymentModal.isOpen || !paymentModal.transactionId) return;
 
     setPaymentStatus('pending');
@@ -262,7 +302,7 @@ const BookingReview: React.FC = () => {
     const intervalId = window.setInterval(async () => {
       try {
         const transaction = await paymentService.getTransaction(paymentModal.transactionId!);
-        const status = String(transaction.status || '').toLowerCase();
+        const status = normalizeStatus(transaction.status);
 
         if (status === 'success') {
           if (!isActive) return;
@@ -279,7 +319,7 @@ const BookingReview: React.FC = () => {
       } catch (pollError) {
         console.error('Error polling transaction:', pollError);
       }
-    }, 3000);
+    }, PAYMENT_STATUS_POLL_INTERVAL_MS);
 
     return () => {
       isActive = false;
@@ -575,6 +615,16 @@ const BookingReview: React.FC = () => {
                 {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <>{isDraft ? 'Đặt sân và thanh toán' : 'Thanh toán online'} <ArrowRight size={18} /></>}
               </button>
 
+              {!paymentModal.isOpen && paymentModal.paymentUrl && paymentStatus !== 'success' && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: true }))}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-xs font-black uppercase tracking-widest text-blue-700 transition hover:bg-blue-100"
+                >
+                  Xem lại mã QR
+                  <QrCode size={16} />
+                </button>
+              )}
               <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
                 <ShieldCheck size={15} />
                 Bảo mật bởi cổng thanh toán
@@ -602,8 +652,8 @@ const BookingReview: React.FC = () => {
                   <QrCode size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-950">Quét mã QR để thanh toán</h3>
-                  <p className="text-xs font-semibold text-slate-500">Thanh toán online</p>
+                  <h3 className="text-lg font-black text-slate-950">Thanh toán cọc bằng mã QR</h3>
+                  <p className="text-xs font-semibold text-slate-500">Quét mã bằng ZaloPay hoặc mở trang thanh toán.</p>
                 </div>
               </div>
             </div>
@@ -614,7 +664,7 @@ const BookingReview: React.FC = () => {
                   <div className="flex items-center justify-center rounded-xl bg-white p-3 shadow-sm">
                     <img
                       src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
-                      alt="QR thanh toán"
+                      alt="Mã QR thanh toán cọc"
                       className="h-48 w-48 rounded-lg object-contain sm:h-52 sm:w-52"
                     />
                   </div>
@@ -631,12 +681,12 @@ const BookingReview: React.FC = () => {
                     </strong>
                   </div>
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
-                    Quá 15 phút chưa thanh toán cọc, đơn tự hủy và slot được mở khóa lại.
+                    Quá 15 phút chưa thanh toán cọc, đơn sẽ tự hủy và khung giờ được mở lại.
                   </p>
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-                  <p className="font-semibold text-slate-700">Quét mã hoặc mở trang thanh toán để trả cọc.</p>
+                  <p className="font-semibold text-slate-700">Quét mã hoặc mở trang thanh toán để trả tiền cọc.</p>
                   <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
                     {paymentStatus === 'pending' && (
                       <>
@@ -645,7 +695,7 @@ const BookingReview: React.FC = () => {
                       </>
                     )}
                     {paymentStatus === 'failed' && (
-                      <span className="text-red-600">Thanh toán chưa thành công. Vui lòng thử lại.</span>
+                      <span className="text-red-600">Giao dịch chưa thành công. Bạn có thể tạo mã thanh toán mới.</span>
                     )}
                   </div>
                 </div>
@@ -662,6 +712,16 @@ const BookingReview: React.FC = () => {
                       <ExternalLink size={16} />
                     </a>
                   )}
+                  {paymentStatus === 'failed' && (
+                    <button
+                      type="button"
+                      onClick={handlePayment}
+                      disabled={isProcessing || holdExpired}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <><QrCode size={16} /> Tạo mã thanh toán mới</>}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
@@ -674,7 +734,7 @@ const BookingReview: React.FC = () => {
 
               <div className="px-4 py-4 sm:px-5">
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Chi tiết đơn đặt</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Chi tiết đơn đặt sân</p>
                   <h4 className="mt-2 text-xl font-black text-slate-950">{details.pitchName}</h4>
                   <p className="mt-2 flex items-start gap-2 text-sm font-semibold leading-5 text-slate-600">
                     <MapPin size={16} className="mt-0.5 shrink-0 text-red-500" />
@@ -689,7 +749,7 @@ const BookingReview: React.FC = () => {
                   </div>
                   <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loại sân</p>
-                    <p className="mt-1 text-sm font-black text-slate-900">{details.pitchType}</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{pitchTypeLabel(details.pitchType)}</p>
                   </div>
                   <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày chơi</p>
@@ -699,6 +759,22 @@ const BookingReview: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ</p>
                     <p className="mt-1 text-sm font-black text-slate-900">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
                   </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Người đặt</p>
+                    <p className="mt-1 truncate text-sm font-black text-slate-900">{customerName || booking.user?.fullName || 'Chưa cập nhật'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Số điện thoại</p>
+                    <p className="mt-1 truncate text-sm font-black text-slate-900">{customerPhone || booking.user?.phoneNumber || 'Chưa cập nhật'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cổng thanh toán</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{paymentModal.provider || 'ZALOPAY'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mã giao dịch</p>
+                    <p className="mt-1 truncate text-sm font-black text-slate-900">{paymentModal.transactionId || 'Đang tạo'}</p>
+                  </div>
                 </div>
 
                 <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
@@ -707,9 +783,19 @@ const BookingReview: React.FC = () => {
                     <strong>{formatMoney(details.fieldPrice)}</strong>
                   </div>
                   {details.serviceTotal > 0 && (
-                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                      <span className="font-semibold text-slate-600">Dịch vụ phát sinh</span>
-                      <strong>{formatMoney(details.serviceTotal)}</strong>
+                    <div className="px-4 py-3 text-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-semibold text-slate-600">Dịch vụ phát sinh</span>
+                        <strong>{formatMoney(details.serviceTotal)}</strong>
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs font-semibold text-slate-500">
+                        {details.services.map((service) => (
+                          <div key={service.id || service.serviceId} className="flex items-center justify-between gap-3">
+                            <span className="truncate">{service.serviceName} x {service.quantity}</span>
+                            <span className="shrink-0">{formatMoney(service.lineTotal || service.price * service.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">

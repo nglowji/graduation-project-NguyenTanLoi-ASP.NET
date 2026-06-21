@@ -1,14 +1,16 @@
 import api from './api';
 
+export type PaymentProvider = 'VNPAY' | 'ZALOPAY';
+
 export interface CreatePaymentRequest {
   bookingId: string;
   returnUrl: string;
-  provider: 'VNPAY' | 'ZALOPAY';
+  provider: PaymentProvider;
 }
 
 export interface CreatePaymentResponse {
   paymentUrl: string;
-  provider: 'VNPAY' | 'ZALOPAY';
+  provider: PaymentProvider;
   transactionId: string;
   qrCode?: string | null;
 }

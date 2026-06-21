@@ -31,7 +31,7 @@ interface NavItem {
 
 const ownerNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Tổng quan', path: '/dashboard/owner' },
-  { icon: MapPin, label: 'Sân của tôi', path: '/dashboard/owner/pitches' },
+  { icon: MapPin, label: 'Sân bãi', path: '/dashboard/owner/pitches' },
   { icon: Calendar, label: 'Lịch đặt sân', path: '/dashboard/owner/bookings' },
   { icon: Briefcase, label: 'Dịch vụ', path: '/dashboard/owner/services' },
   { icon: TrendingUp, label: 'Doanh thu', path: '/dashboard/owner/revenue' },
@@ -80,7 +80,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   }, [navItems, location.pathname]);
   const accentColor = isAdmin ? 'text-indigo-600' : 'text-blue-600';
   const accentBg = isAdmin ? 'bg-indigo-50' : 'bg-blue-50';
-  const accentBorder = isAdmin ? 'border-indigo-100' : 'border-blue-100';
 
   useEffect(() => {
     if (isAdmin) return;
@@ -153,7 +152,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased transition-colors duration-300 dark:bg-[#0F172A] dark:text-slate-100">
+    <div className="flex h-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased">
       {mobileMenuOpen && (
         <button
           type="button"
@@ -163,8 +162,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
         />
       )}
 
-      <aside className={`${collapsed ? 'lg:w-20' : 'lg:w-64'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[300px] flex-col border-r border-slate-200/80 bg-white transition-all duration-300 lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-18 shrink-0 items-center overflow-hidden px-4">
+      <aside className={`${collapsed ? 'lg:w-20' : 'lg:w-68'} fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[304px] flex-col border-r border-slate-200 bg-[#FDFEFF] transition-all duration-300 lg:relative lg:h-full lg:max-w-none lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex h-20 shrink-0 items-center overflow-hidden px-4">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 p-1.5 shadow-sm shadow-blue-600/20"><img src={smartSportLogo} alt="SmartSport" className="h-full w-full object-contain" /></div>
             {!collapsed && (
@@ -186,7 +185,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
           </button>
         </div>
 
-        <div className="custom-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
+        <div className="custom-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-3 py-5">
           <div className="space-y-1">
             {!collapsed && <p className="mb-3 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vận hành</p>}
             {navItems.map((item) => {
@@ -199,15 +198,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                   onClick={closeMobileMenu}
                   className={`group relative mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-200 ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/15'
+                      ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                   }`}
                 >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-white/15 text-white' : 'text-slate-500 group-hover:text-blue-700'}`}>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${isActive ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-400 group-hover:bg-white group-hover:text-blue-700'}`}>
                     <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                   </div>
                   {!collapsed && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 truncate">{item.label}</motion.span>}
-                  {isActive && !collapsed && <motion.div layoutId="active-indicator" className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  {isActive && !collapsed && <motion.div layoutId="active-indicator" className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
                 </Link>
               );
             })}
@@ -228,32 +227,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
           </div>
         </div>
 
-        <div className="mt-auto border-t border-slate-200 p-3">
-          {!collapsed && <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-600 text-sm font-black text-white">{(auth.user?.fullName?.[0] || (isAdmin ? 'A' : 'O')).toUpperCase()}</span>
-            <div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{auth.user?.fullName || (isAdmin ? 'Administrator' : 'Chủ sân')}</p><p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">{isAdmin ? 'Quản trị viên' : isStaff ? 'Nhân viên sân' : 'Chủ sân'}</p></div>
-          </div>}
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3.5 text-sm font-bold text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-              <LogOut size={18} />
-            </div>
-            {!collapsed && <span>Đăng xuất</span>}
-          </button>
-        </div>
       </aside>
 
       <div className="relative flex h-full min-w-0 flex-1 flex-col">
-        <header className="relative z-40 flex h-18 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-white px-4 sm:px-6 lg:px-7">
+        <header className="relative z-40 flex h-18 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-7">
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <button
               onClick={() => {
                 if (window.innerWidth < 1024) setMobileMenuOpen(true);
                 else setCollapsed(!collapsed);
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-all hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             >
               <span className="lg:hidden"><Menu size={20} /></span>
               <span className="hidden lg:inline-flex">{collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}</span>
@@ -271,7 +255,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                 <button
                   type="button"
                   onClick={() => setShowNotifications((value) => !value)}
-                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-all hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   title="Thông báo đơn đặt sân"
                 >
                   <Bell size={20} />
@@ -372,30 +356,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
 
             <div className="mx-1 hidden h-10 w-px bg-slate-200 dark:bg-slate-800 sm:block" />
 
-            <div className="flex min-w-0 items-center gap-3 pl-0 sm:gap-4 sm:pl-2">
-              <div className="hidden flex-col items-end sm:flex">
-                <span className="text-sm font-extrabold leading-none text-slate-900 dark:text-white">
-                  {auth.user?.fullName || (isAdmin ? 'Administrator' : 'Pitch Owner')}
-                </span>
-                <span className={`mt-1.5 text-[10px] font-black uppercase tracking-wider ${isAdmin ? 'text-indigo-600' : 'text-blue-600'}`}>
-                  {isAdmin ? 'Quản trị viên' : isStaff ? 'Nhân viên sân' : 'Chủ sân'}
-                </span>
-              </div>
-              <div className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border ${accentBg} ${accentBorder} shadow-sm`}>
-                {auth.user?.avatar ? (
-                  <img src={auth.user.avatar} alt="Avatar" className="h-full w-full object-cover" />
-                ) : (
-                  <span className={`text-lg font-black ${accentColor}`}>
-                    {(auth.user?.fullName?.[0] || (isAdmin ? 'A' : 'O')).toUpperCase()}
-                  </span>
-                )}
-              </div>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-black text-slate-500 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600 sm:inline-flex"
+            >
+              <LogOut size={16} />
+              Đăng xuất
+            </button>
           </div>
         </header>
 
-        <main className="custom-scrollbar relative flex-1 overflow-y-auto bg-[#F8FAFC] dark:bg-[#0F172A]">
-          <div className="mx-auto min-h-full max-w-400 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
+        <main className="custom-scrollbar relative flex-1 overflow-y-auto bg-slate-100 px-3 pb-3 pt-5 sm:px-5 lg:px-6">
+          <div className="mx-auto min-h-full max-w-400 py-2 pb-24 sm:pb-24">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

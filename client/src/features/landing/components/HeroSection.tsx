@@ -1,69 +1,20 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { CalendarCheck, Search, ShieldCheck, Sparkles, TimerReset } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, Search, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import bannerImg from '../../../assets/home.png';
-
-const benefits = [
-  { icon: CalendarCheck, label: 'Lịch sân rõ ràng' },
-  { icon: TimerReset, label: 'Đặt lịch nhanh' },
-  { icon: ShieldCheck, label: 'Thanh toán an tâm' },
-];
+import bannerImg from '../../../assets/banner.png';
 
 const HeroSection: React.FC = () => {
   const navigate = useNavigate();
-
-  return (
-    <section className="border-b border-cyan-100 bg-cyan-50 pt-20">
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-        className="mx-auto grid max-w-[1680px] gap-8 px-6 py-12 xl:grid-cols-[0.66fr_1.34fr] xl:items-center xl:py-16"
-      >
-        <div>
-          <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-blue-700">
-            <Sparkles size={16} />
-            SmartSport
-          </div>
-          <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-6xl">
-            Tìm đúng sân.<br /><span className="text-blue-700">Chơi đúng chất.</span>
-          </h1>
-          <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg">
-            Khám phá sân thể thao theo khu vực, bộ môn và ngân sách. Chọn khung giờ trống rồi đặt sân trong vài bước.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/fields')}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800"
-            >
-              <Search size={18} />
-              Khám phá sân
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/owner')}
-              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 transition hover:border-blue-300 hover:bg-blue-100"
-            >
-              Dành cho chủ sân
-            </button>
-          </div>
-          <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
-            {benefits.map(({ icon: Icon, label }) => (
-              <span key={label} className="flex items-center gap-2 text-xs font-black text-slate-700">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-700 text-cyan-100"><Icon size={16} /></span>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl shadow-blue-950/10">
-          <img src={bannerImg} alt="SmartSport kết nối cộng đồng thể thao" className="block h-auto w-full object-contain" />
-        </div>
-      </motion.div>
-    </section>
-  );
+  return <section className="relative isolate min-h-130 overflow-hidden pt-20 text-blue-950 sm:min-h-142.5">
+    <img src={bannerImg} alt="Các bộ môn thể thao tại SmartSport" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+    <div className="mx-auto flex min-h-110 max-w-7xl flex-col justify-end px-5 pb-10 sm:min-h-122.5 sm:px-6 sm:pb-12">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">SmartSport · Đặt sân thể thao</p>
+      <h1 className="mt-4 max-w-xl text-4xl font-black leading-tight text-blue-950 sm:text-6xl">Chọn sân, chốt giờ, ra sân đúng hẹn.</h1>
+      <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-slate-700 sm:text-lg">Tìm sân theo môn và khu vực, xem khung giờ trống, thanh toán cọc rồi theo dõi toàn bộ đơn đặt tại một nơi.</p>
+      <div className="mt-7 flex flex-wrap gap-3"><button type="button" onClick={() => navigate('/explore')} className="inline-flex h-12 items-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-black text-white transition hover:bg-blue-800"><Search size={18} />Khám phá sân</button><button type="button" onClick={() => navigate('/partner')} className="inline-flex h-12 items-center gap-2 rounded-xl border border-blue-200 bg-white/80 px-5 text-sm font-black text-blue-800 transition hover:bg-blue-50">Dành cho chủ sân <ArrowRight size={17} /></button></div>
+      <div className="mt-9 grid max-w-xl gap-3 border-t border-blue-200 pt-5 sm:grid-cols-3"><span className="flex items-center gap-2 text-sm font-bold text-blue-950"><MapPin size={17} className="text-blue-600" />Lọc theo khu vực</span><span className="flex items-center gap-2 text-sm font-bold text-blue-950"><CalendarDays size={17} className="text-blue-600" />Lịch trống thực tế</span><span className="flex items-center gap-2 text-sm font-bold text-blue-950"><Star size={17} className="text-amber-500" />Đánh giá từ người chơi</span></div>
+    </div>
+  </section>;
 };
 
 export default HeroSection;

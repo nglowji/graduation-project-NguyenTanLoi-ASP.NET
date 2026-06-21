@@ -26,6 +26,7 @@ public class ZaloPayPaymentService : IPaymentGateway
     private const int FailedReturnCode = 2;
     private const int ProcessingReturnCode = 3;
     private const int PaymentExpirationSeconds = 900;
+    private const string PreferredWalletPaymentMethod = "zalopay_wallet";
     private const string DefaultApiEndpoint = "https://sb-openapi.zalopay.vn/v2/create";
     private const string DefaultQueryEndpoint = "https://sb-openapi.zalopay.vn/v2/query";
 
@@ -56,11 +57,9 @@ public class ZaloPayPaymentService : IPaymentGateway
     {
         try
         {
-            if (!_options.HasValidCredentials)
-                return Result<PaymentInitResult>.Failure("ZaloPay is not configured");
-
-            if (string.IsNullOrWhiteSpace(request.CallbackUrl))
-                return Result<PaymentInitResult>.Failure("ZaloPay callback URL is required");
+            var validation = ValidateCreatePaymentRequest(request);
+            if (!validation.IsSuccess)
+                return Result<PaymentInitResult>.Failure(validation.ErrorMessage!);
 
             var booking = await GetBookingWithDetailsAsync(request.BookingId, cancellationToken);
             if (booking == null)
@@ -82,9 +81,7 @@ public class ZaloPayPaymentService : IPaymentGateway
                 request.CallbackUrl);
 
             var response = await SendCreateOrderRequestAsync(requestData, cancellationToken);
-            var hasQr = !string.IsNullOrWhiteSpace(response.QrCode);
-            var hasOrderUrl = !string.IsNullOrWhiteSpace(response.OrderUrl);
-            if (response.ReturnCode != SuccessReturnCode || (!hasQr && !hasOrderUrl))
+            if (!IsCreateOrderAccepted(response))
             {
                 _logger.LogWarning(
                     "ZaloPay create order failed for booking {BookingId}: {Code} - {Message}",
@@ -95,17 +92,7 @@ public class ZaloPayPaymentService : IPaymentGateway
                 return Result<PaymentInitResult>.Failure(response.ReturnMessage ?? "ZaloPay rejected the payment request");
             }
 
-            _logger.LogInformation(
-                "Created ZaloPay order for booking {BookingId}, transaction {TransactionId}",
-                request.BookingId,
-                transaction.Id);
-
-            return Result<PaymentInitResult>.Success(new PaymentInitResult(
-                transaction.Id,
-                GatewayName,
-                response.OrderUrl ?? string.Empty,
-                response.QrCode
-            ));
+            return CreatePaymentInitResult(request.BookingId, transaction.Id, response);
         }
         catch (Exception ex)
         {
@@ -145,16 +132,10 @@ public class ZaloPayPaymentService : IPaymentGateway
                     transaction.ProviderTxnId));
             }
 
-            ApplySuccessfulPayment(transaction, callbackData.ZpTransId.ToString(CultureInfo.InvariantCulture));
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            await NotifySuccessfulPaymentAsync(transaction, cancellationToken);
-
-            _logger.LogInformation(
-                "ZaloPay payment successful for booking {BookingId}, transaction {TransactionId}",
-                transaction.BookingId,
-                transaction.Id);
+            await MarkPaymentSucceededAsync(
+                transaction,
+                callbackData.ZpTransId.ToString(CultureInfo.InvariantCulture),
+                cancellationToken);
 
             return Result<PaymentCallbackResult>.Success(new PaymentCallbackResult(
                 transaction.BookingId,
@@ -191,17 +172,12 @@ public class ZaloPayPaymentService : IPaymentGateway
 
             if (queryResult.ReturnCode == SuccessReturnCode)
             {
-                ApplySuccessfulPayment(transaction, queryResult.ZpTransId.ToString(CultureInfo.InvariantCulture));
-                await _context.SaveChangesAsync(cancellationToken);
-                await NotifySuccessfulPaymentAsync(transaction, cancellationToken);
-                return Result.Success();
+                return await SynchronizeSuccessfulPaymentAsync(transaction, queryResult.ZpTransId, cancellationToken);
             }
 
             if (queryResult.ReturnCode == FailedReturnCode)
             {
-                transaction.MarkAsFailed(queryResult.ReturnMessage ?? "ZaloPay payment failed");
-                await _context.SaveChangesAsync(cancellationToken);
-                return Result.Success();
+                return await MarkPaymentFailedAsync(transaction, queryResult.ReturnMessage, cancellationToken);
             }
 
             if (queryResult.ReturnCode == ProcessingReturnCode || queryResult.IsProcessing)
@@ -214,6 +190,64 @@ public class ZaloPayPaymentService : IPaymentGateway
             _logger.LogError(ex, "Error synchronizing ZaloPay transaction {TransactionId}", transactionId);
             return Result.Failure("Failed to synchronize ZaloPay payment");
         }
+    }
+
+    private Result ValidateCreatePaymentRequest(PaymentGatewayCreateRequest request)
+    {
+        if (!_options.HasValidCredentials)
+            return Result.Failure("ZaloPay is not configured");
+
+        if (string.IsNullOrWhiteSpace(request.CallbackUrl))
+            return Result.Failure("ZaloPay callback URL is required");
+
+        return Result.Success();
+    }
+
+    private Result<PaymentInitResult> CreatePaymentInitResult(
+        Guid bookingId,
+        Guid transactionId,
+        ZaloPayCreateOrderResponse response)
+    {
+        _logger.LogInformation(
+            "Created ZaloPay order for booking {BookingId}, transaction {TransactionId}",
+            bookingId,
+            transactionId);
+
+        return Result<PaymentInitResult>.Success(new PaymentInitResult(
+            transactionId,
+            GatewayName,
+            response.OrderUrl ?? string.Empty,
+            response.QrCode));
+    }
+
+    private static bool IsCreateOrderAccepted(ZaloPayCreateOrderResponse response)
+    {
+        return response.ReturnCode == SuccessReturnCode &&
+               (!string.IsNullOrWhiteSpace(response.QrCode) ||
+                !string.IsNullOrWhiteSpace(response.OrderUrl));
+    }
+
+    private async Task<Result> SynchronizeSuccessfulPaymentAsync(
+        PaymentTransaction transaction,
+        long providerTransactionId,
+        CancellationToken cancellationToken)
+    {
+        await MarkPaymentSucceededAsync(
+            transaction,
+            providerTransactionId.ToString(CultureInfo.InvariantCulture),
+            cancellationToken);
+
+        return Result.Success();
+    }
+
+    private async Task<Result> MarkPaymentFailedAsync(
+        PaymentTransaction transaction,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        transaction.MarkAsFailed(reason ?? "ZaloPay payment failed");
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result.Success();
     }
 
     private async Task<Booking?> GetBookingWithDetailsAsync(Guid bookingId, CancellationToken cancellationToken)
@@ -238,7 +272,9 @@ public class ZaloPayPaymentService : IPaymentGateway
         CancellationToken cancellationToken)
     {
         var existingTransaction = await _context.PaymentTransactions
-            .FirstOrDefaultAsync(pt => pt.BookingId == bookingId, cancellationToken);
+            .Where(pt => pt.BookingId == bookingId && (pt.Status == PaymentStatus.Pending || pt.Status == PaymentStatus.Processing))
+            .OrderByDescending(pt => pt.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (existingTransaction == null)
         {
@@ -279,6 +315,22 @@ public class ZaloPayPaymentService : IPaymentGateway
             transaction.Booking.Confirm();
     }
 
+    private async Task MarkPaymentSucceededAsync(
+        PaymentTransaction transaction,
+        string providerTxnId,
+        CancellationToken cancellationToken)
+    {
+        ApplySuccessfulPayment(transaction, providerTxnId);
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await NotifySuccessfulPaymentAsync(transaction, cancellationToken);
+
+        _logger.LogInformation(
+            "ZaloPay payment successful for booking {BookingId}, transaction {TransactionId}",
+            transaction.BookingId,
+            transaction.Id);
+    }
+
     private async Task NotifySuccessfulPaymentAsync(
         PaymentTransaction transaction,
         CancellationToken cancellationToken)
@@ -309,11 +361,12 @@ public class ZaloPayPaymentService : IPaymentGateway
         var appTransId = BuildAppTransId(transaction.Id, transaction.TransactionDate);
         var appUser = booking.UserId.ToString("N")[..20];
         var roundedAmount = decimal.ToInt64(decimal.Round(amount, 0, MidpointRounding.AwayFromZero));
-        var embedData = JsonSerializer.Serialize(new Dictionary<string, string>
+        var embedData = JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             ["redirecturl"] = BuildRedirectUrl(returnUrl, booking.Id, transaction.Id),
             ["bookingId"] = booking.Id.ToString(),
-            ["transactionId"] = transaction.Id.ToString()
+            ["transactionId"] = transaction.Id.ToString(),
+            ["preferred_payment_method"] = new[] { PreferredWalletPaymentMethod }
         });
         var item = JsonSerializer.Serialize(new[]
         {

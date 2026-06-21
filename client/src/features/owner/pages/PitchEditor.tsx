@@ -525,6 +525,12 @@ const PitchEditor: React.FC = () => {
         </button>
       </header>
 
+      <div className="hidden">
+        <span className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-blue-700">1</span>Thông tin sân</span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-slate-500">2</span>Khung giờ và giá</span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-slate-500">3</span>Ảnh hiển thị</span>
+      </div>
+
       {error && (
         <div className="flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
           <AlertCircle size={20} className="mt-0.5 shrink-0" />
@@ -704,7 +710,7 @@ const PitchEditor: React.FC = () => {
               </span>
             </div>
 
-            <div className="mt-3 grid min-w-0 gap-2 md:grid-cols-2">
+            <div className="mt-3 grid min-w-0 gap-2">
               {formData.timeSlots.map((slot, index) => (
                 <div key={`${slot.startTime}-${index}`} className="grid min-w-0 grid-cols-[1fr_auto_1fr_minmax(112px,1.15fr)_34px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <input
@@ -786,7 +792,7 @@ const PitchEditor: React.FC = () => {
           </section>
         </div>
 
-        <aside className="min-w-0 space-y-6">
+        <aside className="min-w-0 space-y-6 xl:sticky xl:top-24 xl:self-start">
           <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-600">
