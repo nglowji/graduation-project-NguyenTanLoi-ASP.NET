@@ -4,13 +4,15 @@ import {
   ArrowUpDown,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   CreditCard,
   Filter,
-  Eye,
   Flag,
   Loader2,
   MapPin,
+  MoreHorizontal,
   Phone,
   Search,
   ShoppingCart,
@@ -201,7 +203,8 @@ const Bookings: React.FC = () => {
   const getRemaining = (booking: BookingRow) =>
     isCompletedBooking(booking) ? 0 : Math.max(getTotal(booking) - getDeposit(booking), 0);
   const getExtraServices = (booking: BookingRow) => Array.isArray(booking.services) ? booking.services : [];
-  const getExtraTotal = (booking: BookingRow) => getExtraServices(booking).reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
+  const getIncidentServices = (booking: BookingRow) => getExtraServices(booking).filter((item) => Boolean(item.addedByName));
+  const getServiceTotal = (items: BookingServiceItem[]) => items.reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
 
   const getStatusLabel = (status?: string) => {
     const normalized = String(status || '').toLowerCase();
@@ -255,73 +258,33 @@ const Bookings: React.FC = () => {
     const total = bookings.length;
     const pending = bookings.filter((b) => String(b.status || '').toLowerCase().includes('pending')).length;
     const confirmed = bookings.filter((b) => String(b.status || '').toLowerCase().includes('confirm')).length;
-    return { total, pending, confirmed };
+    const completed = bookings.filter((b) => String(b.status || '').toLowerCase().includes('complete')).length;
+    const cancelled = bookings.filter((b) => String(b.status || '').toLowerCase().includes('cancel')).length;
+    return { total, pending, confirmed, completed, cancelled };
   }, [bookings]);
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5 pb-16">
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Điều phối lịch sân</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Lịch đặt sân</h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">Theo dõi khách, giờ chơi, thanh toán và trạng thái xử lý trong một màn hình.</p>
-          </div>
-          <span className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-50 px-4 text-sm font-black text-blue-700 ring-1 ring-blue-100">
-            <CalendarDays size={17} />
-            {filteredBookings.length} đơn đang hiển thị
-          </span>
-        </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <button type="button" onClick={() => setTab('all')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><CreditCard size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng đơn</p><p className="mt-1 text-2xl font-black text-slate-950">{counts.total}</p><p className="mt-2 text-xs font-semibold text-slate-500">Bấm để xem toàn bộ lịch đặt sân.</p></div>
-          </button>
-          <button type="button" onClick={() => setTab('pendingdeposit')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-amber-200 hover:bg-amber-50">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><Clock size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chờ cọc</p><p className="mt-1 text-2xl font-black text-amber-600">{counts.pending}</p><p className="mt-2 text-xs font-semibold text-slate-500">Ưu tiên nhắc khách thanh toán cọc.</p></div>
-          </button>
-          <button type="button" onClick={() => setTab('confirmed')} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span>
-            <div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Xác nhận</p><p className="mt-1 text-2xl font-black text-emerald-600">{counts.confirmed}</p><p className="mt-2 text-xs font-semibold text-slate-500">Chuẩn bị sân và nhân sự theo giờ chơi.</p></div>
-          </button>
-        </div>
+      <header className="flex flex-col gap-5 py-2 xl:flex-row xl:items-start xl:justify-between">
+        <div><h1 className="text-3xl font-black tracking-tight text-slate-950">Lịch đặt sân</h1><p className="mt-2 text-sm font-semibold text-slate-500">Quản lý và cập nhật tất cả lịch đặt sân</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:items-center"><label className="flex h-13 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:w-70"><span className="grid h-full w-12 place-items-center border-r border-slate-200 text-blue-600"><ChevronLeft size={19} /></span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-full min-w-0 flex-1 bg-white px-3 text-center text-xs font-black text-slate-700 outline-none"/><span className="grid h-full w-12 place-items-center border-l border-slate-200 text-blue-600"><ChevronRight size={19} /></span></label><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-13 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 outline-none focus:border-blue-400"><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select><select value={tab} onChange={(event) => setTab(event.target.value)} className="h-13 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 outline-none focus:border-blue-400">{tabs.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
       </header>
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 ">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`rounded-lg px-4 py-2.5 text-xs font-black transition ${
-                  tab === item.id
-                    ? 'bg-white text-blue-700 shadow-sm '
-                    : 'text-slate-500 hover:text-slate-900 '
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative w-full xl:w-[360px]">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {[[CreditCard, 'Tổng đơn', counts.total, 'text-blue-600', 'bg-blue-50', 'all'], [Clock, 'Chờ xác nhận', counts.pending, 'text-amber-600', 'bg-amber-50', 'pendingdeposit'], [CheckCircle2, 'Đã xác nhận', counts.confirmed, 'text-emerald-600', 'bg-emerald-50', 'confirmed'], [CheckCircle2, 'Hoàn thành', counts.completed, 'text-slate-600', 'bg-slate-100', 'completed'], [XCircle, 'Đã hủy', counts.cancelled, 'text-red-600', 'bg-red-50', 'cancelled']].map(([Icon, label, count, tone, surface, status]) => { const StatIcon = Icon as React.ElementType; return <button key={label as string} type="button" onClick={() => setTab(status as string)} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md"><span className={`grid h-12 w-12 place-items-center rounded-full ${surface as string} ${tone as string}`}><StatIcon size={25} /></span><span><span className="block text-xs font-bold text-slate-500">{label as string}</span><strong className={`mt-1 block text-3xl font-black ${tone as string}`}>{count as number}</strong></span></button>; })}
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Tìm khách, sân, mã đơn..."
-              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
+              placeholder="Tìm khách hàng, SĐT, mã đơn..."
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/5"
             />
           </div>
+          <div className="flex flex-wrap items-center gap-3"><label className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600"><Filter size={15} className="text-blue-600" />Sắp xếp<select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="ml-1 bg-transparent outline-none"><option value="dateDesc">Mới nhất</option><option value="dateAsc">Cũ nhất</option><option value="amountDesc">Giá cao nhất</option></select></label>{(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="grid h-11 w-11 place-items-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100" title="Xóa bộ lọc"><XCircle size={17} /></button>}</div>
         </div>
-        <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-3 md:grid-cols-3">
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><CalendarDays size={14} className="text-blue-600" />Ngày đặt sân</span><input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   " /></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Activity size={14} className="text-blue-600" />Sân</span><select value={pitchFilter} onChange={(event) => setPitchFilter(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   "><option value="all">Tất cả sân</option>{pitchOptions.map((pitch) => <option key={pitch} value={pitch}>{pitch}</option>)}</select></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><Filter size={14} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 outline-none focus:border-blue-300   "><option value="dateDesc">Đơn mới nhất</option><option value="dateAsc">Đơn cũ nhất</option><option value="amountDesc">Giá trị cao nhất</option></select></label>
-        </div>
-        {(dateFilter || pitchFilter !== 'all' || sortBy !== 'dateDesc') && <button type="button" onClick={() => { setDateFilter(''); setPitchFilter('all'); setSortBy('dateDesc'); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-600 hover:text-white"><XCircle size={14} />Xóa lọc</button>}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -337,19 +300,16 @@ const Bookings: React.FC = () => {
             <p className="mt-2 text-sm font-semibold text-slate-400">Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="hidden grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] gap-4 rounded-xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 shadow-sm xl:grid">
-              <span className="flex items-center gap-2"><Phone size={14} className="text-blue-600" />Khách hàng</span>
-              <button type="button" onClick={() => setSortBy(sortBy === 'dateDesc' ? 'dateAsc' : 'dateDesc')} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-blue-50 ${sortBy !== 'amountDesc' ? 'bg-blue-50 text-blue-700' : ''}`}><CalendarDays size={14} className="text-blue-600" /><span>Loại sân và thời gian</span><ArrowUpDown size={13} className="ml-auto" /><span className="sr-only">{sortBy === 'dateAsc' ? 'Cũ nhất trước' : 'Mới nhất trước'}</span></button>
-              <button type="button" onClick={() => setSortBy('amountDesc')} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-blue-50 ${sortBy === 'amountDesc' ? 'bg-blue-50 text-blue-700' : ''}`}><CreditCard size={14} className="text-blue-600" /><span>Tổng tiền</span><ArrowUpDown size={13} className="ml-auto" /></button>
-              <span className="flex items-center gap-2"><Activity size={14} className="text-blue-600" />Trạng thái</span><span />
+          <div className="overflow-x-auto"><div className="min-w-240 space-y-0">
+            <div className="grid grid-cols-[minmax(220px,1fr)_minmax(270px,1.25fr)_145px_145px_52px] gap-4 rounded-t-xl border border-slate-200 bg-slate-50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <span className="flex items-center gap-2"><Phone size={14} />Khách hàng</span><button type="button" onClick={() => setSortBy(sortBy === 'dateDesc' ? 'dateAsc' : 'dateDesc')} className="flex items-center gap-2 text-left hover:text-blue-700"><CalendarDays size={14} />Sân và khung giờ<ArrowUpDown size={13} /></button><button type="button" onClick={() => setSortBy('amountDesc')} className="flex items-center gap-2 text-left hover:text-blue-700">Tổng tiền<ArrowUpDown size={13} /></button><span>Trạng thái</span><span>Thao tác</span>
             </div>
             {pagedBookings.map((booking) => {
               const isExpanded = expandedBookingId === booking.id;
 
               return (
-                <article key={booking.id} className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${isExpanded ? 'ring-blue-300' : 'ring-slate-200/70'}`}>
-                  <div className="grid gap-4 p-4 xl:grid-cols-[minmax(210px,1fr)_minmax(250px,1.2fr)_150px_145px_54px] xl:items-center">
+                <article key={booking.id} className={`overflow-hidden border-x border-b border-slate-200 bg-white transition hover:bg-blue-50/30 ${isExpanded ? 'bg-blue-50/30 ring-1 ring-inset ring-blue-300' : ''}`}>
+                  <div className="grid grid-cols-[minmax(220px,1fr)_minmax(270px,1.25fr)_145px_145px_52px] items-center gap-4 px-6 py-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700 ">
@@ -379,7 +339,7 @@ const Bookings: React.FC = () => {
                           <Clock size={13} className="text-blue-600" />
                           {getStartTime(booking)} - {getEndTime(booking)}
                         </span>
-                        {getExtraServices(booking).length > 0 && (
+                        {getIncidentServices(booking).length > 0 && (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700 ring-1 ring-amber-100">
                             <ShoppingCart size={12} />
                             Có hóa đơn phát sinh
@@ -397,19 +357,12 @@ const Bookings: React.FC = () => {
                       {getStatusLabel(booking.status)}
                     </span>
 
-                    <button
-                      type="button"
-                      onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)}
-                      className={`flex h-11 w-11 items-center justify-center rounded-xl transition ${isExpanded ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
-                      title="Xem chi tiết"
-                    >
-                      <Eye size={18} />
-                    </button>
+                    <button type="button" onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)} className={`grid h-10 w-10 place-items-center rounded-lg border transition ${isExpanded ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700'}`} title={isExpanded ? 'Thu gọn đơn' : 'Mở xử lý đơn'}><MoreHorizontal size={19} /></button>
                   </div>
 
                   {isExpanded && (
                     <div className="grid gap-4 bg-slate-50/80 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_300px]">
-                      <div className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <MapPin size={14} className="text-blue-600" />
                           Sân & khách
@@ -442,7 +395,7 @@ const Bookings: React.FC = () => {
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Hóa đơn phát sinh</dt>
-                            <dd className="text-right text-amber-700">{getExtraServices(booking).length ? formatMoney(getExtraTotal(booking)) : 'Chưa có'}</dd>
+                            <dd className="text-right text-amber-700">{getIncidentServices(booking).length ? formatMoney(getServiceTotal(getIncidentServices(booking))) : 'Chưa có'}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
                             <dt className="text-slate-400">Tiền cọc</dt>
@@ -458,13 +411,13 @@ const Bookings: React.FC = () => {
                           </div>
                         </dl>
                         {getExtraServices(booking).length > 0 && (
-                          <div className="mt-4 rounded-xl bg-amber-50 p-3">
-                            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-700">Dịch vụ mua thêm</p>
+                          <div className="mt-4 rounded-xl bg-slate-50 p-3">
+                            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Dịch vụ trong đơn</p>
                             <div className="space-y-2">
                               {getExtraServices(booking).map((service) => (
                                 <div key={service.id} className="flex justify-between gap-3 text-xs font-bold text-slate-700">
                                   <span className="truncate">{service.serviceName} x{service.quantity}</span>
-                                  <span className="shrink-0 text-right font-black">{formatMoney(service.lineTotal)}<small className="block font-bold text-slate-400">{service.addedByName ? `Thêm bởi ${service.addedByName}` : 'Đặt cùng đơn'}</small></span>
+                                  <span className="shrink-0 text-right font-black">{formatMoney(service.lineTotal)}<small className="block font-bold text-slate-400">{service.addedByName ? `Phát sinh, thêm bởi ${service.addedByName}` : 'Chọn khi đặt sân'}</small></span>
                                 </div>
                               ))}
                             </div>
@@ -485,52 +438,39 @@ const Bookings: React.FC = () => {
                           {isConfirmedBooking(booking) && <option value="Completed">Hoàn tất, đã thu đủ</option>}
                           {(isPendingBooking(booking) || isConfirmedBooking(booking)) && <option value="Cancelled">Đã hủy</option>}
                         </select>
-                        <div className="mb-3 rounded-xl bg-indigo-50 p-3">
+                        <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <span className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getStatusClass(booking.status)}`}>
                               {getStatusLabel(booking.status)}
                             </span>
                             {updatingBookingId === booking.id && <Loader2 size={15} className="animate-spin text-blue-600" />}
                           </div>
+                          <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{isPendingBooking(booking) ? 'Xác nhận khi tiền cọc đã được ghi nhận.' : isConfirmedBooking(booking) ? 'Hoàn tất sau khi khách đã thanh toán đủ tại sân.' : isCompletedBooking(booking) ? 'Đơn đã hoàn tất, không thể đổi trạng thái.' : 'Đơn đã hủy, không thể đổi trạng thái.'}</p>
                           <div className="grid gap-2">
                             {isPendingBooking(booking) && (
-                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60">
                                 <CheckCircle2 size={16} /> Đã nhận cọc
                               </button>
                             )}
                             {isConfirmedBooking(booking) && (
-                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-50 px-3 text-xs font-black text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
-                                <Flag size={16} /> Hoàn tất
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">
+                                <Flag size={16} /> Hoàn tất đơn
                               </button>
                             )}
                             {(isPendingBooking(booking) || isConfirmedBooking(booking)) && (
-                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-black text-red-600 ring-1 ring-red-100 transition hover:bg-red-600 hover:text-white disabled:cursor-wait disabled:opacity-60">
-                                <XCircle size={16} /> Hủy đơn
+                              <button type="button" disabled={updatingBookingId === booking.id} onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-60">
+                                <XCircle size={15} /> Hủy đơn này
                               </button>
                             )}
                             {(isCompletedBooking(booking) || isCancelledBooking(booking)) && (
-                              <p className="rounded-xl bg-white px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 ring-1 ring-slate-100">
-                                Không còn thao tác trạng thái
+                              <p className="rounded-xl bg-white px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-500 ring-1 ring-slate-200">
+                                Không có thao tác thêm
                               </p>
                             )}
                           </div>
                         </div>
-                        <div className="hidden grid-cols-4 gap-2">
-                          <button type="button" disabled={!isPendingBooking(booking)} title="Xác nhận đã nhận cọc" onClick={() => handleStatusUpdate(booking.id, 'Confirmed')} className="flex h-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition hover:bg-emerald-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
-                            <CheckCircle2 size={17} />
-                          </button>
-                          <button type="button" disabled={!isConfirmedBooking(booking)} title="Hoàn tất, đã thu đủ" onClick={() => handleStatusUpdate(booking.id, 'Completed')} className="flex h-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
-                            <Flag size={17} />
-                          </button>
-                          <button type="button" disabled={!isPendingBooking(booking) && !isConfirmedBooking(booking)} title="Hủy đơn" onClick={() => handleStatusUpdate(booking.id, 'Cancelled')} className="flex h-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
-                            <XCircle size={17} />
-                          </button>
-                          <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                        <button type="button" title="Xóa" onClick={() => handleDelete(booking.id)} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 text-xs font-black text-slate-500 transition hover:bg-red-50 hover:text-red-600">
-                          <Trash2 size={16} /> Xóa đơn
+                        <button type="button" title="Xóa đơn" onClick={() => handleDelete(booking.id)} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl text-xs font-black text-slate-400 transition hover:bg-red-50 hover:text-red-600">
+                          <Trash2 size={15} /> Xóa đơn
                         </button>
                         {isConfirmedBooking(booking) && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
                           <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700"><ShoppingCart size={14} />Bán thêm dịch vụ</p>
@@ -547,6 +487,7 @@ const Bookings: React.FC = () => {
               );
             })}
             <Pagination page={page} totalItems={filteredBookings.length} pageSize={pageSize} onPageChange={setPage} label="đơn đặt sân" />
+          </div>
           </div>
         )}
       </section>

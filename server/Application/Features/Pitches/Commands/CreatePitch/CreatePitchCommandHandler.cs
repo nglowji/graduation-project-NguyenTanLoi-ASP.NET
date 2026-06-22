@@ -41,6 +41,7 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
             .FirstOrDefaultAsync(p => p.OwnerId == request.OwnerId, cancellationToken);
 
         Guid sportCenterId;
+        string sportCenterName;
         if (existingPitch != null)
         {
             sportCenterId = existingPitch.SportCenterId;
@@ -55,6 +56,7 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
                     request.Latitude,
                     request.Longitude));
             }
+            sportCenterName = sportCenter?.Name ?? request.Name;
         }
         else
         {
@@ -97,12 +99,13 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
             );
             _context.SportCenters.Add(sportCenter);
             sportCenterId = sportCenter.Id;
+            sportCenterName = sportCenter.Name;
         }
 
         var pitch = Pitch.Create(
             request.OwnerId,
             sportCenterId,
-            request.Name,
+            sportCenterName,
             request.PitchType,
             request.IsIndoor,
             request.Description,

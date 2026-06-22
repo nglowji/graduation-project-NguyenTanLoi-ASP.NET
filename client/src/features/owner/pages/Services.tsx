@@ -29,7 +29,10 @@ type ServiceItem = {
   stockQuantity?: number;
   imageUrl?: string | null;
   isActive?: boolean;
+  icon?: string;
 };
+
+const SERVICE_CATEGORIES = ['Đồ uống', 'Dụng cụ', 'Quần áo', 'Tiện ích khác', 'Khác'];
 
 const Services: React.FC = () => {
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -44,12 +47,14 @@ const Services: React.FC = () => {
   const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all');
   const [priceFilter, setPriceFilter] = useState<'all' | 'under50' | '50to100' | 'over100'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'priceAsc' | 'priceDesc' | 'stockAsc' | 'stockDesc'>('name');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     stockQuantity: '0',
     imageUrl: '',
+    category: 'Đồ uống',
     isActive: true,
   });
 
@@ -71,7 +76,7 @@ const Services: React.FC = () => {
 
   const openCreate = () => {
     setEditingService(null);
-    setFormData({ name: '', price: '', stockQuantity: '0', imageUrl: '', isActive: true });
+    setFormData({ name: '', price: '', stockQuantity: '0', imageUrl: '', category: 'Đồ uống', isActive: true });
     setError('');
     setIsDrawerOpen(true);
   };
@@ -83,6 +88,7 @@ const Services: React.FC = () => {
       price: String(service.price || 0),
       stockQuantity: String(service.stockQuantity || 0),
       imageUrl: service.imageUrl || '',
+      category: SERVICE_CATEGORIES.includes(service.icon || '') ? service.icon! : 'Khác',
       isActive: service.isActive ?? true,
     });
     setError('');
@@ -116,7 +122,7 @@ const Services: React.FC = () => {
       const payload = {
         name: trimmedName,
         price: priceValue || 0,
-        icon: 'service',
+        icon: formData.category,
         stockQuantity: stockValue || 0,
         imageUrl: formData.imageUrl.trim() || null,
         isActive: formData.isActive,
@@ -167,7 +173,8 @@ const Services: React.FC = () => {
         (priceFilter === 'under50' && price < 50000) ||
         (priceFilter === '50to100' && price >= 50000 && price <= 100000) ||
         (priceFilter === 'over100' && price > 100000);
-      return nameMatch && statusMatch && stockMatch && priceMatch;
+      const categoryMatch = categoryFilter === 'all' || service.icon === categoryFilter;
+      return nameMatch && statusMatch && stockMatch && priceMatch && categoryMatch;
     }).sort((a, b) => {
       if (sortBy === 'priceAsc') return Number(a.price || 0) - Number(b.price || 0);
       if (sortBy === 'priceDesc') return Number(b.price || 0) - Number(a.price || 0);
@@ -175,7 +182,7 @@ const Services: React.FC = () => {
       if (sortBy === 'stockDesc') return Number(b.stockQuantity || 0) - Number(a.stockQuantity || 0);
       return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
     });
-  }, [services, search, statusFilter, stockFilter, priceFilter, sortBy]);
+  }, [services, search, statusFilter, stockFilter, priceFilter, sortBy, categoryFilter]);
 
   const stats = useMemo(() => {
     const active = services.filter((service) => service.isActive !== false).length;
@@ -253,6 +260,7 @@ const Services: React.FC = () => {
             ['out', 'Hết hàng'],
           ] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setStockFilter(id)} className={`rounded-full px-4 py-2 text-xs font-black transition ${stockFilter === id ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}>{label}</button>)}
         </div>
+        <div className="mb-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => setCategoryFilter('all')} className={`rounded-lg px-3 py-2 text-xs font-black ${categoryFilter === 'all' ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'}`}>Tất cả danh mục</button>{SERVICE_CATEGORIES.map((category) => <button key={category} type="button" onClick={() => setCategoryFilter(category)} className={`rounded-lg px-3 py-2 text-xs font-black ${categoryFilter === category ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'}`}>{category}</button>)}</div>
         <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -360,7 +368,7 @@ const Services: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black text-slate-950 ">{service.name || 'Dịch vụ chưa đặt tên'}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-400">{service.isActive !== false ? 'Đang bán' : 'Tạm ẩn'} · Tồn kho {stock}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-400">{service.icon || 'Khác'} · {service.isActive !== false ? 'Đang bán' : 'Tạm ẩn'} · Tồn kho {stock}</p>
                       </div>
                     </div>
 
@@ -540,6 +548,7 @@ const Services: React.FC = () => {
                               placeholder="0"
                             />
                           </div>
+                          <div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Danh mục</label><select value={formData.category} onChange={(event) => setFormData({ ...formData, category: event.target.value })} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300">{SERVICE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></div>
                         </div>
                       </div>
                     </div>

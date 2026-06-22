@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const LOCAL_API_URL = 'http://localhost:5164/api/v1';
+const LOCAL_API_URL = 'http://127.0.0.1:5164/api/v1';
 const PRODUCTION_API_URL = 'https://smartsport-api.onrender.com/api/v1';
 
 export const API_URL =

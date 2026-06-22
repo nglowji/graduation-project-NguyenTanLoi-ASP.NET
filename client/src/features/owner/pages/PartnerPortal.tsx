@@ -1,10 +1,42 @@
 import React from 'react';
-import { ArrowRight, BarChart3, CalendarCheck, Check, CheckCircle2, CreditCard, Store, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, BarChart3, CalendarCheck, Check, CheckCircle2, ClipboardList, DollarSign, Medal, ShieldCheck, Star, Store, UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 import { authService } from '../../../services/authService';
-import ownerBanner from '../../../assets/owner.png';
+const ownerBanner = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=85';
+
+const toneClasses = {
+  blue: 'bg-blue-50 text-blue-600',
+  emerald: 'bg-emerald-50 text-emerald-600',
+  violet: 'bg-violet-50 text-violet-600',
+  amber: 'bg-amber-50 text-amber-600',
+  yellow: 'bg-amber-50 text-amber-600',
+  cyan: 'bg-cyan-50 text-cyan-600',
+} as const;
+
+const toneTextClasses = {
+  blue: 'text-blue-600',
+  emerald: 'text-emerald-600',
+  violet: 'text-violet-600',
+  amber: 'text-amber-600',
+} as const;
+
+const benefits = [
+  [CalendarCheck, 'Quản lý lịch sân', 'Tránh trùng lịch, cập nhật lịch xác nhận tự động.', 'blue'],
+  [BarChart3, 'Theo dõi doanh thu', 'Thống kê doanh thu theo ngày, tuần, tháng trực quan.', 'emerald'],
+  [Users, 'Quản lý khách hàng', 'Lưu lịch sử đặt sân, chăm sóc khách hiệu quả.', 'violet'],
+  [ClipboardList, 'Báo cáo thông minh', 'Biểu đồ trực quan, phân tích hiệu quả vận hành.', 'amber'],
+  [Star, 'Đánh giá khách hàng', 'Nhận phản hồi, đánh giá và cải thiện chất lượng.', 'yellow'],
+  [Store, 'Quản lý đa sân', 'Một tài khoản quản lý nhiều sân dễ dàng.', 'cyan'],
+] as const;
+
+const overviewStats = [
+  { Icon: CalendarCheck, value: '10.000+', label: 'Lượt đặt sân mỗi tháng', color: 'blue' },
+  { Icon: Users, value: '500+', label: 'Chủ sân đang hoạt động', color: 'emerald' },
+  { Icon: UserPlus, value: '30.000+', label: 'Người dùng đang sử dụng', color: 'violet' },
+  { Icon: ShieldCheck, value: '99.9%', label: 'Tỷ lệ ổn định hệ thống', color: 'amber' },
+] as const;
 
 const PartnerPortal: React.FC = () => {
   const navigate = useNavigate();
@@ -15,110 +47,66 @@ const PartnerPortal: React.FC = () => {
   const [provinceCode, setProvinceCode] = React.useState<number>();
   const [districtCode, setDistrictCode] = React.useState<number>();
   const [selectedWard, setSelectedWard] = React.useState('');
-  const [formData, setFormData] = React.useState({ phone: '', businessName: '', address: '' });
+  const [formData, setFormData] = React.useState({ fullName: '', phone: '', email: '', businessName: '', fieldCount: '', address: '', note: '' });
   const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
+  React.useEffect(() => {
+    if (auth.user) setFormData((value) => ({ ...value, fullName: value.fullName || auth.user?.fullName || '', phone: value.phone || auth.user?.phoneNumber || '', email: value.email || auth.user?.email || '' }));
+  }, [auth.user]);
+
   const handleRegister = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError('');
+    event.preventDefault(); setIsLoading(true); setError('');
     try {
-      if (!auth.isAuthenticated) {
-        setError('Vui lòng đăng nhập trước khi đăng ký làm chủ sân.');
-        return;
-      }
-      const province = provinces.find((item) => item.code === provinceCode);
-      const district = districts.find((item) => item.code === districtCode);
-      if (!province || !district || !selectedWard || !formData.address.trim()) {
-        setError('Vui lòng nhập đầy đủ địa chỉ cơ sở kinh doanh.');
-        return;
-      }
-      const response = await authService.registerOwnerCenter({
-        businessName: formData.businessName.trim(),
-        phoneNumber: formData.phone.replace(/\s/g, ''),
-        street: formData.address.trim(),
-        ward: selectedWard,
-        district: district.name,
-        city: province.name,
-      });
-      auth.login(response);
-      setIsSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Đăng ký đối tác thất bại. Vui lòng thử lại.');
-    } finally {
-      setIsLoading(false);
-    }
+      if (!auth.isAuthenticated) throw new Error('Vui lòng đăng nhập trước khi đăng ký làm chủ sân.');
+      const province = provinces.find((item) => item.code === provinceCode); const district = districts.find((item) => item.code === districtCode);
+      if (!province || !district || !selectedWard || !formData.address.trim()) throw new Error('Vui lòng nhập đầy đủ địa chỉ cơ sở.');
+      const response = await authService.registerOwnerCenter({ businessName: formData.businessName.trim(), phoneNumber: formData.phone.replace(/\s/g, ''), street: formData.address.trim(), ward: selectedWard, district: district.name, city: province.name });
+      auth.login(response); setIsSuccess(true);
+    } catch (err: any) { setError(err.message || 'Đăng ký đối tác thất bại. Vui lòng thử lại.'); }
+    finally { setIsLoading(false); }
   };
 
-  return (
-    <main className="bg-slate-50 pt-20 text-slate-900">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-5 py-12 lg:grid-cols-[1.1fr_.9fr] lg:items-end lg:py-16">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">SmartSport dành cho chủ sân</p>
-            <h1 className="mt-3 max-w-3xl text-4xl font-black tracking-tight sm:text-5xl">Quản lý sân rõ ràng, vận hành chủ động.</h1>
-            <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">Theo dõi lịch đặt, tiền cọc, dịch vụ phát sinh và doanh thu trong một hệ thống dành riêng cho cơ sở của bạn.</p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a href="#register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-black text-white transition hover:bg-blue-800">Đăng ký cơ sở <ArrowRight size={17} /></a>
-              <a href="#how-it-works" className="inline-flex h-12 items-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:border-blue-200 hover:bg-blue-50">Xem quy trình</a>
-            </div>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-xl shadow-blue-950/15">
-            <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Store size={17} className="text-blue-300" /><span className="text-sm font-black">Trung tâm vận hành</span></div><span className="rounded-lg bg-emerald-400 px-2 py-1 text-[10px] font-black text-emerald-950">ĐANG HOẠT ĐỘNG</span></div>
-            <div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-xl bg-white/10 p-3"><p className="text-xl font-black">06</p><p className="mt-1 text-[9px] font-black uppercase text-slate-300">Đơn hôm nay</p></div><div className="rounded-xl bg-amber-300 p-3 text-slate-950"><p className="text-xl font-black">02</p><p className="mt-1 text-[9px] font-black uppercase">Chờ cọc</p></div><div className="rounded-xl bg-emerald-400 p-3 text-emerald-950"><p className="text-xl font-black">4,8tr</p><p className="mt-1 text-[9px] font-black uppercase">Doanh thu</p></div></div>
-            <div className="mt-3 space-y-2 rounded-xl bg-white p-3 text-slate-800"><div className="flex items-center justify-between text-xs font-black"><span>17:00 · Bóng đá 5</span><span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">Đã cọc</span></div><div className="flex items-center justify-between text-xs font-black"><span>18:30 · Pickleball</span><span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">Chờ cọc</span></div></div>
-            <p className="mt-3 text-xs font-semibold leading-5 text-slate-300">Chủ sân và nhân viên cùng thấy việc cần xử lý trong ngày.</p>
-          </div>
+  return <main className="bg-slate-50 pt-20 text-slate-900">
+    <section className="mx-auto max-w-7xl px-5 py-12 lg:py-16">
+      <div className="grid gap-10 lg:grid-cols-[.74fr_1.26fr] lg:items-center">
+        <div>
+          <p className="inline-flex rounded-full bg-blue-950 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">Nền tảng quản lý sân thể thao</p>
+          <h1 className="mt-5 text-4xl font-black leading-[1.15] tracking-tight sm:text-5xl">Tăng lượng khách đặt sân <span className="text-blue-600">mà không cần quảng cáo.</span></h1>
+          <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-slate-600">SmartSport giúp chủ sân quản lý lịch đặt, doanh thu và khách hàng trên một nền tảng duy nhất.</p>
+          <div className="mt-6 space-y-3 text-sm font-bold text-slate-700">{['Quản lý lịch sân theo thời gian thực', 'Theo dõi doanh thu trực quan', 'Nhận đơn đặt sân 24/7', 'Chủ sân giữ 100% doanh thu dịch vụ'].map(item => <p key={item} className="flex items-center gap-3"><CheckCircle2 size={18} className="fill-amber-300 text-amber-500" />{item}</p>)}</div>
+          <div className="mt-8 flex flex-wrap gap-3"><a href="#register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-amber-300 px-5 text-sm font-black text-slate-950 transition hover:bg-amber-200">Đăng ký làm chủ sân <ArrowRight size={17} /></a><a href="#dashboard" className="inline-flex h-12 items-center gap-2 rounded-xl border border-blue-200 bg-white px-5 text-sm font-black text-blue-800 transition hover:bg-blue-50">Xem demo dashboard <ArrowRight size={17} /></a></div>
         </div>
-      </section>
+        <div id="dashboard" className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-blue-950/10"><DashboardPreview /></div>
+      </div>
+      <div className="mt-8 grid divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">{overviewStats.map(({ Icon, value, label, color }) => <div key={label} className="flex items-center gap-4 p-5"><span className={`grid h-12 w-12 place-items-center rounded-full ${toneClasses[color]}`}><Icon size={23} /></span><div><p className={`text-2xl font-black ${toneTextClasses[color]}`}>{value}</p><p className="mt-1 text-xs font-bold text-slate-600">{label}</p></div></div>)}</div>
+    </section>
 
-      <section className="border-b border-slate-200 bg-slate-100">
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-5 py-14 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><img src={ownerBanner} alt="Giao diện vận hành SmartSport cho chủ sân" className="h-full min-h-[260px] w-full object-cover" /></div>
-          <div><p className="text-xs font-black uppercase tracking-widest text-emerald-700">Nắm sân trong một màn hình</p><h2 className="mt-3 text-3xl font-black tracking-tight">Từ giờ trống đến doanh thu, mọi thứ đều có trạng thái rõ ràng.</h2><p className="mt-4 text-sm font-semibold leading-7 text-slate-600">Chủ sân biết đơn nào cần cọc, nhân viên biết lịch nào sắp diễn ra, và hệ thống tự tổng hợp số liệu để bạn không phải dò lại tin nhắn hay sổ ghi chép.</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm font-black text-blue-800">Lịch và trạng thái đơn theo thời gian thực</p><p className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-black text-emerald-800">Dịch vụ phát sinh ghi nhận cùng đơn đặt</p></div></div>
-        </div>
-      </section>
+    <section className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1fr_1.05fr]">
+      <div><h2 className="text-2xl font-black">Chủ sân được gì khi sử dụng <span className="text-blue-600">SmartSport?</span></h2><div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{benefits.map(([Icon,title,text,color]) => <article key={title} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className={`grid h-11 w-11 place-items-center rounded-full ${toneClasses[color]}`}><Icon size={21} /></span><h3 className="mt-4 text-sm font-black">{title}</h3><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{text}</p></article>)}</div></div>
+      <aside className="relative overflow-hidden rounded-2xl bg-amber-300 p-7 text-slate-950 shadow-sm"><Medal className="absolute -right-4 top-4 h-40 w-40 text-amber-400/60" /><div className="relative"><p className="text-sm font-black">Chỉ <strong className="text-4xl text-blue-700">10%</strong> trên doanh thu tiền sân</p><p className="mt-4 max-w-md text-sm font-semibold leading-6">Chủ sân chỉ trả 10% hoa hồng trên giá trị tiền thuê sân của mỗi đơn đặt sân thành công.</p><div className="mt-5 space-y-2 text-xs font-bold">{['Chỉ áp dụng cho tiền thuê sân', 'Không tính trên nước uống', 'Không tính trên thuê vợt, giày', 'Không phí duy trì hàng tháng'].map(item => <p key={item} className="flex gap-2"><Check size={15} />{item}</p>)}</div><div className="mt-7 rounded-xl bg-white p-4 text-sm"><p className="font-black">Ví dụ minh họa</p><div className="mt-3 grid grid-cols-2 gap-4 border-t border-slate-100 pt-3"><div className="space-y-2 text-xs font-bold text-slate-500"><p>Tiền thuê sân <b className="float-right text-slate-900">200.000đ</b></p><p>Thuê vợt <b className="float-right text-slate-900">50.000đ</b></p><p>Nước uống <b className="float-right text-slate-900">20.000đ</b></p><p className="border-t pt-2 text-slate-900">Tổng đơn hàng <b className="float-right text-blue-700">270.000đ</b></p></div><div className="border-l border-slate-100 pl-4 text-xs font-bold"><p>Hoa hồng SmartSport (10% tiền sân)</p><p className="mt-2 text-sm text-red-600">200.000đ x 10% = 20.000đ</p><p className="mt-6">Chủ sân nhận</p><p className="text-2xl font-black text-emerald-600">250.000đ</p></div></div></div></div></aside>
+    </section>
 
-      <section className="mx-auto max-w-[1180px] px-5 py-14">
-        <div className="max-w-2xl"><p className="text-xs font-black uppercase tracking-widest text-blue-600">Một nơi cho vận hành hằng ngày</p><h2 className="mt-2 text-3xl font-black tracking-tight">Những việc chủ sân cần biết đều ở đúng chỗ.</h2></div>
-        <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            [CalendarCheck, 'Lịch đặt sân', 'Xem đơn mới, giờ chơi và trạng thái từng đơn.'],
-            [CreditCard, 'Tiền cọc', 'Theo dõi đơn chờ cọc để xử lý đúng thời điểm.'],
-            [Store, 'Dịch vụ tại sân', 'Quản lý hàng bán thêm và tồn kho.'],
-            [BarChart3, 'Doanh thu', 'Đọc doanh thu theo thời gian và loại sân.'],
-          ].map(([Icon, title, text], index) => { const FeatureIcon = Icon as React.ElementType; return <article key={title as string} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className={`grid h-11 w-11 place-items-center rounded-xl ${index === 1 ? 'bg-emerald-50 text-emerald-600' : index === 2 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}><FeatureIcon size={21} /></span><h3 className="mt-5 text-lg font-black">{title as string}</h3><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{text as string}</p></article>; })}
-        </div>
-      </section>
+    <section className="mx-auto max-w-7xl px-5 py-10"><h2 className="text-center text-2xl font-black">Quy trình hợp tác với <span className="text-blue-600">SmartSport</span></h2><div className="mt-7 grid gap-3 md:grid-cols-4">{[[UserPlus,'Đăng ký thông tin','Điền thông tin sân của bạn để SmartSport liên hệ.'],[ShieldCheck,'Xác thực sân','SmartSport xác thực thông tin và hỗ trợ thiết lập.'],[CalendarCheck,'Nhận đơn đặt sân','Cần của bạn hiển thị trên hệ thống và bắt đầu nhận đơn.'],[DollarSign,'Nhận doanh thu','Đối soát tự động, nhận doanh thu sau trừ hoa hồng.']].map(([Icon,title,text],index) => { const I=Icon as React.ElementType; return <article key={title as string} className="relative rounded-xl border border-slate-200 bg-white p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-blue-700"><I size={19}/></span><span className="absolute right-4 top-5 text-lg font-black text-amber-500">{index + 1}</span><h3 className="mt-4 text-sm font-black">{title as string}</h3><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{text as string}</p></article>})}</div></section>
 
-      <section id="how-it-works" className="border-y border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1180px] px-5 py-14">
-          <p className="text-xs font-black uppercase tracking-widest text-blue-600">Bắt đầu trong 3 bước</p>
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {[
-              ['01', UserPlus, 'Gửi hồ sơ cơ sở', 'Điền thông tin liên hệ và địa chỉ sân.'],
-              ['02', CheckCircle2, 'Chờ phê duyệt', 'Quản trị viên kiểm tra hồ sơ trước khi kích hoạt.'],
-              ['03', Users, 'Mở lịch bán', 'Thêm sân, khung giờ, giá thuê và nhân viên.'],
-            ].map(([number, Icon, title, text]) => { const StepIcon = Icon as React.ElementType; return <article key={number as string} className="grid grid-cols-[44px_minmax(0,1fr)] gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white text-sm font-black text-blue-700 ring-1 ring-slate-200">{number as string}</span><div><StepIcon className="text-blue-600" size={19} /><h3 className="mt-3 font-black">{title as string}</h3><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{text as string}</p></div></article>; })}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-[1180px] px-5 py-14">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:flex sm:items-center sm:justify-between sm:gap-8"><div><p className="text-xs font-black uppercase tracking-widest text-amber-700">Chi phí minh bạch</p><h2 className="mt-2 text-2xl font-black">Không phí khởi tạo, chỉ tính phí khi có đơn thành công.</h2><p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">Hoa hồng được đối soát theo đơn đặt sân thành công. Doanh thu dịch vụ bán thêm tại sân được quản lý riêng.</p></div><div className="mt-5 shrink-0 rounded-xl border border-amber-200 bg-white px-5 py-4 text-center sm:mt-0"><p className="text-3xl font-black text-amber-600">10%</p><p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-400">mỗi đơn thành công</p></div></div>
-      </section>
-
-      <section id="register" className="border-t border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-[980px] gap-0 px-5 py-14 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="rounded-t-2xl bg-[#050816] p-6 text-white lg:rounded-l-2xl lg:rounded-tr-none"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white"><UserPlus size={21} /></span><h2 className="mt-5 text-2xl font-black text-white">Đăng ký làm chủ sân</h2><p className="mt-3 text-sm font-semibold leading-6 text-slate-200">Hoàn thiện thông tin cơ sở để bắt đầu quy trình phê duyệt.</p><div className="mt-6 space-y-3">{['Không phí khởi tạo', 'Dashboard vận hành sau khi duyệt', 'Hỗ trợ quản lý lịch và dịch vụ'].map((item) => <p key={item} className="flex gap-2 text-xs font-bold text-white"><Check size={15} className="shrink-0 text-emerald-400" />{item}</p>)}</div></aside>
-          {isSuccess ? <div className="grid min-h-80 place-items-center rounded-b-2xl border border-emerald-200 bg-emerald-50 p-8 text-center lg:rounded-l-none lg:rounded-r-2xl"><div><CheckCircle2 size={46} className="mx-auto text-emerald-600" /><h3 className="mt-4 text-2xl font-black">Hồ sơ đang chờ duyệt</h3><p className="mt-2 text-sm font-semibold text-slate-600">Bạn sẽ nhận thông báo khi cơ sở được phê duyệt.</p><button type="button" onClick={() => navigate('/profile?tab=notifications')} className="mt-5 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white">Xem thông báo</button></div></div> : <form onSubmit={handleRegister} className="grid gap-4 rounded-b-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:rounded-l-none lg:rounded-r-2xl">{error && <p className="sm:col-span-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<Input label="Số điện thoại" value={formData.phone} onChange={(value) => setFormData({ ...formData, phone: value })} placeholder="0912 345 678" type="tel" /><Input label="Tên cơ sở kinh doanh" value={formData.businessName} onChange={(value) => setFormData({ ...formData, businessName: value })} placeholder="Ví dụ: Sân thể thao Navy" /><Select label="Tỉnh / Thành phố" value={provinceCode || ''} onChange={(value) => { setProvinceCode(Number(value) || undefined); setDistrictCode(undefined); setSelectedWard(''); }}><option value="">Chọn tỉnh thành</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</Select><Select label="Quận / Huyện" value={districtCode || ''} disabled={!provinceCode} onChange={(value) => { setDistrictCode(Number(value) || undefined); setSelectedWard(''); }}><option value="">Chọn quận huyện</option>{districts.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</Select><Select label="Phường / Xã" value={selectedWard} disabled={!districtCode} onChange={setSelectedWard} className="sm:col-span-2"><option value="">Chọn phường xã</option>{wards.map((item) => <option key={item.code} value={item.name}>{item.name}</option>)}</Select><Input label="Địa chỉ cụ thể" value={formData.address} onChange={(value) => setFormData({ ...formData, address: value })} placeholder="Số nhà, tên đường" className="sm:col-span-2" />{auth.user && <p className="sm:col-span-2 rounded-xl bg-blue-50 p-3 text-xs font-bold text-blue-700">Tài khoản đăng ký: {auth.user.fullName} · {auth.user.email}</p>}<button disabled={isLoading} className="sm:col-span-2 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-black text-white transition hover:bg-blue-800 disabled:opacity-50">{isLoading ? 'Đang gửi hồ sơ...' : <>Gửi đơn đăng ký <ArrowRight size={17} /></>}</button></form>}
-        </div>
-      </section>
-    </main>
-  );
+    <section id="register" className="mx-auto max-w-7xl px-5 pb-16"><div className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[.58fr_1.42fr]"><div className="relative min-h-80 overflow-hidden bg-blue-950 p-7 text-white"><img src={ownerBanner} alt="Sân thể thao" className="absolute inset-0 h-full w-full object-cover opacity-35"/><div className="relative"><h2 className="max-w-xs text-3xl font-black leading-tight">Bắt đầu chuyển đổi số sân thể thao của bạn ngay hôm nay!</h2><div className="mt-7 space-y-3 text-sm font-bold">{['Tăng doanh thu', 'Tiết kiệm thời gian', 'Quản lý chuyên nghiệp'].map(item => <p key={item} className="flex gap-2"><CheckCircle2 size={16} className="text-amber-300"/>{item}</p>)}</div></div></div>{isSuccess ? <div className="grid min-h-80 place-items-center p-8 text-center"><div><CheckCircle2 className="mx-auto text-emerald-600" size={48}/><h3 className="mt-4 text-2xl font-black">Hồ sơ đang chờ duyệt</h3><button onClick={() => navigate('/profile?tab=notifications')} className="mt-5 rounded-xl bg-blue-700 px-4 py-3 text-sm font-black text-white">Xem thông báo</button></div></div> : <form onSubmit={handleRegister} className="grid gap-4 p-6 sm:grid-cols-3"><h2 className="sm:col-span-3 text-2xl font-black">Đăng ký trở thành chủ sân cùng <span className="text-blue-600">SmartSport</span></h2>{error && <p className="sm:col-span-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<Input label="Họ và tên" value={formData.fullName} onChange={value => setFormData({...formData,fullName:value})} placeholder="Nhập họ và tên"/><Input label="Số điện thoại" value={formData.phone} onChange={value => setFormData({...formData,phone:value})} placeholder="Nhập số điện thoại"/><Input label="Email" value={formData.email} onChange={value => setFormData({...formData,email:value})} placeholder="Nhập email" type="email"/><Input label="Tên sân / Cơ sở" value={formData.businessName} onChange={value => setFormData({...formData,businessName:value})} placeholder="Nhập tên sân hoặc cơ sở"/><Select label="Tỉnh / Thành phố" value={provinceCode || ''} onChange={value => {setProvinceCode(Number(value)||undefined);setDistrictCode(undefined);setSelectedWard('')}}><option value="">Chọn tỉnh thành</option>{provinces.map(i=><option key={i.code} value={i.code}>{i.name}</option>)}</Select><Input label="Số lượng sân" value={formData.fieldCount} onChange={value => setFormData({...formData,fieldCount:value})} placeholder="Ví dụ: 3"/><Select label="Quận / Huyện" value={districtCode || ''} onChange={value => {setDistrictCode(Number(value)||undefined);setSelectedWard('')}} disabled={!provinceCode}><option value="">Chọn quận huyện</option>{districts.map(i=><option key={i.code} value={i.code}>{i.name}</option>)}</Select><Select label="Phường / Xã" value={selectedWard} onChange={setSelectedWard} disabled={!districtCode}><option value="">Chọn phường xã</option>{wards.map(i=><option key={i.code} value={i.name}>{i.name}</option>)}</Select><Input label="Địa chỉ sân" value={formData.address} onChange={value => setFormData({...formData,address:value})} placeholder="Nhập địa chỉ sân" className="sm:col-span-3"/><Input label="Ghi chú" value={formData.note} onChange={value => setFormData({...formData,note:value})} placeholder="Nhập thêm thông tin nếu có" className="sm:col-span-3"/><button disabled={isLoading} className="sm:col-span-3 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 transition hover:bg-amber-200 disabled:opacity-60">{isLoading ? 'Đang gửi hồ sơ...' : <>Đăng ký trở thành chủ sân <ArrowRight size={17}/></>}</button></form>}</div></section>
+  </main>;
 };
 
-const Input = ({ label, value, onChange, placeholder, type = 'text', className = '' }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; type?: string; className?: string }) => <label className={className}><span className="mb-2 block text-xs font-black text-slate-700">{label}</span><input required type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10" /></label>;
-const Select = ({ label, value, onChange, children, disabled = false, className = '' }: React.PropsWithChildren<{ label: string; value: string | number; onChange: (value: string) => void; disabled?: boolean; className?: string }>) => <label className={className}><span className="mb-2 block text-xs font-black text-slate-700">{label}</span><select required disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50">{children}</select></label>;
+const DashboardPreview = () => <div className="grid min-h-95 overflow-hidden rounded-xl bg-slate-50 text-slate-800 sm:grid-cols-[116px_1fr]">
+  <aside className="hidden border-r border-slate-100 bg-white p-3 sm:block">
+    <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-950"><span className="grid h-5 w-5 place-items-center rounded-md bg-blue-600 text-white">S</span>SmartSport</div>
+    <div className="mt-6 space-y-1 text-[9px] font-bold text-slate-500"><p className="rounded-md bg-blue-50 px-2 py-2 text-blue-700">Tổng quan</p>{['Lịch sân', 'Đơn đặt sân', 'Doanh thu', 'Khách hàng', 'Dịch vụ', 'Đánh giá'].map(item => <p key={item} className="px-2 py-1.5">{item}</p>)}</div>
+  </aside>
+  <div className="p-3 sm:p-4"><div className="flex items-center justify-between"><div><p className="text-xs font-black">Tổng quan</p><p className="mt-0.5 text-[8px] font-bold text-slate-400">Hôm nay, 21/06/2026</p></div><span className="rounded-md bg-white px-2 py-1 text-[8px] font-bold shadow-sm">Sân Navy</span></div>
+    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{[['Doanh thu hôm nay','12,450,000đ','text-blue-700'],['Đơn đặt sân','28','text-emerald-600'],['Công suất sân','78%','text-violet-600'],['Sân hoạt động','6/8','text-amber-600']].map(([label,value,tone]) => <div key={label} className="rounded-lg bg-white p-2 shadow-sm"><p className="text-[8px] font-bold text-slate-400">{label}</p><p className={`mt-1 text-xs font-black ${tone}`}>{value}</p><p className="mt-1 text-[7px] font-bold text-emerald-600">↑ tăng so với hôm qua</p></div>)}</div>
+    <div className="mt-3 grid gap-2 lg:grid-cols-[1.18fr_.82fr]"><div className="rounded-lg bg-white p-3 shadow-sm"><div className="flex justify-between text-[8px] font-bold"><span>Doanh thu 7 ngày qua</span><span className="text-slate-400">7 ngày</span></div><svg viewBox="0 0 280 94" className="mt-2 h-20 w-full" role="img" aria-label="Biểu đồ doanh thu tăng dần"><path d="M4 80 L38 67 L68 58 L101 29 L133 58 L168 35 L202 57 L236 38 L276 9" fill="none" stroke="currentColor" strokeWidth="3" className="text-blue-600" /><path d="M4 88H276" stroke="#e2e8f0" strokeWidth="1" /></svg></div><div className="rounded-lg bg-white p-3 shadow-sm"><div className="flex justify-between text-[8px] font-bold"><span>Lịch đặt hôm nay</span><span className="text-blue-600">Xem tất cả</span></div><div className="mt-2 space-y-2">{['06:00 · Sân 1 · Nguyễn Văn A','08:00 · Sân 2 · Trần Minh B','18:00 · Sân 3 · Lê Hoàng C'].map(item => <div key={item} className="flex items-center justify-between gap-1 text-[7px] font-bold"><span>{item}</span><span className="rounded bg-emerald-50 px-1 py-0.5 text-emerald-600">Đã xác nhận</span></div>)}</div></div></div>
+    <div className="mt-2 grid gap-2 lg:grid-cols-2"><div className="rounded-lg bg-white p-3 shadow-sm"><p className="text-[8px] font-bold">Top khách hàng</p>{['Nguyễn Văn A','Trần Minh B','Lê Hoàng C'].map((name,index) => <p key={name} className="mt-2 flex justify-between text-[8px] font-bold text-slate-500"><span>{index + 1}. {name}</span><span>{12 - index * 3} đơn</span></p>)}</div><div className="rounded-lg bg-white p-3 shadow-sm"><p className="text-[8px] font-bold">Đánh giá mới nhất</p><p className="mt-2 text-[8px] font-bold">Nguyễn Văn A <span className="text-amber-500">★★★★★</span></p><p className="mt-1 text-[7px] text-slate-500">Sân đẹp, dịch vụ tốt.</p></div></div>
+  </div>
+</div>;
 
+const Input = ({label,value,onChange,placeholder,type='text',className=''}:{label:string;value:string;onChange:(value:string)=>void;placeholder:string;type?:string;className?:string}) => {
+  if (label === 'Số lượng sân' || label === 'Ghi chú') return null;
+  return <label className={className}><span className="mb-2 block text-xs font-black text-slate-700">{label} <b className="text-red-500">*</b></span><input required type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"/></label>;
+};
+const Select = ({label,value,onChange,children,disabled=false,className=''}:React.PropsWithChildren<{label:string;value:string|number;onChange:(value:string)=>void;disabled?:boolean;className?:string}>) => <label className={className}><span className="mb-2 block text-xs font-black text-slate-700">{label} <b className="text-red-500">*</b></span><select required disabled={disabled} value={value} onChange={e=>onChange(e.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none transition focus:border-blue-400 focus:bg-white disabled:opacity-50">{children}</select></label>;
 export default PartnerPortal;

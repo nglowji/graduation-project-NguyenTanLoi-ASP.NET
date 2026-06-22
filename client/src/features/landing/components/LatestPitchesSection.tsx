@@ -8,10 +8,19 @@ const fallbackImage = 'https://images.unsplash.com/photo-1574629810360-7efbbe195
 const formatMoney = (value?: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
 
-const typeLabel = (value?: string) => ({
-  Football5: 'Bóng đá 5 người', Football7: 'Bóng đá 7 người', Football11: 'Bóng đá 11 người',
-  Badminton: 'Cầu lông', Pickleball: 'Pickleball', Tennis: 'Quần vợt', Basketball: 'Bóng rổ', Volleyball: 'Bóng chuyền', TableTennis: 'Bóng bàn',
-}[String(value || '')] || 'Sân thể thao');
+const typeLabel = (value?: string) => {
+  const normalized = String(value || '').replace(/[\s_-]/g, '').toLowerCase();
+  const labels: Record<string, string> = {
+    football5: 'Bóng đá 5 người', football7: 'Bóng đá 7 người', football11: 'Bóng đá 11 người',
+    badminton: 'Cầu lông', pickleball: 'Pickleball', tennis: 'Quần vợt',
+    basketball: 'Bóng rổ', volleyball: 'Bóng chuyền', tabletennis: 'Bóng bàn',
+    bongda5: 'Bóng đá 5 người', bongda7: 'Bóng đá 7 người', bongda11: 'Bóng đá 11 người',
+    caulong: 'Cầu lông', quanvot: 'Quần vợt', bongro: 'Bóng rổ',
+    bongchuyen: 'Bóng chuyền', bongban: 'Bóng bàn',
+  };
+
+  return labels[normalized] || 'Sân thể thao';
+};
 
 const LatestPitchesSection: React.FC = () => {
   const navigate = useNavigate();

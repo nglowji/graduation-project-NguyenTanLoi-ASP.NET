@@ -56,7 +56,8 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<TabType>(isProfileTab(initialTab) ? initialTab : 'profile');
+  // Booking history is the primary workspace in the customer profile.
+  const [activeTab, setActiveTab] = useState<TabType>(isProfileTab(initialTab) ? initialTab : 'bookings');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -495,6 +496,7 @@ const Profile: React.FC = () => {
     return true;
   });
   const pagedBookings = filteredBookings.slice((bookingPage - 1) * profilePageSize, bookingPage * profilePageSize);
+  const selectedBooking = pagedBookings.find((booking) => booking.id === expandedBookingId) || pagedBookings[0] || null;
 
   const notificationItems = [
     ...systemNotifications.map((item) => ({
@@ -1055,7 +1057,9 @@ const Profile: React.FC = () => {
                         <p className="text-slate-400 font-bold">Đang tải lịch sử đặt sân...</p>
                       </div>
                     ) : filteredBookings.length > 0 ? (
-                      pagedBookings.map((item) => {
+                      <div className="grid gap-5 xl:grid-cols-[minmax(310px,.78fr)_minmax(0,1.22fr)]">
+                        <div className="space-y-3">
+                      {pagedBookings.map((item) => {
                         const payment = paymentHistoryByBooking[item.id];
                         const paymentMeta = getPaymentStatusMeta(item);
                         const isExpanded = expandedBookingId === item.id;
@@ -1314,7 +1318,32 @@ const Profile: React.FC = () => {
                             </AnimatePresence>
                           </div>
                         );
-                      })
+                      })}
+                        </div>
+                        {selectedBooking && (
+                          <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-24">
+                            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Chi tiết đơn đặt sân</p>
+                                <h4 className="mt-2 text-xl font-black text-slate-950">{getBookingPitchName(selectedBooking)}</h4>
+                                <p className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-500"><MapPin size={14} className="text-blue-600" />{getBookingAddress(selectedBooking)}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${getBookingStatusClass(selectedBooking.status)}`}>{getBookingStatusLabel(selectedBooking.status)}</span>
+                            </div>
+                            <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                              <div><dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày đặt</dt><dd className="mt-1 font-black text-slate-800">{formatBookingDate(selectedBooking.bookingDate)}</dd></div>
+                              <div><dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ</dt><dd className="mt-1 font-black text-slate-800">{getBookingStartTime(selectedBooking).substring(0, 5)} - {getBookingEndTime(selectedBooking).substring(0, 5)}</dd></div>
+                              <div><dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loại sân</dt><dd className="mt-1 font-black text-slate-800">{getBookingPitchType(selectedBooking)}</dd></div>
+                              <div><dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mã đơn</dt><dd className="mt-1 font-black text-slate-800">{selectedBooking.checkInCode || selectedBooking.id.substring(0, 8).toUpperCase()}</dd></div>
+                            </dl>
+                            <div className="mt-5 rounded-xl bg-blue-50 p-4">
+                              <div className="flex items-center justify-between"><span className="text-xs font-bold text-slate-600">Tổng tiền</span><strong className="text-lg font-black text-blue-700">{formatMoney(getBookingAmount(selectedBooking))}</strong></div>
+                              <div className="mt-3 flex items-center justify-between border-t border-blue-100 pt-3"><span className="text-xs font-bold text-slate-600">Tiền cọc</span><strong className="text-sm font-black text-slate-900">{formatMoney(getBookingDepositAmount(selectedBooking))}</strong></div>
+                            </div>
+                            <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setExpandedBookingId(selectedBooking.id)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white text-xs font-black text-blue-700 transition hover:bg-blue-50"><Eye size={15} />Xem chi tiết</button>{canOpenPaymentPage(selectedBooking) && <button type="button" onClick={() => navigate(`/booking-review/${selectedBooking.id}?pay=1`)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-700 text-xs font-black text-white transition hover:bg-blue-800"><CreditCard size={15} />Thanh toán cọc</button>}</div>
+                          </aside>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 shadow-sm">
                         <ShoppingBag size={64} className="text-slate-200 mb-6" />

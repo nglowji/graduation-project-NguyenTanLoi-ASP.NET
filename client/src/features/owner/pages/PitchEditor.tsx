@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -13,9 +13,11 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
   Wand2,
 } from 'lucide-react';
 import api from '../../../services/api';
+import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
 
 const SPORT_CATEGORIES = [
   { id: 'football', label: 'Bóng đá', types: [
@@ -78,6 +80,7 @@ const toAddressInputValue = (value: any) => {
 };
 
 const toApiTimeValue = (value: string) => value.length === 5 ? `${value}:00` : value;
+const resolveLocalImageUrl = (value?: string) => String(value || '').replace('http://localhost:5164', 'http://127.0.0.1:5164');
 
 const parseMoneyInput = (value: string | number) => {
   const normalized = String(value || '').replace(/\D/g, '');
@@ -271,6 +274,12 @@ const PitchEditor: React.FC = () => {
   });
   const [autoGenerateError, setAutoGenerateError] = useState('');
   const [autoGenTouched, setAutoGenTouched] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [provinceCode, setProvinceCode] = useState<number>();
+  const [districtCode, setDistrictCode] = useState<number>();
+  const [wardName, setWardName] = useState('');
+  const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
 
   useEffect(() => {
     if (isEditing) fetchPitchData();
@@ -282,6 +291,30 @@ const PitchEditor: React.FC = () => {
   );
 
   const coverImage = formData.images.find((image) => image.trim());
+
+  const uploadImages = async (files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    if (imageFiles.length === 0) {
+      setError('Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.');
+      return;
+    }
+
+    setIsUploadingImages(true);
+    setError('');
+    try {
+      const uploadedUrls = await Promise.all(imageFiles.map(async (file) => {
+        const payload = new FormData();
+        payload.append('file', file);
+        const response: any = await api.post('/pitches/images', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+        return response.imageUrl || response.data?.imageUrl;
+      }));
+      setFormData((current) => ({ ...current, images: [...current.images.filter(Boolean), ...uploadedUrls.filter(Boolean)] }));
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
 
   const buildGeneratedSlots = () => {
     let current = parseMinutes(autoGen.startTime);
@@ -455,14 +488,14 @@ const PitchEditor: React.FC = () => {
 
       const mapCoordinates = await geocodeMapInput(formData.mapLink, formData.address);
       const payload = {
-        name: formData.name.trim(),
+        name: `Sân ${selectedCategory.label}`,
         description: formData.description.trim(),
         pitchType: Number(formData.pitchType),
         isIndoor: formData.isIndoor,
         images: formData.images.map((image) => image.trim()).filter(Boolean),
         timeSlots,
         services: [],
-        address: formData.address.trim(),
+        address: [formData.address.trim(), wardName, districts.find((district) => district.code === districtCode)?.name, provinces.find((province) => province.code === provinceCode)?.name].filter(Boolean).join(', '),
         mapLink: formData.mapLink.trim() || undefined,
         latitude: mapCoordinates?.latitude,
         longitude: mapCoordinates?.longitude,
@@ -552,18 +585,9 @@ const PitchEditor: React.FC = () => {
             </div>
 
             <div className="grid gap-4">
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tên sân</label>
-                <input
-                  required
-                  value={formData.name}
-                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                  placeholder="VD: Sân số 1 - Khu A"
-                />
-              </div>
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">Tên sân sẽ dùng theo tên cơ sở đã đăng ký của chủ sân.</div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Link Google Maps nếu có</label>
                     <div className="relative">
@@ -580,16 +604,10 @@ const PitchEditor: React.FC = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Địa chỉ cụ thể</label>
-                    <input
-                      value={formData.address}
-                      onChange={(event) => setFormData({ ...formData, address: event.target.value })}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                      placeholder="VD: 123 Đường số 4, Quận..."
-                    />
-                  </div>
+                  <div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tỉnh / Thành phố</label><select value={provinceCode || ''} onChange={(event) => { setProvinceCode(Number(event.target.value) || undefined); setDistrictCode(undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300"><option value="">Chọn tỉnh / thành</option>{provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select></div>
                 </div>
+
+              <div className="grid gap-4 md:grid-cols-3"><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Quận / Huyện</label><select disabled={!provinceCode} value={districtCode || ''} onChange={(event) => { setDistrictCode(Number(event.target.value) || undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn quận / huyện</option>{districts.map((district) => <option key={district.code} value={district.code}>{district.name}</option>)}</select></div><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Phường / Xã</label><select disabled={!districtCode} value={wardName} onChange={(event) => setWardName(event.target.value)} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn phường / xã</option>{wards.map((ward) => <option key={ward.code} value={ward.name}>{ward.name}</option>)}</select></div><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Địa chỉ cụ thể</label><input value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white" placeholder="Số nhà, tên đường" /></div></div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -805,8 +823,21 @@ const PitchEditor: React.FC = () => {
             </div>
 
             <div className="mb-4 grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
-              {coverImage ? <img src={coverImage} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={36} className="text-slate-300" />}
+              {coverImage ? <img src={resolveLocalImageUrl(coverImage)} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={36} className="text-slate-300" />}
             </div>
+
+            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(event) => { if (event.target.files) uploadImages(event.target.files); event.target.value = ''; }} />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => { event.preventDefault(); uploadImages(event.dataTransfer.files); }}
+              className="mb-4 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50/60 px-4 text-center transition hover:border-blue-500 hover:bg-blue-50"
+            >
+              {isUploadingImages ? <Loader2 size={22} className="animate-spin text-blue-600" /> : <Upload size={22} className="text-blue-600" />}
+              <span className="text-xs font-black text-slate-800">{isUploadingImages ? 'Đang tải ảnh...' : 'Kéo thả ảnh vào đây hoặc chọn từ thiết bị'}</span>
+              <span className="text-[10px] font-semibold text-slate-500">JPG, PNG, WEBP. Tối đa 10 MB mỗi ảnh.</span>
+            </button>
 
             <div className="space-y-3">
               {formData.images.map((image, index) => (

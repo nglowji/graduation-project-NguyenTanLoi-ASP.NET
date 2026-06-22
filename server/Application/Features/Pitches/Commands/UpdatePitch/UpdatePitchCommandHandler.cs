@@ -43,7 +43,7 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
                 return Result<Unit>.Failure("Bạn không có quyền cập nhật sân này.");
 
             // ── 1. Cập nhật thông tin cơ bản ──────────────────────────────────────
-            pitch.UpdateInfo(request.Name, request.PitchType, request.IsIndoor, request.Description, request.MapLink?.Trim());
+            pitch.UpdateInfo(pitch.SportCenter?.Name ?? request.Name, request.PitchType, request.IsIndoor, request.Description, request.MapLink?.Trim());
 
             if (!string.IsNullOrWhiteSpace(request.Address) && pitch.SportCenter != null)
             {

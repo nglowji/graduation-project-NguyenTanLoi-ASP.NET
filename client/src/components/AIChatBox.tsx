@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bot,
+  CalendarCheck,
   ChevronRight,
+  Clock3,
+  Gavel,
   Loader2,
   MapPin,
   Maximize2,
@@ -21,12 +24,14 @@ type Message = {
   recommendations?: ChatResponse['recommendations'];
 };
 
-const quickPrompts = [
-  'Gợi ý sân tối nay',
-  'Cách đặt và cọc sân',
-  'Khởi động trước khi đá bóng',
-  'Luật việt vị',
-];
+const starterOptions = [
+  { label: 'Gợi ý sân phù hợp', prompt: 'Gợi ý sân phù hợp', icon: MapPin, tone: 'text-emerald-600 bg-emerald-50' },
+  { label: 'Cách đặt và cọc sân', prompt: 'Cách đặt và cọc sân', icon: CalendarCheck, tone: 'text-blue-600 bg-blue-50' },
+  { label: 'Khởi động trước khi đá bóng', prompt: 'Khởi động trước khi đá bóng', icon: Clock3, tone: 'text-orange-600 bg-orange-50' },
+  { label: 'Luật việt vị', prompt: 'Luật việt vị', icon: Gavel, tone: 'text-violet-600 bg-violet-50' },
+] as const;
+
+const starterQuestions = ['Sân bóng gần đây có trống không?', 'Giá thuê sân bóng 7 người là bao nhiêu?', 'Có sân cầu lông vào tối nay không?'];
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -166,8 +171,8 @@ const AIChatBox: React.FC = () => {
   ]);
 
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
-  const panelWidth = isExpanded ? 'w-[min(720px,calc(100vw-32px))]' : 'w-[min(420px,calc(100vw-32px))]';
-  const messageHeight = isExpanded ? 'max-h-[560px] min-h-[260px]' : 'max-h-[360px] min-h-[180px]';
+  const panelWidth = isExpanded ? 'w-[min(720px,calc(100vw-32px))]' : 'w-[min(520px,calc(100vw-32px))]';
+  const messageHeight = isExpanded ? 'max-h-[560px] min-h-[260px]' : 'max-h-[460px] min-h-[330px]';
   const panelAlign = typeof window !== 'undefined' && position.x < window.innerWidth / 2 ? 'left-0' : 'right-0';
   const panelVertical = typeof window !== 'undefined' && position.y < window.innerHeight * 0.45 ? 'top-[72px]' : 'bottom-[72px]';
 
@@ -329,8 +334,8 @@ const AIChatBox: React.FC = () => {
             </div>
           </header>
 
-          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-cyan-50 px-4 py-4`}>
-            {messages.map((message, index) => (
+          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-slate-50 px-5 py-5`}>
+            {messages.length === 1 ? <AIWelcome onPrompt={(prompt) => sendMessage(undefined, prompt)} /> : <>{messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                 <div className={`flex max-w-[92%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   {message.role === 'assistant' && (
@@ -388,7 +393,7 @@ const AIChatBox: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            ))}</>}
 
             {isSending && (
               <div className="flex items-center gap-2 text-xs font-black text-blue-700">
@@ -398,22 +403,7 @@ const AIChatBox: React.FC = () => {
             )}
           </div>
 
-          <div className="border-t border-cyan-100 bg-white p-4">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Hỏi nhanh SmartSport AI</p>
-            <div className="mb-3 flex flex-wrap gap-2">
-              {quickPrompts.map((prompt, index) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => sendMessage(undefined, prompt)}
-                  disabled={isSending}
-                  className={`rounded-lg border px-3 py-1.5 text-[11px] font-black transition disabled:opacity-50 ${index % 3 === 0 ? 'border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100' : index % 3 === 1 ? 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-
+          <div className="border-t border-slate-100 bg-white p-4">
             <form onSubmit={sendMessage} className="flex gap-2">
               <input
                 ref={inputRef}
@@ -470,5 +460,11 @@ const AIChatBox: React.FC = () => {
     </div>
   );
 };
+
+const AIWelcome = ({ onPrompt }: { onPrompt: (prompt: string) => void }) => <div className="space-y-5">
+  <div className="flex items-start gap-3"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-blue-800 text-amber-300 shadow-sm"><Bot size={25} /></span><div className="rounded-2xl bg-white px-5 py-4 text-base font-semibold leading-7 text-slate-700 shadow-sm"><p className="text-xl font-black text-slate-950">Xin chào!</p><p className="mt-2">Mình là SmartSport AI, mình có thể giúp bạn tìm sân phù hợp, hướng dẫn đặt sân hoặc giải đáp các câu hỏi về thể thao.</p></div></div>
+  <div className="rounded-2xl bg-white p-4 shadow-sm"><p className="mb-3 text-sm font-bold text-slate-500">Bạn có thể hỏi về:</p><div className="grid gap-2 sm:grid-cols-2">{starterOptions.map(({ label, prompt, icon: Icon, tone }) => <button key={label} type="button" onClick={() => onPrompt(prompt)} className="flex min-h-15 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"><span className={`grid h-10 w-10 place-items-center rounded-full ${tone}`}><Icon size={20} /></span>{label}</button>)}</div></div>
+  <div className="space-y-2">{starterQuestions.map((question) => <button key={question} type="button" onClick={() => onPrompt(question)} className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"><span>{question}</span><ChevronRight size={19} /></button>)}</div>
+</div>;
 
 export default AIChatBox;

@@ -9,7 +9,10 @@ namespace Application.Features.Payments.Queries.GetPaymentTransaction;
 public class GetPaymentTransactionQueryHandler 
     : IRequestHandler<GetPaymentTransactionQuery, Result<PaymentTransactionDto>>
 {
-    private static readonly TimeSpan SynchronizationInterval = TimeSpan.FromSeconds(55);
+    // The customer stays on the QR screen while completing the wallet flow.
+    // Polling the gateway promptly keeps the booking state aligned even when a
+    // public callback is not available during local sandbox development.
+    private static readonly TimeSpan SynchronizationInterval = TimeSpan.FromSeconds(8);
 
     private readonly IApplicationDbContext _context;
     private readonly IPaymentGatewayResolver _paymentGatewayResolver;

@@ -136,6 +136,36 @@ public class PitchesController : ApiControllerBase
         return OkResponse(result.Value, "Pitch created successfully");
     }
 
+    [HttpPost("images")]
+    [Authorize(Policy = "OwnerOrAdmin")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<IActionResult> UploadImage(IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequestResponse("Vui lòng chọn một ảnh hợp lệ.");
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+            return BadRequestResponse("Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.");
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
+            return BadRequestResponse("Định dạng ảnh không hợp lệ.");
+
+        var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "pitches");
+        Directory.CreateDirectory(uploadsPath);
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
+        var storedPath = Path.Combine(uploadsPath, storedFileName);
+
+        await using (var stream = System.IO.File.Create(storedPath))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var imageUrl = $"{Request.Scheme}://{Request.Host}/uploads/pitches/{storedFileName}";
+        return OkResponse(new { imageUrl });
+    }
+
     [HttpPut("{id:guid}")]
     [Authorize(Policy = "OwnerOrAdmin")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]

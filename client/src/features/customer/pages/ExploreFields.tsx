@@ -182,16 +182,17 @@ const ExploreFields: React.FC = () => {
     <div className="min-h-screen bg-slate-50 pb-20 pt-20 text-slate-900">
 
       {/* ── Compact header ── */}
-      <div className="relative overflow-hidden border-b border-blue-100 bg-cover bg-center px-4 py-14 sm:px-6 sm:py-20" style={{ backgroundImage: `url(${exploreBanner})` }}>
+      <div className="relative overflow-hidden border-b border-blue-100 bg-cover bg-center px-4 py-18 sm:px-6 sm:py-24" style={{ backgroundImage: `url(${exploreBanner})` }}>
         <div className="relative mx-auto max-w-[1440px]">
           <div className="max-w-2xl">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
                 <Trophy size={13} /> Khám phá sân thể thao
               </p>
-              <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+              <h1 className="mt-2 max-w-xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl">
                 Tìm sân, đặt lịch ngay
               </h1>
+              <p className="mt-4 max-w-lg text-sm font-bold leading-6 text-slate-700 sm:text-base">Chọn đúng sân, xem lịch trống và giữ chỗ trong vài phút.</p>
             </div>
           </div>
         </div>

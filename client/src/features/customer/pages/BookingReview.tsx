@@ -17,6 +17,7 @@ import {
   QrCode,
   ReceiptText,
   ShieldCheck,
+  Star,
   UserRound,
   WalletCards,
   X,
@@ -25,12 +26,23 @@ import { motion } from 'framer-motion';
 import { bookingService, type BookingResponse } from '../../../services/bookingService';
 import { paymentService, type PaymentProvider } from '../../../services/paymentService';
 import { formatCompactAddress } from '../../../utils/address';
+import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
-const PAYMENT_STATUS_POLL_INTERVAL_MS = 60_000;
+const PAYMENT_STATUS_POLL_INTERVAL_MS = 8_000;
 type PaymentUiStatus = 'idle' | 'pending' | 'success' | 'failed';
 
 const formatMoney = (value?: number | null) => `${moneyFormatter.format(Number(value || 0))}đ`;
+
+const getServiceCategory = (name?: string) => {
+  const text = String(name || '').toLowerCase();
+  if (/(nước|redbull|sting|revive|cà phê|trà|đồ uống)/.test(text)) return 'Đồ uống';
+  if (/(vợt|bóng|dụng cụ|cầu|thuê)/.test(text)) return 'Dụng cụ';
+  if (/(áo|quần|giày|trang phục)/.test(text)) return 'Quần áo';
+  if (/(khăn|tủ|locker|tiện ích)/.test(text)) return 'Tiện ích khác';
+  return 'Khác';
+};
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa có ngày';
@@ -96,6 +108,7 @@ const BookingReview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const autoPayStarted = useRef(false);
   const isDraft = id === 'new';
   const draft = useMemo(() => {
@@ -110,6 +123,10 @@ const BookingReview: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentUiStatus>('idle');
+  const [paymentFailureReason, setPaymentFailureReason] = useState<string | null>(null);
+  const [suggestedServices, setSuggestedServices] = useState<any[]>([]);
+  const [selectedExtras, setSelectedExtras] = useState<Record<string, number>>({});
+  const [serviceCategory, setServiceCategory] = useState('Tất cả');
   const [now, setNow] = useState(() => Date.now());
   const [paymentModal, setPaymentModal] = useState<{
     isOpen: boolean;
@@ -181,13 +198,44 @@ const BookingReview: React.FC = () => {
     fetchBookingDetails();
   }, [id, isDraft, draft]);
 
+  useEffect(() => {
+    if (user) {
+      setCustomerName((current) => current || user.fullName || '');
+      setCustomerPhone((current) => current || user.phoneNumber || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const pitchId = draft?.pitchId || booking?.timeSlot?.pitch?.id;
+    if (!pitchId) return;
+    api.get(`/additional-services/pitch/${pitchId}`).then((response) => {
+      const data = Array.isArray(response) ? response : response.data;
+      setSuggestedServices(Array.isArray(data) ? data.map((item: any) => ({
+        id: item.id || item.Id,
+        name: item.name || item.Name,
+        price: Number(item.price ?? item.Price ?? 0),
+        imageUrl: item.imageUrl || item.ImageUrl || '',
+        stockQuantity: Number(item.stockQuantity ?? item.StockQuantity ?? 0),
+      })) : []);
+    }).catch(() => setSuggestedServices([]));
+  }, [booking?.timeSlot?.pitch?.id, draft?.pitchId]);
+
+  const selectedSuggestedServices = useMemo(() => suggestedServices.filter((service) => selectedExtras[service.id]).map((service) => ({
+    id: service.id,
+    serviceId: service.id,
+    serviceName: service.name,
+    price: service.price,
+    quantity: selectedExtras[service.id],
+    lineTotal: service.price * selectedExtras[service.id],
+  })), [selectedExtras, suggestedServices]);
+
   const details = useMemo(() => {
     const pitch = booking?.timeSlot?.pitch;
     const preview = draft?.preview;
-    const services: NonNullable<BookingResponse['services']> = booking?.services || preview?.services || [];
+    const services: NonNullable<BookingResponse['services']> = isDraft ? selectedSuggestedServices : (booking?.services || preview?.services || []);
     const fieldPrice = Number(booking?.timeSlot?.price ?? preview?.fieldPrice ?? booking?.totalPrice ?? 0);
     const serviceTotal = services.reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
-    const total = Number(booking?.totalPrice || fieldPrice + serviceTotal);
+    const total = fieldPrice + serviceTotal;
     const deposit = Number(booking?.depositAmount || 0);
 
     return {
@@ -195,17 +243,18 @@ const BookingReview: React.FC = () => {
       pitchName: booking?.pitchName || pitch?.name || preview?.pitchName || 'Sân thể thao',
       pitchType: pitch?.type || preview?.pitchType || 'Tiêu chuẩn',
       pitchAddress: formatCompactAddress(pitch?.address || (booking as any)?.pitchAddress || preview?.pitchAddress),
+      pitchImage: preview?.pitchImage || 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1200&auto=format&fit=crop',
       startTime: booking?.startTime || booking?.timeSlot?.startTime || preview?.startTime,
       endTime: booking?.endTime || booking?.timeSlot?.endTime || preview?.endTime,
       services,
       fieldPrice: Math.max(fieldPrice, total - serviceTotal),
       serviceTotal,
-      total: Number(preview?.totalPrice || total),
+      total,
       deposit,
       remaining: Math.max(total - deposit, 0),
       expiresAt: booking?.createdAt ? new Date(booking.createdAt).getTime() + 15 * 60 * 1000 : null,
     };
-  }, [booking, draft]);
+  }, [booking, draft, isDraft, selectedSuggestedServices]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -238,6 +287,7 @@ const BookingReview: React.FC = () => {
     setIsProcessing(true);
     setError(null);
     setPaymentStatus('idle');
+    setPaymentFailureReason(null);
     let lockId: string | undefined;
     try {
       let confirmedBooking = booking;
@@ -247,11 +297,10 @@ const BookingReview: React.FC = () => {
         confirmedBooking = await bookingService.create({
           timeSlotId: draft.timeSlotId,
           bookingDate: draft.bookingDate,
-          selectedServices: draft.selectedServices,
+          selectedServices: selectedSuggestedServices.map((service) => ({ serviceId: service.serviceId, quantity: service.quantity })),
         });
         setBooking(confirmedBooking);
         sessionStorage.removeItem('bookingDraft');
-        navigate(`/booking-review/${confirmedBooking.id}`, { replace: true });
       }
       const paymentResponse = await paymentService.createPayment({
         bookingId: confirmedBooking!.id,
@@ -299,7 +348,7 @@ const BookingReview: React.FC = () => {
     setPaymentStatus('pending');
     let isActive = true;
 
-    const intervalId = window.setInterval(async () => {
+    const synchronizePayment = async () => {
       try {
         const transaction = await paymentService.getTransaction(paymentModal.transactionId!);
         const status = normalizeStatus(transaction.status);
@@ -314,12 +363,16 @@ const BookingReview: React.FC = () => {
 
         if (status === 'failed') {
           if (!isActive) return;
+          setPaymentFailureReason(transaction.failureReason || 'ZaloPay chưa xác nhận giao dịch này. Vui lòng kiểm tra lại trên ứng dụng ZaloPay.');
           setPaymentStatus('failed');
         }
       } catch (pollError) {
         console.error('Error polling transaction:', pollError);
       }
-    }, PAYMENT_STATUS_POLL_INTERVAL_MS);
+    };
+
+    void synchronizePayment();
+    const intervalId = window.setInterval(synchronizePayment, PAYMENT_STATUS_POLL_INTERVAL_MS);
 
     return () => {
       isActive = false;
@@ -383,18 +436,21 @@ const BookingReview: React.FC = () => {
           Quay lại
         </button>
 
-        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
-              <BadgeCheck size={14} />
-              {statusLabel(booking.status)}
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl font-heading">Xác nhận đặt sân</h1>
-            <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
-              Xem nhanh lịch, cập nhật liên hệ nếu cần, rồi thanh toán cọc để giữ sân.
-            </p>
+        <header className="mt-5 border-b border-slate-200 pb-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700">
+            <BadgeCheck size={14} />{statusLabel(booking.status)}
           </div>
-        </div>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl font-heading">Xác nhận đặt sân</h1>
+          <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">Kiểm tra lịch, thêm dịch vụ cần thiết và thanh toán cọc để giữ sân.</p>
+          <div className="mt-6 grid gap-3 text-xs font-black sm:grid-cols-4">
+            {['Chọn sân', 'Chọn ngày & giờ', 'Dịch vụ đi kèm', 'Xác nhận'].map((step, index) => (
+              <div key={step} className={`flex items-center gap-3 ${index === 3 ? 'text-blue-700' : 'text-emerald-700'}`}>
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${index === 3 ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>{index === 3 ? '4' : '✓'}</span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+        </header>
 
         {error && (
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
@@ -403,7 +459,7 @@ const BookingReview: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-[var(--panel)] p-3 shadow-sm sm:grid-cols-3">
+        <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3">
           {[
             { icon: <CalendarDays size={18} />, label: 'Ngày chơi', value: formatDate(booking.bookingDate) },
             { icon: <Clock size={18} />, label: 'Khung giờ', value: `${shortTime(details.startTime)} - ${shortTime(details.endTime)}` },
@@ -470,37 +526,14 @@ const BookingReview: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">{details.pitchType}</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 font-heading">{details.pitchName}</h2>
-                  <div className="mt-3 flex items-start gap-2 text-sm font-semibold text-slate-500">
-                    <MapPin size={16} className="mt-0.5 shrink-0 text-red-500" />
-                    <span>{details.pitchAddress}</span>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá sân</p>
-                  <p className="mt-1 text-lg font-black text-slate-900">{formatMoney(details.fieldPrice)}</p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-[var(--panel-muted)] p-4">
-                  <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-400">
-                    <CalendarDays size={15} className="text-[var(--accent)]" />
-                    Ngày thi đấu
-                  </div>
-                  <p className="text-sm font-black text-slate-900">{formatDate(booking.bookingDate)}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-[var(--panel-muted)] p-4">
-                  <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-400">
-                    <Clock size={15} className="text-[var(--accent)]" />
-                    Khung giờ
-                  </div>
-                  <p className="text-sm font-black text-slate-900">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
-                </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-4 shadow-sm sm:grid-cols-[220px_minmax(0,1fr)]">
+              <img src={details.pitchImage} alt={details.pitchName} className="h-52 w-full rounded-xl object-cover" />
+              <div className="min-w-0 py-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">{pitchTypeLabel(details.pitchType)}</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 font-heading">{details.pitchName}</h2>
+                <p className="mt-3 flex items-center gap-2 text-sm font-bold text-amber-600"><Star size={16} className="fill-current" />Sân đã chọn theo khung giờ của bạn</p>
+                <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600"><span className="flex items-center gap-2"><CalendarDays size={16} className="text-[var(--accent)]" />{formatDate(booking.bookingDate)}</span><span className="flex items-center gap-2"><Clock size={16} className="text-[var(--accent)]" />{shortTime(details.startTime)} - {shortTime(details.endTime)} (1 giờ)</span><span className="flex items-center gap-2"><MapPin size={16} className="text-[var(--accent)]" />{details.pitchAddress}</span></div>
+                <button type="button" onClick={() => navigate(-1)} className="mt-5 inline-flex h-9 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100">Xem chi tiết sân <ArrowRight size={14} /></button>
               </div>
             </div>
 
@@ -510,34 +543,12 @@ const BookingReview: React.FC = () => {
                   <ReceiptText size={20} />
                 </div>
                 <div>
-                  <h2 className="text-base font-black font-heading">Dịch vụ và chi phí</h2>
-                  <p className="text-xs font-semibold text-slate-500">Các khoản đã chọn trong bước đặt sân.</p>
+                  <h2 className="text-base font-black font-heading">Gợi ý dịch vụ đi kèm</h2>
+                  <p className="text-xs font-semibold text-slate-500">Bạn có thể bổ sung dịch vụ phù hợp trước khi thanh toán.</p>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-[var(--panel)]">
-                <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-black text-slate-900">Tiền thuê sân</p>
-                    <p className="text-xs font-semibold text-slate-500">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
-                  </div>
-                  <p className="text-sm font-black text-slate-900">{formatMoney(details.fieldPrice)}</p>
-                </div>
-
-                {details.services.length > 0 ? (
-                  details.services.map((service) => (
-                    <div key={service.id} className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-black text-slate-900">{service.serviceName}</p>
-                        <p className="text-xs font-semibold text-slate-500">{formatMoney(service.price)} x {service.quantity}</p>
-                      </div>
-                      <p className="text-sm font-black text-slate-900">{formatMoney(service.lineTotal)}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-sm font-semibold text-slate-500">Không chọn dịch vụ bổ sung.</div>
-                )}
-              </div>
+              {suggestedServices.length > 0 ? <><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{['Tất cả', 'Đồ uống', 'Dụng cụ', 'Quần áo', 'Tiện ích khác', 'Khác'].map((category) => <button key={category} type="button" onClick={() => setServiceCategory(category)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-black transition ${serviceCategory === category ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-blue-50'}`}>{category}</button>)}</div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{suggestedServices.filter((service) => serviceCategory === 'Tất cả' || getServiceCategory(service.name) === serviceCategory).map((service) => { const quantity = selectedExtras[service.id] || 0; const unavailable = service.stockQuantity <= 0; return <article key={service.id} className={`overflow-hidden rounded-xl border p-3 ${quantity ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200 bg-white'} ${unavailable ? 'opacity-50' : ''}`}><div className="flex gap-3"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">{service.imageUrl ? <img src={service.imageUrl} alt={service.name} className="h-full w-full object-cover" /> : <ReceiptText className="m-5 text-blue-600" size={24} />}</div><div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{service.name}</p><p className="mt-1 text-xs font-black text-blue-700">{formatMoney(service.price)}</p><p className="mt-1 text-[10px] font-semibold text-slate-400">{unavailable ? 'Tạm hết hàng' : 'Có sẵn tại sân'}</p></div></div><div className="mt-3 flex items-center justify-between"><button type="button" disabled={!quantity} onClick={() => setSelectedExtras((current) => ({ ...current, [service.id]: Math.max(0, (current[service.id] || 0) - 1) }))} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-sm font-black text-slate-500 disabled:opacity-40">-</button><span className="text-sm font-black text-slate-900">{quantity}</span><button type="button" disabled={unavailable || quantity >= service.stockQuantity} onClick={() => setSelectedExtras((current) => ({ ...current, [service.id]: (current[service.id] || 0) + 1 }))} className="grid h-8 w-8 place-items-center rounded-lg bg-blue-700 text-sm font-black text-white disabled:opacity-40">+</button></div></article>; })}</div></> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">Sân này chưa có dịch vụ bổ sung đang bán.</div>}
             </div>
           </section>
 
@@ -635,7 +646,7 @@ const BookingReview: React.FC = () => {
       </div>
 
       {paymentModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-2 sm:p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4">
           <div className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
             <button
               type="button"
@@ -695,7 +706,7 @@ const BookingReview: React.FC = () => {
                       </>
                     )}
                     {paymentStatus === 'failed' && (
-                      <span className="text-red-600">Giao dịch chưa thành công. Bạn có thể tạo mã thanh toán mới.</span>
+                      <span className="text-red-600">{paymentFailureReason || 'Giao dịch chưa thành công. Bạn có thể tạo mã thanh toán mới.'}</span>
                     )}
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, Star, CheckCircle2, ShieldCheck,
-  Loader2, Plus, Minus, Calendar, ArrowRight, ChevronLeft, ChevronRight, User, ArrowLeft, Map as MapIcon, Navigation
+  Loader2, Calendar, ArrowRight, ChevronLeft, ChevronRight, User, ArrowLeft, Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -87,6 +87,13 @@ const getVietnamDateInputValue = () => {
   }).format(new Date());
 
   return vietnamDate;
+};
+
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const loadLeaflet = () => {
@@ -242,8 +249,6 @@ const FieldDetails: React.FC = () => {
   const [reviewPage, setReviewPage] = useState(1);
   const reviewPageSize = 5;
   
-  const [availableServices, setAvailableServices] = useState<any[]>([]);
-  const [selectedServices, setSelectedServices] = useState<Record<string, number>>({});
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
   const mapLayerGroupRef = useRef<any>(null);
@@ -260,8 +265,6 @@ const FieldDetails: React.FC = () => {
   const fullAddress = pitch?.address?.fullAddress?.trim()
     || (typeof pitch?.address === 'string' ? pitch.address : '')
     || formatCompactAddress(pitch?.address);
-  const getServiceImageUrl = (service: any) =>
-    service?.imageUrl || service?.ImageUrl || service?.image || service?.Image || '';
   const hasPreciseCoordinates = (latitude?: number, longitude?: number) => {
     if (!latitude || !longitude) return false;
     const isOldDefault = Math.abs(latitude - 10) < 0.0001 && Math.abs(longitude - 106) < 0.0001;
@@ -385,6 +388,9 @@ const FieldDetails: React.FC = () => {
       } else {
         map.setView([pitchLocation.lat, pitchLocation.lng], 17);
       }
+
+      window.requestAnimationFrame(() => map.invalidateSize(true));
+      window.setTimeout(() => map.invalidateSize(true), 150);
     };
 
     renderMap().catch(() => setRouteError('Không thể tải bản đồ OpenStreetMap.'));
@@ -408,7 +414,6 @@ const FieldDetails: React.FC = () => {
     if (pitchId) {
       fetchPitchDetails(pitchId);
       fetchSlots(pitchId);
-      fetchServices(pitchId);
       
       const setupSignalR = async () => {
         try {
@@ -473,46 +478,8 @@ const FieldDetails: React.FC = () => {
     }
   };
 
-  const fetchServices = async (currentPitchId: string) => {
-    try {
-      const response = await api.get(`/additional-services/pitch/${currentPitchId}`);
-      const items = Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];
-      const normalized = items.map((service: any) => ({
-        ...service,
-        id: service.id || service.Id,
-        name: service.name || service.Name,
-        price: service.price ?? service.Price ?? 0,
-        stockQuantity: service.stockQuantity ?? service.StockQuantity ?? 0,
-        imageUrl: service.imageUrl || service.ImageUrl || null,
-      }));
-      setAvailableServices(normalized);
-    } catch (error) {
-      console.error("Error fetching services:", error);
-    }
-  };
-
-  const handleUpdateService = (serviceId: string, delta: number) => {
-    setSelectedServices(prev => {
-      const current = prev[serviceId] || 0;
-      const service = availableServices.find((item) => item.id === serviceId);
-      const stock = Number(service?.stockQuantity ?? service?.StockQuantity ?? 0);
-      const next = Math.max(0, Math.min(stock, current + delta));
-      if (next === 0) {
-        const rest = { ...prev };
-        delete rest[serviceId];
-        return rest;
-      }
-      return { ...prev, [serviceId]: next };
-    });
-  };
-
   const calculateTotal = () => {
-    const slot = availableSlots.find(s => s.id === selectedTime);
-    const slotPrice = slot?.price || 0;
-    const servicesPrice = availableServices.reduce((acc, svc) => {
-      return acc + (svc.price * (selectedServices[svc.id] || 0));
-    }, 0);
-    return slotPrice + servicesPrice;
+    return Number(pitch?.minPrice || 0);
   };
 
   const selectedSlot = availableSlots.find((slot) => slot.id === selectedTime);
@@ -544,26 +511,19 @@ const FieldDetails: React.FC = () => {
     if (!selectedTime) return;
     setIsBooking(true);
     try {
-      const servicesPayload = Object.entries(selectedServices).map(([id, qty]) => ({
-        serviceId: id,
-        quantity: qty
-      }));
       const slot = availableSlots.find((item) => item.id === selectedTime);
-      const selectedServiceDetails = availableServices
-        .filter((service) => selectedServices[service.id])
-        .map((service) => ({ ...service, quantity: selectedServices[service.id], lineTotal: service.price * selectedServices[service.id] }));
       sessionStorage.setItem('bookingDraft', JSON.stringify({
         timeSlotId: selectedTime,
+        pitchId: pitch?.id,
         bookingDate: selectedDate,
-        selectedServices: servicesPayload.length > 0 ? servicesPayload : undefined,
         preview: {
           pitchName: pitch?.name,
           pitchType: pitch?.type,
           pitchAddress: pitch?.address,
+          pitchImage: pitchImages[activeImageIndex]?.imageUrl,
           startTime: slot?.startTime,
           endTime: slot?.endTime,
-          fieldPrice: slot?.price || 0,
-          services: selectedServiceDetails,
+          fieldPrice: Number(pitch?.minPrice || 0),
           totalPrice: calculateTotal(),
         },
       }));
@@ -605,6 +565,7 @@ const FieldDetails: React.FC = () => {
   const pitchImages = pitch.images && pitch.images.length > 0 
     ? pitch.images.map((image, index) => ({ ...image, displayOrder: image.displayOrder ?? index }))
     : [{ imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1600" }];
+  const venueType = (pitch as any).isIndoor === true ? 'Trong nhà' : (pitch as any).isIndoor === false ? 'Ngoài trời' : null;
 
   const handleUseCurrentLocation = async () => {
     if (!navigator.geolocation) {
@@ -679,64 +640,26 @@ const FieldDetails: React.FC = () => {
     }
   };
 
-  const openOpenStreetMapDirections = () => {
-    if (!pitchLocation) return;
-
-    if (userLocation) {
-      const route = `${userLocation.lat},${userLocation.lng};${pitchLocation.lat},${pitchLocation.lng}`;
-      window.open(
-        `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${encodeURIComponent(route)}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
-      return;
-    }
-
-    window.open(
-      `https://www.openstreetmap.org/?mlat=${pitchLocation.lat}&mlon=${pitchLocation.lng}#map=17/${pitchLocation.lat}/${pitchLocation.lng}`,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  };
-
   return (
     <div className="min-h-screen bg-white pb-16 pt-24 font-sans text-slate-900">
       <div className="mx-auto max-w-370 px-4 sm:px-6">
-        {/* Header Section */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <button 
-            onClick={() => navigate('/explore')}
-            className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group"
-          >
-            <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-              <ArrowLeft size={14} />
+        <section className="relative mb-6 min-h-105 overflow-hidden rounded-2xl bg-slate-900 sm:min-h-125">
+          <img src={pitchImages[activeImageIndex].imageUrl} alt={pitch.name} className="absolute inset-0 h-full w-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/55 to-slate-950/10" />
+          <div className="relative flex min-h-105 flex-col justify-between p-5 text-white sm:min-h-125 sm:p-8">
+            <div>
+              <button onClick={() => navigate('/explore')} className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-900 transition hover:bg-slate-100"><ArrowLeft size={16} /> Quay lại danh sách sân</button>
+              <div className="mt-10 max-w-2xl"><span className="inline-flex rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">{pitch.typeDisplay}</span><h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-5xl">{pitch.name}</h1><p className="mt-3 flex items-center gap-2 text-sm font-bold text-white"><Star size={16} className="fill-amber-400 text-amber-400" />{Number(pitch.averageRating ?? 0).toFixed(1)} ({pitch.totalReviews || 0} đánh giá)</p><p className="mt-3 flex max-w-xl items-start gap-2 text-sm font-semibold leading-6 text-slate-100"><MapPin size={16} className="mt-0.5 shrink-0 text-blue-200" />{fullAddress}</p><div className="mt-4 flex flex-wrap gap-2">{venueType && <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">{venueType}</span>}<span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">Sân sạch, an toàn</span><span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">Từ {formatMoney(pitch.minPrice)}đ/giờ</span></div></div>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Quay lại danh sách</span>
-          </button>
-
-          <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100">{pitch.typeDisplay}</span>
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100">
-                <Star size={10} className="fill-current" /> {Number(pitch.averageRating ?? 0).toFixed(1)}
-              </div>
-              <div className="px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-100">
-                Từ {formatMoney(pitch.minPrice)}đ/giờ
-              </div>
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-950">{pitch.name}</h1>
-            <div className="flex items-center gap-2 text-slate-500 font-semibold text-sm">
-              <MapPin size={14} className="text-red-500 shrink-0" />
-              <span>{fullAddress}</span>
-            </div>
+            {pitchImages.length > 1 && <div className="mt-5 flex gap-2 overflow-x-auto pb-1">{pitchImages.slice(0, 5).map((img, idx) => <button key={idx} type="button" onClick={() => setActiveImageIndex(idx)} className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition ${activeImageIndex === idx ? 'border-white' : 'border-white/40 opacity-80 hover:opacity-100'}`}><img src={img.imageUrl} className="h-full w-full object-cover" alt={`Ảnh sân ${idx + 1}`} /></button>)}</div>}
           </div>
-        </div>
+        </section>
 
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
           {/* LEFT COLUMN */}
           <div className="min-w-0 space-y-6">
             {/* ULTRA COMPACT GALLERY */}
-            <div className="space-y-3">
+            <div className="hidden">
               <div className="group relative aspect-16/7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <AnimatePresence mode="wait">
                   <motion.img 
@@ -771,156 +694,25 @@ const FieldDetails: React.FC = () => {
             </div>
 
             {/* Overview */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="text-[10px] font-black uppercase tracking-widest text-blue-600">Về sân này</div>
-              <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-600">
-                {pitch.description || 'Nơi những đam mê được đánh thức và những trận cầu rực lửa bắt đầu.'}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {['Bãi đỗ', 'Wifi', 'Giải khát', 'An ninh'].map((label) => (
-                  <span key={label} className="px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* OpenStreetMap */}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-slate-400 font-black uppercase tracking-widest text-[10px]">
-                  <MapIcon size={12} className="text-blue-600" />
-                  <span>Bản đồ & đường đi</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={isRouting}
-                  className="inline-flex h-9 items-center gap-2 rounded-xl bg-blue-50 px-3 text-[10px] font-black uppercase tracking-widest text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isRouting ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
-                  Đường đi
-                </button>
+              <h2 className="text-lg font-black text-slate-950">Giới thiệu sân</h2>
+              <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-600">{pitch.description || 'Sân sạch, không gian thoáng và lịch trống được cập nhật để bạn yên tâm chọn giờ phù hợp.'}</p>
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[['Bãi đỗ', 'Rộng rãi'], ['Wifi', 'Miễn phí'], ['An ninh', 'Đảm bảo'], ['Giải khát', 'Có phục vụ']].map(([label, note]) => <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><CheckCircle2 size={18} className="text-blue-600" /><p className="mt-3 text-xs font-black text-slate-900">{label}</p><p className="mt-1 text-[10px] font-semibold text-slate-500">{note}</p></div>)}
               </div>
-              <div className="mt-4 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="relative">
-                  <div ref={mapContainerRef} className="h-72 w-full bg-blue-50 sm:h-75" />
-                  <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700 shadow-lg">
-                      <i className="h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-blue-100" /> Sân thể thao
-                    </span>
-                    {userLocation && <span className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-white/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 shadow-lg">
-                      <i className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" /> Vị trí của bạn
-                    </span>}
-                  </div>
-                  {pitchLocation && (
-                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-sm">
-                      Điểm đến đã xác định
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-50 bg-white px-5 py-4">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="truncate text-xs font-bold text-slate-600">{fullAddress}</p>
-                    {pitch.mapLink && (
-                      <p className="truncate text-[11px] font-semibold text-blue-600">
-                        {extractSearchTextFromMapLink(pitch.mapLink) || pitch.mapLink}
-                      </p>
-                    )}
-                    {routeInfo && (
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">
-                          {routeInfo.distanceKm.toFixed(1)} km
-                        </span>
-                        <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">
-                          {Math.max(1, Math.round(routeInfo.durationMin))} phút
-                        </span>
-                        <span className="max-w-full truncate normal-case tracking-normal text-slate-500">
-                          {routeInfo.userAddress}
-                        </span>
-                      </div>
-                    )}
-                    {routeError && <p className="text-xs font-bold text-red-500">{routeError}</p>}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openOpenStreetMapDirections}
-                    disabled={!pitchLocation}
-                    className="rounded-xl bg-slate-950 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-950/10 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Mở OpenStreetMap
-                  </button>
-                </div>
-              </div>
-              {routeInfo && routeInfo.steps.length > 0 && (
-                <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chi tiết dẫn đường</h3>
-                    <span className="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
-                      {routeInfo.steps.length} bước
-                    </span>
-                  </div>
-                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                    {routeInfo.steps.slice(0, 12).map((step, index) => (
-                      <div key={`${step.instruction}-${index}`} className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-blue-600 shadow-sm">
-                          {index + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-black text-slate-700">{step.instruction}</p>
-                          <p className="mt-0.5 text-[10px] font-bold text-slate-400">
-                            {step.distanceM >= 1000 ? `${(step.distanceM / 1000).toFixed(1)} km` : `${Math.round(step.distanceM)} m`}
-                            {' '}· {Math.max(1, Math.round(step.durationMin))} phút
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </section>
 
-            {/* Services (Corrected Image Display - No Icon) */}
-            {availableServices.length > 0 && (
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="text-base font-black tracking-tight text-slate-900">Dịch vụ bổ trợ</h3>
-                <p className="mt-1 text-xs font-bold text-slate-400">Chọn thêm dịch vụ cần dùng khi đến sân</p>
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {availableServices.map(svc => {
-                    const serviceImageUrl = getServiceImageUrl(svc);
-                    const stock = Number(svc.stockQuantity ?? svc.StockQuantity ?? 0);
-                    const selectedQuantity = selectedServices[svc.id] || 0;
-                    const isOutOfStock = stock <= 0;
-                    const cannotAddMore = isOutOfStock || selectedQuantity >= stock;
-                    return (
-                    <div key={svc.id} className={`p-3 bg-white rounded-2xl border flex items-center justify-between group transition-all ${isOutOfStock ? 'border-slate-100 opacity-60' : 'border-slate-100 hover:border-blue-500/20'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200/50 bg-slate-50">
-                          {serviceImageUrl ? (
-                            <img src={serviceImageUrl} alt={svc.name || 'Dịch vụ'} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xl">{svc.icon || '📦'}</div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-black text-slate-800 text-xs">{svc.name}</p>
-                          <p className="text-[10px] font-bold text-blue-500">{formatMoney(svc.price)}đ</p>
-                          <p className={`mt-1 text-[9px] font-black uppercase tracking-widest ${isOutOfStock ? 'text-red-500' : 'text-slate-400'}`}>
-                            {isOutOfStock ? 'Hết hàng' : `Còn ${stock}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-slate-50 px-1.5 py-1 rounded-lg">
-                        <button disabled={selectedQuantity <= 0} onClick={() => handleUpdateService(svc.id, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-red-500 rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-30"><Minus size={10} /></button>
-                        <span className="w-3 text-center font-black text-[10px] text-slate-900">{selectedQuantity}</span>
-                        <button disabled={cannotAddMore} onClick={() => handleUpdateService(svc.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white text-slate-400 hover:text-blue-500 rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-30"><Plus size={10} /></button>
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-black text-slate-950">Tiện ích khác</h2>
+              <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-2">{['Khu vực chờ', 'Cho thuê dụng cụ', 'Tủ đồ cá nhân', 'Trang thiết bị hỗ trợ'].map((label) => <span key={label} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-blue-600" />{label}</span>)}</div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-black text-slate-950">Vị trí sân</h2><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{fullAddress}</p></div><button type="button" onClick={handleUseCurrentLocation} disabled={!pitchLocation || isRouting} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-blue-700 px-3 text-xs font-black text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200">{isRouting ? <Loader2 size={15} className="animate-spin" /> : <Navigation size={15} />}Chỉ đường</button></div>
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-100"><div ref={mapContainerRef} className="h-80 w-full" /></div>
+              {routeInfo && <p className="mt-3 text-xs font-semibold text-slate-500">Tuyến đường khoảng {routeInfo.distanceKm.toFixed(1)} km, {Math.max(1, Math.round(routeInfo.durationMin))} phút.</p>}
+              {routeError && <p className="mt-3 text-xs font-semibold text-slate-500">{routeError}</p>}
+            </section>
 
             {/* Reviews */}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -993,19 +785,20 @@ const FieldDetails: React.FC = () => {
                   <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={18} /></span>
                 </div>
 
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center justify-between">Ngày thi đấu <Calendar size={12} className="text-blue-500" /></label>
-                    <input type="date" min={getVietnamDateInputValue()} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-black text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Chọn ngày <Calendar size={14} className="text-blue-600" /></label>
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">{Array.from({ length: 7 }, (_, index) => { const date = new Date(); date.setDate(date.getDate() + index); const value = toDateInputValue(date); const selected = selectedDate === value; return <button key={value} type="button" onClick={() => setSelectedDate(value)} className={`rounded-xl px-2 py-2 text-center transition ${selected ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-700 hover:bg-blue-50'}`}><span className={`block text-[9px] font-black uppercase ${selected ? 'text-blue-100' : 'text-slate-400'}`}>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(date)}</span><span className="mt-1 block text-base font-black">{date.getDate()}</span><span className={`mt-0.5 block text-[9px] font-bold ${selected ? 'text-blue-100' : 'text-slate-400'}`}>Thg {date.getMonth() + 1}</span></button>; })}</div>
                   </div>
                   <div className="space-y-3">
-                    <label className="flex items-center justify-between px-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    <label className="flex items-center justify-between px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
                       Khung giờ trống
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">{timelineSlots.filter((slot) => slot.isAvailable).length} khung</span>
                     </label>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] font-bold text-slate-500"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-blue-500" />Còn trống</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-slate-300" />Đã đặt</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-blue-700" />Đang chọn</span></div>
                     {timelineSlots.length > 0 ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2">
-                        <div className="grid max-h-96 grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto pr-1">
                           {timelineSlots.map((slot) => {
                             const isSelected = selectedTime === slot.id;
                             return (
@@ -1014,26 +807,20 @@ const FieldDetails: React.FC = () => {
                                 type="button"
                                 disabled={!slot.isAvailable}
                                 onClick={() => setSelectedTime(slot.id)}
-                                className={`min-h-20 rounded-xl border px-3 py-2 text-left transition ${
+                                className={`min-h-18 rounded-xl border px-3 py-2.5 text-left transition ${
                                   !slot.isAvailable
-                                    ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300'
+                                    ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300'
                                     : isSelected
-                                      ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                                      ? 'border-blue-700 bg-blue-700 text-white shadow-sm'
                                       : 'border-white bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50'
                                 }`}
                               >
                                 <div className="flex items-start justify-between gap-2">
-                                  <span className="text-sm font-black leading-tight">{slot.startTime.substring(0, 5)}</span>
+                                  <span className="text-sm font-black leading-tight">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</span>
                                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                                    isSelected ? 'bg-white' : slot.isAvailable ? 'bg-emerald-400' : 'bg-slate-300'
+                                    isSelected ? 'bg-white' : slot.isAvailable ? 'bg-blue-500' : 'bg-slate-300'
                                   }`} />
                                 </div>
-                                <p className={`mt-0.5 text-[10px] font-black ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
-                                  đến {slot.endTime.substring(0, 5)}
-                                </p>
-                                <p className={`mt-2 text-xs font-black ${isSelected ? 'text-white' : 'text-blue-600'}`}>
-                                  {formatMoney(slot.price)}đ
-                                </p>
                               </button>
                             );
                           })}
@@ -1043,9 +830,8 @@ const FieldDetails: React.FC = () => {
                       <div className="rounded-xl bg-slate-50 py-5 text-center text-[9px] font-black uppercase text-slate-300">Hết giờ</div>
                     )}
                     {selectedSlot && (
-                      <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
-                        <span>{selectedSlot.startTime.substring(0, 5)} - {selectedSlot.endTime.substring(0, 5)}</span>
-                        <span>{formatMoney(selectedSlot.price)}đ</span>
+                      <div className="rounded-xl bg-blue-50 px-3 py-3 text-xs font-bold text-blue-700">
+                        Bạn đã chọn {selectedSlot.startTime.substring(0, 5)} - {selectedSlot.endTime.substring(0, 5)}
                       </div>
                     )}
                   </div>
@@ -1054,9 +840,9 @@ const FieldDetails: React.FC = () => {
                 <div className="flex items-center justify-between border-t border-slate-100 pt-5">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng tiền</p>
-                    <p className="text-2xl font-black text-blue-600 tracking-tight">{formatMoney(calculateTotal())}đ</p>
+                    <p className="text-2xl font-black tracking-tight text-blue-700">{formatMoney(calculateTotal())}đ</p>
                   </div>
-                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-blue-700 px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Xem và xác nhận <ArrowRight size={16} /></>}</button>
+                  <button onClick={handleBooking} disabled={!selectedTime || isBooking} className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-blue-700 px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">{isBooking ? <Loader2 className="animate-spin" size={16} /> : <>Tiếp tục đặt sân <ArrowRight size={16} /></>}</button>
                 </div>
               </div>
               <div className="flex items-center gap-3 px-5 py-3 bg-blue-50/50 rounded-2xl border border-blue-100/50"><ShieldCheck className="text-blue-500" size={18} /><p className="text-[9px] font-bold text-blue-600/70 uppercase tracking-widest">Bảo mật & Hoàn tiền nhanh</p></div>
