@@ -10,17 +10,25 @@ internal static class ReviewRatingService
         Guid pitchId,
         CancellationToken cancellationToken)
     {
-        var pitch = await context.Pitches.FirstOrDefaultAsync(p => p.Id == pitchId, cancellationToken);
+        var pitch = await context.Pitches
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == pitchId, cancellationToken);
         if (pitch == null)
             return;
 
-        var ratings = await context.Reviews
+        var stats = await context.Reviews
+            .AsNoTracking()
             .Where(review => review.PitchId == pitchId)
-            .Select(review => review.Rating)
-            .ToListAsync(cancellationToken);
+            .GroupBy(review => review.PitchId)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Average = g.Average(review => (decimal)review.Rating)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var totalReviews = ratings.Count;
-        var averageRating = totalReviews == 0 ? 0m : (decimal)ratings.Average();
+        var totalReviews = stats?.Count ?? 0;
+        var averageRating = stats?.Average ?? 0m;
 
         pitch.SetRatingSnapshot(averageRating, totalReviews);
     }

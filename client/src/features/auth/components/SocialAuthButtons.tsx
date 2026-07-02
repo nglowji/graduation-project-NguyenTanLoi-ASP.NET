@@ -16,7 +16,10 @@ declare global {
 let facebookSdkPromise: Promise<void> | undefined;
 const loadFacebookSdk = () => {
   const appId = import.meta.env.VITE_FACEBOOK_APP_ID as string | undefined;
-  if (!appId) return Promise.reject(new Error('Facebook Login chưa được cấu hình VITE_FACEBOOK_APP_ID.'));
+  if (!appId || appId === 'YOUR_FACEBOOK_APP_ID_HERE') {
+    console.error('Facebook App ID is not configured. Please set VITE_FACEBOOK_APP_ID in your .env file.');
+    return Promise.reject(new Error('Facebook Login chưa được cấu hình. Vui lòng liên hệ quản trị viên.'));
+  }
   if (window.FB) return Promise.resolve();
   if (facebookSdkPromise) return facebookSdkPromise;
 
@@ -29,7 +32,7 @@ const loadFacebookSdk = () => {
     script.src = 'https://connect.facebook.net/vi_VN/sdk.js';
     script.async = true;
     script.defer = true;
-    script.onerror = () => reject(new Error('Không thể tải Facebook Login. Vui lòng thử lại.'));
+    script.onerror = () => reject(new Error('Không thể tải Facebook SDK. Vui lòng kiểm tra kết nối mạng và thử lại.'));
     document.body.appendChild(script);
   });
   return facebookSdkPromise;
@@ -37,6 +40,9 @@ const loadFacebookSdk = () => {
 
 export const SocialAuthButtons = ({ onAuthenticated, onError }: { onAuthenticated: (response: AuthResponse) => void; onError: (message: string) => void }) => {
   const [provider, setProvider] = useState<'google' | 'facebook'>();
+  const facebookAppId = import.meta.env.VITE_FACEBOOK_APP_ID as string | undefined;
+  const isFacebookEnabled = facebookAppId && facebookAppId !== 'YOUR_FACEBOOK_APP_ID_HERE';
+  
   const finish = async (task: () => Promise<AuthResponse>) => {
     try { onAuthenticated(await task()); } catch (error: any) { onError(error.message || 'Không thể đăng nhập bằng mạng xã hội.'); } finally { setProvider(undefined); }
   };
@@ -52,5 +58,5 @@ export const SocialAuthButtons = ({ onAuthenticated, onError }: { onAuthenticate
       }, { scope: 'public_profile,email' });
     } catch (error: any) { setProvider(undefined); onError(error.message); }
   };
-  return <><div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hoặc tiếp tục với</span><span className="h-px flex-1 bg-slate-200" /></div><div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={!!provider} onClick={() => { setProvider('google'); googleLogin(); }} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50">{provider === 'google' ? <Loader2 size={17} className="animate-spin text-blue-600" /> : <span className="text-base font-black text-blue-600">G</span>}Google</button><button type="button" disabled={!!provider} onClick={facebookLogin} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50">{provider === 'facebook' ? <Loader2 size={17} className="animate-spin text-blue-600" /> : <span className="grid h-5 w-5 place-items-center rounded bg-blue-600 text-sm font-black text-white">f</span>}Facebook</button></div></>;
+  return <><div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-slate-200" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hoặc tiếp tục với</span><span className="h-px flex-1 bg-slate-200" /></div><div className={`grid gap-3 ${isFacebookEnabled ? 'sm:grid-cols-2' : ''}`}><button type="button" disabled={!!provider} onClick={() => { setProvider('google'); googleLogin(); }} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50">{provider === 'google' ? <Loader2 size={17} className="animate-spin text-blue-600" /> : <span className="text-base font-black text-blue-600">G</span>}Google</button>{isFacebookEnabled && <button type="button" disabled={!!provider} onClick={facebookLogin} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50">{provider === 'facebook' ? <Loader2 size={17} className="animate-spin text-blue-600" /> : <span className="grid h-5 w-5 place-items-center rounded bg-blue-600 text-sm font-black text-white">f</span>}Facebook</button>}</div></>;
 };

@@ -9,6 +9,11 @@ public interface IBookingLockRepository
         DateOnly bookingDate,
         CancellationToken cancellationToken = default);
 
+    Task<HashSet<Guid>> GetActiveLockedTimeSlotIdsAsync(
+        IEnumerable<Guid> timeSlotIds,
+        DateOnly bookingDate,
+        CancellationToken cancellationToken = default);
+
     Task<BookingLock?> GetUserLockAsync(
         Guid timeSlotId,
         DateOnly bookingDate,

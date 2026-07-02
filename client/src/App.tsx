@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -12,7 +13,7 @@ import Login from './features/auth/pages/Login';
 import Register from './features/auth/pages/Register';
 import PasswordReset from './features/auth/pages/PasswordReset';
 import PartnerPortal from './features/owner/pages/PartnerPortal';
-import OwnerDashboard from './features/owner/pages/OwnerDashboard';
+import Dashboard from './features/owner/pages/Dashboard';
 import AdminDashboard from './features/admin/pages/AdminDashboard';
 import PaymentResult from './features/customer/pages/PaymentResult';
 import Profile from './features/customer/pages/Profile';
@@ -45,7 +46,8 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <div className="min-h-screen bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 selection:bg-primary/30 selection:text-primary transition-colors duration-300">
+          <ErrorBoundary>
+            <div className="min-h-screen bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 selection:bg-primary/30 selection:text-primary transition-colors duration-300">
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<><Navbar /><LandingPage /></>} />
@@ -66,7 +68,7 @@ function App() {
               } />
 
               {/* Owner Dashboard */}
-              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><OwnerDashboard /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Dashboard /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
               <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
@@ -90,15 +92,16 @@ function App() {
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <DashboardLayout role="owner">
-                    <OwnerDashboard />
+                    <Dashboard />
                   </DashboardLayout>
                 </ProtectedRoute>
               } />
             </Routes>
-            <Suspense fallback={null}>
+            <Suspense fallback={<div className="p-2">Đang tải trợ lý AI…</div>}>
               <AIChatBox />
             </Suspense>
-          </div>
+            </div>
+          </ErrorBoundary>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

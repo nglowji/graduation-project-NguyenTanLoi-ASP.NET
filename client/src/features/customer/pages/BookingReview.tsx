@@ -96,12 +96,12 @@ const pitchTypeLabel = (type?: string) => {
 };
 
 const pageStyle = {
-  '--page-bg': 'oklch(98% 0.01 250)',
+  '--page-bg': '#f1f5f9',
   '--panel': 'oklch(100% 0 0)',
-  '--panel-muted': 'oklch(97% 0.01 250)',
-  '--accent': 'oklch(60% 0.25 250)',
-  '--accent-soft': 'oklch(92% 0.05 250)',
-  '--ink': 'oklch(20% 0.02 250)',
+  '--panel-muted': '#f8fafc',
+  '--accent': '#2563eb',
+  '--accent-soft': '#eff6ff',
+  '--ink': '#0f172a',
 } as React.CSSProperties;
 
 const BookingReview: React.FC = () => {
@@ -421,7 +421,7 @@ const BookingReview: React.FC = () => {
 
   return (
     <motion.main
-      className="relative min-h-screen bg-[var(--page-bg)] px-4 pt-28 pb-20 text-[var(--ink)] font-body sm:px-6 lg:pt-32"
+      className="relative min-h-screen bg-[var(--page-bg)] px-4 pt-24 pb-14 text-[var(--ink)] font-body sm:px-6 lg:pt-26"
       style={pageStyle}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -431,26 +431,47 @@ const BookingReview: React.FC = () => {
       </div>
 
       <div className="mx-auto max-w-7xl">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500 transition hover:text-[var(--accent)]">
-          <ArrowLeft size={16} />
-          Quay lại
-        </button>
+        <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500 transition hover:text-blue-600"
+            >
+              <ArrowLeft size={16} />
+              Quay lại
+            </button>
 
-        <header className="mt-5 border-b border-slate-200 pb-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700">
-            <BadgeCheck size={14} />{statusLabel(booking.status)}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 font-heading">Xác nhận đặt sân</h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                <BadgeCheck size={13} />
+                {statusLabel(booking.status)}
+              </span>
+            </div>
+
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Kiểm tra thông tin đặt sân, chọn thêm dịch vụ cần thiết và thanh toán cọc để giữ lịch.
+            </p>
           </div>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl font-heading">Xác nhận đặt sân</h1>
-          <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">Kiểm tra lịch, thêm dịch vụ cần thiết và thanh toán cọc để giữ sân.</p>
-          <div className="mt-6 grid gap-3 text-xs font-black sm:grid-cols-4">
-            {['Chọn sân', 'Chọn ngày & giờ', 'Dịch vụ đi kèm', 'Xác nhận'].map((step, index) => (
-              <div key={step} className={`flex items-center gap-3 ${index === 3 ? 'text-blue-700' : 'text-emerald-700'}`}>
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${index === 3 ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>{index === 3 ? '4' : '✓'}</span>
-                <span>{step}</span>
+
+          <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:min-w-[620px]">
+            {[
+              { icon: <CalendarDays size={17} />, label: 'Ngày chơi', value: formatDate(booking.bookingDate) },
+              { icon: <Clock size={17} />, label: 'Khung giờ', value: `${shortTime(details.startTime)} - ${shortTime(details.endTime)}` },
+              { icon: <WalletCards size={17} />, label: 'Cọc hôm nay', value: formatMoney(details.deposit) },
+            ].map((item) => (
+              <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-blue-600 shadow-sm">
+                  {item.icon}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
+                  <span className="mt-0.5 block truncate text-sm font-black text-slate-950">{item.value}</span>
+                </span>
               </div>
             ))}
           </div>
-        </header>
+        </div>
 
         {error && (
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
@@ -459,30 +480,12 @@ const BookingReview: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3">
-          {[
-            { icon: <CalendarDays size={18} />, label: 'Ngày chơi', value: formatDate(booking.bookingDate) },
-            { icon: <Clock size={18} />, label: 'Khung giờ', value: `${shortTime(details.startTime)} - ${shortTime(details.endTime)}` },
-            { icon: <WalletCards size={18} />, label: 'Cọc hôm nay', value: formatMoney(details.deposit) },
-          ].map((item) => (
-            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--accent)] shadow-sm">
-                {item.icon}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
-                <span className="mt-1 block truncate text-sm font-black text-slate-950">{item.value}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
           <section className="space-y-5">
             <div className="rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-4 shadow-sm sm:p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
                   <UserRound size={20} />
                 </div>
                 <div>
@@ -539,7 +542,7 @@ const BookingReview: React.FC = () => {
 
             <div className="rounded-2xl border border-slate-200/80 bg-[var(--panel)] p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
                   <ReceiptText size={20} />
                 </div>
                 <div>
@@ -548,20 +551,126 @@ const BookingReview: React.FC = () => {
                 </div>
               </div>
 
-              {suggestedServices.length > 0 ? <><div className="mb-4 flex gap-2 overflow-x-auto pb-1">{['Tất cả', 'Đồ uống', 'Dụng cụ', 'Quần áo', 'Tiện ích khác', 'Khác'].map((category) => <button key={category} type="button" onClick={() => setServiceCategory(category)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-black transition ${serviceCategory === category ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-blue-50'}`}>{category}</button>)}</div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{suggestedServices.filter((service) => serviceCategory === 'Tất cả' || getServiceCategory(service.name) === serviceCategory).map((service) => { const quantity = selectedExtras[service.id] || 0; const unavailable = service.stockQuantity <= 0; return <article key={service.id} className={`overflow-hidden rounded-xl border p-3 ${quantity ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200 bg-white'} ${unavailable ? 'opacity-50' : ''}`}><div className="flex gap-3"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">{service.imageUrl ? <img src={service.imageUrl} alt={service.name} className="h-full w-full object-cover" /> : <ReceiptText className="m-5 text-blue-600" size={24} />}</div><div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{service.name}</p><p className="mt-1 text-xs font-black text-blue-700">{formatMoney(service.price)}</p><p className="mt-1 text-[10px] font-semibold text-slate-400">{unavailable ? 'Tạm hết hàng' : 'Có sẵn tại sân'}</p></div></div><div className="mt-3 flex items-center justify-between"><button type="button" disabled={!quantity} onClick={() => setSelectedExtras((current) => ({ ...current, [service.id]: Math.max(0, (current[service.id] || 0) - 1) }))} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-sm font-black text-slate-500 disabled:opacity-40">-</button><span className="text-sm font-black text-slate-900">{quantity}</span><button type="button" disabled={unavailable || quantity >= service.stockQuantity} onClick={() => setSelectedExtras((current) => ({ ...current, [service.id]: (current[service.id] || 0) + 1 }))} className="grid h-8 w-8 place-items-center rounded-lg bg-blue-700 text-sm font-black text-white disabled:opacity-40">+</button></div></article>; })}</div></> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">Sân này chưa có dịch vụ bổ sung đang bán.</div>}
+              {suggestedServices.length > 0 ? (
+                <>
+                  <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                    {['Tất cả', 'Đồ uống', 'Dụng cụ', 'Quần áo', 'Tiện ích khác', 'Khác'].map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setServiceCategory(category)}
+                        className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition ${
+                          serviceCategory === category
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {suggestedServices
+                      .filter((service) => serviceCategory === 'Tất cả' || getServiceCategory(service.name) === serviceCategory)
+                      .map((service) => {
+                        const quantity = selectedExtras[service.id] || 0;
+                        const stock = Number(service.stockQuantity || 0);
+                        const unavailable = stock <= 0;
+
+                        return (
+                          <article
+                            key={service.id}
+                            className={`rounded-lg border bg-white p-3 transition ${
+                              quantity > 0 ? 'border-blue-300 ring-2 ring-blue-50' : 'border-slate-200 hover:border-blue-200'
+                            } ${unavailable ? 'bg-slate-50 opacity-75' : ''}`}
+                          >
+                            <div className="flex gap-3">
+                              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                                {service.imageUrl ? (
+                                  <img src={service.imageUrl} alt={service.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <ReceiptText className="m-4 text-slate-400" size={22} />
+                                )}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-bold text-slate-900">{service.name}</p>
+                                <p className="mt-1 text-sm font-black text-blue-700">{formatMoney(service.price)}</p>
+
+                                {unavailable ? (
+                                  <span className="mt-2 inline-flex rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-600">
+                                    Tạm thời hết hàng
+                                  </span>
+                                ) : (
+                                  <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                    Tồn kho: {stock}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                              <button
+                                type="button"
+                                disabled={quantity <= 0}
+                                onClick={() =>
+                                  setSelectedExtras((current) => ({
+                                    ...current,
+                                    [service.id]: Math.max(0, (current[service.id] || 0) - 1),
+                                  }))
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                -
+                              </button>
+
+                              <span className="text-sm font-black text-slate-900">{quantity}</span>
+
+                              <button
+                                type="button"
+                                disabled={unavailable || quantity >= stock}
+                                onClick={() =>
+                                  setSelectedExtras((current) => ({
+                                    ...current,
+                                    [service.id]: (current[service.id] || 0) + 1,
+                                  }))
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+                  Sân này chưa có dịch vụ bổ sung đang bán.
+                </div>
+              )}
             </div>
           </section>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="rounded-2xl border border-slate-200 bg-[var(--panel)] p-6 shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-[var(--panel)] p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Thanh toán</p>
-                  <h2 className="mt-1 text-lg font-black font-heading">Tóm tắt đơn</h2>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Tóm tắt đơn</p>
+                  <h2 className="mt-1 text-lg font-black font-heading">Chi tiết thanh toán</h2>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                   <CreditCard size={20} />
                 </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="truncate text-sm font-black text-slate-950">{details.pitchName}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {shortTime(details.startTime)} - {shortTime(details.endTime)} · {formatDate(booking.bookingDate)}
+                </p>
               </div>
 
               <div className="mt-4 space-y-3 text-sm">
@@ -569,53 +678,61 @@ const BookingReview: React.FC = () => {
                   <span>Tiền thuê sân</span>
                   <strong className="text-slate-900">{formatMoney(details.fieldPrice)}</strong>
                 </div>
-                <div className="flex items-center justify-between gap-4 text-slate-600">
-                  <span>Dịch vụ bổ sung</span>
-                  <strong className="text-slate-900">{formatMoney(details.serviceTotal)}</strong>
-                </div>
+
+                {details.serviceTotal > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between gap-4 text-slate-600">
+                      <span>Dịch vụ đi kèm</span>
+                      <strong className="text-slate-900">{formatMoney(details.serviceTotal)}</strong>
+                    </div>
+                    <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2">
+                      {details.services.map((service) => (
+                        <div key={service.id || service.serviceId} className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+                          <span className="truncate">{service.serviceName} x{service.quantity}</span>
+                          <span className="shrink-0">{formatMoney(service.lineTotal || service.price * service.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-t border-slate-200 pt-3">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="font-semibold text-slate-600">Tổng tiền</span>
-                    <strong className="text-lg text-slate-900">{formatMoney(details.total)}</strong>
+                    <span className="font-bold text-slate-700">Tổng tiền</span>
+                    <strong className="text-lg text-slate-950">{formatMoney(details.total)}</strong>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-blue-100 bg-[var(--accent-soft)] p-4">
+              <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
                   <WalletCards size={15} />
-                  Cần thanh toán hôm nay
+                  Thanh toán cọc hôm nay
                 </div>
-                <p className="mt-2 text-3xl font-black tracking-tight text-[var(--accent)]">{formatMoney(details.deposit)}</p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-blue-700">{formatMoney(details.deposit)}</p>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
-                  Số còn lại {formatMoney(details.remaining)} thanh toán trực tiếp tại sân theo chính sách của chủ sân.
+                  Còn lại {formatMoney(details.remaining)} thanh toán tại sân.
                 </p>
               </div>
 
-              <div className="mt-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chọn cổng thanh toán</p>
-                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
-                  <WalletCards size={18} />
-                  Thanh toán online
-                </div>
-                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                  Quét QR hoặc mở ví ZaloPay để thanh toán.
-                </p>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700">
+                  <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700">
                     <Hourglass size={15} />
-                    Giữ chỗ 15 phút
-                  </div>
+                    Giữ chỗ
+                  </span>
                   <span className={`rounded-full px-3 py-1 text-xs font-black ${holdExpired ? 'bg-red-100 text-red-700' : 'bg-white text-amber-700'}`}>
                     {holdExpired ? 'Hết hạn' : formatCountdown(holdRemainingMs)}
                   </span>
                 </div>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
-                  Nếu chưa thanh toán cọc trong 15 phút, đơn sẽ tự hủy và khung giờ được mở lại cho người khác.
+                  Quá 15 phút chưa thanh toán, khung giờ sẽ được mở lại.
                 </p>
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
+                <WalletCards size={18} />
+                Thanh toán online
               </div>
 
               <button

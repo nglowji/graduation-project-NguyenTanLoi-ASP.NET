@@ -1,0 +1,19 @@
+include:
+  - path: docker-compose.yml
+
+services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: smartsport-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=SportsPitchBooking_Dev;Username=postgres;Password=postgres
+      - ASPNETCORE_URLS=http://+:10000
+    ports:
+      - "5164:10000"
+    restart: unless-stopped

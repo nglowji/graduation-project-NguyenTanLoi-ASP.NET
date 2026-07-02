@@ -40,12 +40,10 @@ public class TimeSlotRepository : ITimeSlotRepository
     {
         var timeSlots = await _context.TimeSlots
             .AsNoTracking()
-            .Include(ts => ts.Bookings)
             .Where(ts => ts.PitchId == pitchId && ts.IsActive)
+            .OrderBy(ts => ts.TimeRange.StartTime)
             .ToListAsync(cancellationToken);
 
-        return timeSlots
-            .OrderBy(ts => ts.TimeRange.StartTime)
-            .ToList();
+        return timeSlots;
     }
 }

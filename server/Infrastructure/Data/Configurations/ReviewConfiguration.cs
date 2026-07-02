@@ -29,6 +29,8 @@ public class ReviewConfiguration : IEntityTypeConfiguration<Review>
         builder.HasIndex(r => r.BookingId)
             .IsUnique();
 
+        builder.HasIndex(r => new { r.PitchId, r.CreatedAt });
+
         // Relationship: One pitch has many reviews
         builder.HasOne(r => r.Pitch)
             .WithMany("Reviews")

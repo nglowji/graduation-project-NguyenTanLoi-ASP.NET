@@ -1,3 +1,4 @@
+using Application.Common;
 using Application.Common.Interfaces;
 using Application.Common.DTOs;
 using Domain.Exceptions;
@@ -47,7 +48,7 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
 
             if (!string.IsNullOrWhiteSpace(request.Address) && pitch.SportCenter != null)
             {
-                pitch.SportCenter.UpdateAddress(BuildAddress(
+                pitch.SportCenter.UpdateAddress(AddressBuilder.FromFullAddress(
                     request.Address.Trim(),
                     pitch.SportCenter.Address,
                     request.Latitude,
@@ -188,38 +189,4 @@ public class UpdatePitchCommandHandler : IRequestHandler<UpdatePitchCommand, Res
         }
     }
 
-    private static Address BuildAddress(string fullAddress, Address currentAddress, double? latitude, double? longitude)
-    {
-        var parts = fullAddress
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-
-        var city = currentAddress.City;
-        var district = currentAddress.District;
-        var ward = currentAddress.Ward;
-
-        if (parts.Count >= 3)
-        {
-            city = parts[^1];
-            district = parts[^2];
-            ward = parts[^3];
-        }
-        else if (parts.Count == 2)
-        {
-            city = parts[^1];
-            district = parts[0];
-        }
-        else if (parts.Count == 1)
-        {
-            city = parts[0];
-        }
-
-        return Address.Create(
-            fullAddress,
-            ward,
-            district,
-            city,
-            latitude ?? currentAddress.Latitude,
-            longitude ?? currentAddress.Longitude);
-    }
 }

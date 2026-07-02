@@ -76,6 +76,7 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.HasIndex(b => b.BookingDate);
         builder.HasIndex(b => b.Status);
         builder.HasIndex(b => new { b.TimeSlotId, b.BookingDate });
+        builder.HasIndex(b => new { b.BookingDate, b.Status });
 
         builder.HasQueryFilter(b => !b.IsDeleted);
     }

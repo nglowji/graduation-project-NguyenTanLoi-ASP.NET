@@ -75,8 +75,70 @@ const toTimeInputValue = (value: unknown) => {
 const toAddressInputValue = (value: any) => {
   if (!value) return '';
   if (typeof value === 'string') return value;
-  return value.fullAddress
-    || [value.street, value.ward, value.district, value.city].filter(Boolean).join(', ');
+  return resolveStreetFromAddress(value);
+};
+
+const normalizeLocationName = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const matchLocationName = (left: string, right: string) =>
+  normalizeLocationName(left) === normalizeLocationName(right);
+
+const resolveStreetFromAddress = (address: any) => {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+
+  const street = String(address.street || address.fullAddress || '').trim();
+  const ward = String(address.ward || '').trim();
+  const district = String(address.district || '').trim();
+  const city = String(address.city || '').trim();
+
+  if (!street.includes(',')) return street;
+
+  const suffix = [ward, district, city].filter(Boolean).join(', ');
+  if (suffix && street.endsWith(suffix)) {
+    return street.slice(0, street.length - suffix.length).replace(/,\s*$/, '').trim();
+  }
+
+  return street.split(',')[0]?.trim() || street;
+};
+
+type PendingLocation = {
+  city?: string;
+  district?: string;
+  ward?: string;
+};
+
+const resolveLocationFromAddress = (address: any): PendingLocation | null => {
+  if (!address) return null;
+
+  if (typeof address === 'object') {
+    return {
+      city: String(address.city || '').trim(),
+      district: String(address.district || '').trim(),
+      ward: String(address.ward || '').trim(),
+    };
+  }
+
+  if (typeof address === 'string') {
+    const parts = address
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return {
+      city: parts[parts.length - 1] || '',
+      district: parts[parts.length - 2] || '',
+      ward: parts[parts.length - 3] || '',
+    };
+  }
+
+  return null;
 };
 
 const toApiTimeValue = (value: string) => value.length === 5 ? `${value}:00` : value;
@@ -174,29 +236,55 @@ const extractSearchTextFromMapInput = (value: string) => {
 };
 
 const geocodeMapInput = async (mapInput: string, fallbackAddress: string): Promise<MapCoordinates | null> => {
-  const directCoordinates = extractCoordinatesFromGoogleMapLink(mapInput);
+  try {
+    const directCoordinates = extractCoordinatesFromGoogleMapLink(mapInput);
+    if (directCoordinates) return directCoordinates;
+
+    const query = extractSearchTextFromMapInput(mapInput) || fallbackAddress.trim();
+    if (!query || /^https?:\/\//i.test(query)) return null;
+
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('format', 'jsonv2');
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('q', query);
+    url.searchParams.set('accept-language', 'vi');
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    if (!first?.lat || !first?.lon) return null;
+
+    return {
+      latitude: Number(first.lat),
+      longitude: Number(first.lon),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const resolveMapCoordinates = async (mapLink: string, fallbackAddress: string): Promise<MapCoordinates | null> => {
+  const directCoordinates = extractCoordinatesFromGoogleMapLink(mapLink);
   if (directCoordinates) return directCoordinates;
 
-  const query = extractSearchTextFromMapInput(mapInput) || fallbackAddress.trim();
-  if (!query || /^https?:\/\//i.test(query)) return null;
+  const trimmedMapLink = mapLink.trim();
+  if (trimmedMapLink && /^https?:\/\//i.test(trimmedMapLink)) {
+    try {
+      const resolved: any = await api.get('/pitches/resolve-map-link', { params: { url: trimmedMapLink } });
+      if (resolved?.latitude != null && resolved?.longitude != null) {
+        return {
+          latitude: Number(resolved.latitude),
+          longitude: Number(resolved.longitude),
+        };
+      }
+    } catch {
+      // Continue with address geocoding when map link cannot be resolved.
+    }
+  }
 
-  const url = new URL('https://nominatim.openstreetmap.org/search');
-  url.searchParams.set('format', 'jsonv2');
-  url.searchParams.set('limit', '1');
-  url.searchParams.set('q', query);
-  url.searchParams.set('accept-language', 'vi');
-
-  const response = await fetch(url.toString());
-  if (!response.ok) return null;
-
-  const data = await response.json();
-  const first = Array.isArray(data) ? data[0] : null;
-  if (!first?.lat || !first?.lon) return null;
-
-  return {
-    latitude: Number(first.lat),
-    longitude: Number(first.lon),
-  };
+  return geocodeMapInput(mapLink, fallbackAddress);
 };
 
 const TIME_HOURS = Array.from({ length: 24 }, (_, index) => index);
@@ -247,6 +335,52 @@ const InlineTimePicker: React.FC<TimePickerProps> = ({ label, value, onChange })
   );
 };
 
+
+const removeVietnamSuffix = (value: string) =>
+  String(value || '')
+    .replace(/,\s*(Việt Nam|Vietnam)\s*$/i, '')
+    .trim();
+
+const compactDuplicateAddressParts = (value: string) => {
+  const parts = removeVietnamSuffix(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  parts.forEach((part) => {
+    const key = normalizeLocationName(part);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    result.push(part);
+  });
+
+  return result.join(', ');
+};
+
+const stripSelectedAdministrativeParts = (
+  value: string,
+  ward?: string,
+  district?: string,
+  province?: string,
+) => {
+  const selectedKeys = [ward, district, province]
+    .filter(Boolean)
+    .map((item) => normalizeLocationName(String(item)));
+
+  return removeVietnamSuffix(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = normalizeLocationName(part);
+      return !selectedKeys.some((selected) => selected && key === selected);
+    })
+    .join(', ');
+};
+
 const PitchEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -279,7 +413,39 @@ const PitchEditor: React.FC = () => {
   const [provinceCode, setProvinceCode] = useState<number>();
   const [districtCode, setDistrictCode] = useState<number>();
   const [wardName, setWardName] = useState('');
+  const [pendingLocation, setPendingLocation] = useState<PendingLocation | null>(null);
   const { provinces, districts, wards } = useVietnamLocations(provinceCode, districtCode);
+
+  useEffect(() => {
+    if (!pendingLocation?.city || provinces.length === 0) return;
+
+    const province = provinces.find((item) => matchLocationName(item.name, pendingLocation.city!));
+    if (province) {
+      setProvinceCode(province.code);
+    }
+  }, [pendingLocation, provinces]);
+
+  useEffect(() => {
+    if (!pendingLocation?.district || !provinceCode || districts.length === 0) return;
+
+    const district = districts.find((item) => matchLocationName(item.name, pendingLocation.district!));
+    if (district) {
+      setDistrictCode(district.code);
+    }
+  }, [pendingLocation, districts, provinceCode]);
+
+  useEffect(() => {
+    if (!pendingLocation || !districtCode || wards.length === 0) return;
+
+    if (pendingLocation.ward) {
+      const ward = wards.find((item) => matchLocationName(item.name, pendingLocation.ward!));
+      if (ward) {
+        setWardName(ward.name);
+      }
+    }
+
+    setPendingLocation(null);
+  }, [pendingLocation, wards, districtCode]);
 
   useEffect(() => {
     if (isEditing) fetchPitchData();
@@ -418,7 +584,7 @@ const PitchEditor: React.FC = () => {
 
       setFormData({
         name: pitch.name || '',
-        address: toAddressInputValue(pitch.address),
+        address: resolveStreetFromAddress(pitch.address),
         mapLink: pitch.mapLink || '',
         description: pitch.description || '',
         sportCategory: category,
@@ -427,6 +593,11 @@ const PitchEditor: React.FC = () => {
         images: pitch.images?.length > 0 ? pitch.images.map((image: any) => image.imageUrl || image) : [''],
         timeSlots: mappedTimeSlots,
       });
+
+      const location = resolveLocationFromAddress(pitch.address);
+      if (location) {
+        setPendingLocation(location);
+      }
     } catch {
       setError('Lỗi khi tải dữ liệu sân.');
     } finally {
@@ -468,6 +639,22 @@ const PitchEditor: React.FC = () => {
     return '';
   };
 
+  const buildFullAddress = () => {
+    const provinceName = provinces.find((province) => province.code === provinceCode)?.name;
+    const districtName = districts.find((district) => district.code === districtCode)?.name;
+
+    const streetAddress = stripSelectedAdministrativeParts(
+      formData.address.trim(),
+      wardName,
+      districtName,
+      provinceName,
+    );
+
+    return compactDuplicateAddressParts(
+      [streetAddress, wardName, districtName, provinceName].filter(Boolean).join(', '),
+    );
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -486,16 +673,22 @@ const PitchEditor: React.FC = () => {
         price: parseMoneyInput(slot.price),
       }));
 
-      const mapCoordinates = await geocodeMapInput(formData.mapLink, formData.address);
+      const fullAddress = buildFullAddress();
+      if (!fullAddress.trim()) {
+        setError('Vui lòng nhập địa chỉ cụ thể hoặc chọn tỉnh/thành phố.');
+        return;
+      }
+
+      const mapCoordinates = await resolveMapCoordinates(formData.mapLink, fullAddress);
       const payload = {
-        name: `Sân ${selectedCategory.label}`,
+        name: formData.name.trim() || `Sân ${selectedCategory.label}`,
         description: formData.description.trim(),
         pitchType: Number(formData.pitchType),
         isIndoor: formData.isIndoor,
         images: formData.images.map((image) => image.trim()).filter(Boolean),
         timeSlots,
         services: [],
-        address: [formData.address.trim(), wardName, districts.find((district) => district.code === districtCode)?.name, provinces.find((province) => province.code === provinceCode)?.name].filter(Boolean).join(', '),
+        address: fullAddress,
         mapLink: formData.mapLink.trim() || undefined,
         latitude: mapCoordinates?.latitude,
         longitude: mapCoordinates?.longitude,
@@ -529,42 +722,49 @@ const PitchEditor: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] min-w-0 space-y-6 pb-16">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
+    <div className="mx-auto max-w-[1420px] min-w-0 space-y-6 pb-16">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
           <button
             type="button"
             onClick={() => navigate('/dashboard/owner/pitches')}
-            className="mb-5 inline-flex items-center gap-2 text-sm font-black text-slate-500 transition hover:text-blue-600"
+            className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-blue-600"
           >
             <ArrowLeft size={18} />
             Quay lại danh sách sân
           </button>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">Pitch setup</p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">
+            {isEditing ? 'CẬP NHẬT SÂN' : 'THÊM SÂN MỚI'}
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {isEditing ? 'Cập nhật thông tin sân' : 'Thêm sân mới'}
           </h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Thiết lập thông tin hiển thị, loại sân, hình ảnh và khung giờ đặt sân.</p>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+            Nhập thông tin sân, địa chỉ theo tỉnh/thành và thiết lập khung giờ cho thuê.
+          </p>
         </div>
 
-        <button
-          type="submit"
-          form="pitch-editor-form"
-          disabled={isSubmitting}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
-        >
-          {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-          {isEditing ? 'Lưu thay đổi' : 'Đăng sân'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/owner/pitches')}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            form="pitch-editor-form"
+            disabled={isSubmitting}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+            {isEditing ? 'Lưu thay đổi' : 'Đăng sân'}
+          </button>
+        </div>
       </header>
-
-      <div className="hidden">
-        <span className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-blue-700">1</span>Thông tin sân</span>
-        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-slate-500">2</span>Khung giờ và giá</span>
-        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600"><span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] text-slate-500">3</span>Ảnh hiển thị</span>
-      </div>
-
-      {error && (
+{error && (
         <div className="flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold leading-6 text-red-700">
           <AlertCircle size={20} className="mt-0.5 shrink-0" />
           {error}
@@ -572,8 +772,8 @@ const PitchEditor: React.FC = () => {
       )}
 
       <form id="pitch-editor-form" onSubmit={handleSubmit} className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
-        <div className="min-w-0 space-y-6">
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <div className="min-w-0 space-y-5">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600">
                 <Building2 size={20} />
@@ -585,11 +785,19 @@ const PitchEditor: React.FC = () => {
             </div>
 
             <div className="grid gap-4">
-              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">Tên sân sẽ dùng theo tên cơ sở đã đăng ký của chủ sân.</div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-500">Tên sân</label>
+                <input
+                  value={formData.name}
+                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Nhập tên sân"
+                />
+              </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Link Google Maps nếu có</label>
+                    <label className="mb-1.5 block text-xs font-bold text-slate-500">Link Google Maps nếu có</label>
                     <div className="relative">
                       <LinkIcon size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
@@ -604,32 +812,32 @@ const PitchEditor: React.FC = () => {
                     </p>
                   </div>
 
-                  <div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tỉnh / Thành phố</label><select value={provinceCode || ''} onChange={(event) => { setProvinceCode(Number(event.target.value) || undefined); setDistrictCode(undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300"><option value="">Chọn tỉnh / thành</option>{provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select></div>
+                  <div><label className="mb-1.5 block text-xs font-bold text-slate-500">Tỉnh / Thành phố</label><select value={provinceCode || ''} onChange={(event) => { setProvinceCode(Number(event.target.value) || undefined); setDistrictCode(undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300"><option value="">Chọn tỉnh / thành</option>{provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}</select></div>
                 </div>
 
-              <div className="grid gap-4 md:grid-cols-3"><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Quận / Huyện</label><select disabled={!provinceCode} value={districtCode || ''} onChange={(event) => { setDistrictCode(Number(event.target.value) || undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn quận / huyện</option>{districts.map((district) => <option key={district.code} value={district.code}>{district.name}</option>)}</select></div><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Phường / Xã</label><select disabled={!districtCode} value={wardName} onChange={(event) => setWardName(event.target.value)} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn phường / xã</option>{wards.map((ward) => <option key={ward.code} value={ward.name}>{ward.name}</option>)}</select></div><div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Địa chỉ cụ thể</label><input value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white" placeholder="Số nhà, tên đường" /></div></div>
+              <div className="grid gap-4 md:grid-cols-3"><div><label className="mb-1.5 block text-xs font-bold text-slate-500">Quận / Huyện</label><select disabled={!provinceCode} value={districtCode || ''} onChange={(event) => { setDistrictCode(Number(event.target.value) || undefined); setWardName(''); }} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn quận / huyện</option>{districts.map((district) => <option key={district.code} value={district.code}>{district.name}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-500">Phường / Xã</label><select disabled={!districtCode} value={wardName} onChange={(event) => setWardName(event.target.value)} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300 disabled:opacity-50"><option value="">Chọn phường / xã</option>{wards.map((ward) => <option key={ward.code} value={ward.name}>{ward.name}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-500">Địa chỉ cụ thể</label><input value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white" placeholder="Số nhà, tên đường" /></div></div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Môn thể thao</label>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">Môn thể thao</label>
                   <select
                     value={formData.sportCategory}
                     onChange={(event) => {
                       const category = SPORT_CATEGORIES.find((item) => item.id === event.target.value);
                       setFormData({ ...formData, sportCategory: event.target.value, pitchType: category?.types[0].id || '1' });
                     }}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   >
                     {SPORT_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Loại sân</label>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">Loại sân</label>
                   <select
                     value={formData.pitchType}
                     onChange={(event) => setFormData({ ...formData, pitchType: event.target.value })}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   >
                     {selectedCategory.types.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
                   </select>
@@ -637,7 +845,7 @@ const PitchEditor: React.FC = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Hình thức sân</label>
+                <label className="mb-1.5 block text-xs font-bold text-slate-500">Hình thức sân</label>
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
                   <button
                     type="button"
@@ -657,7 +865,7 @@ const PitchEditor: React.FC = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Mô tả chi tiết</label>
+                <label className="mb-1.5 block text-xs font-bold text-slate-500">Mô tả chi tiết</label>
                 <textarea
                   value={formData.description}
                   onChange={(event) => setFormData({ ...formData, description: event.target.value })}
@@ -668,7 +876,7 @@ const PitchEditor: React.FC = () => {
             </div>
           </section>
 
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
                 <Clock size={20} />
@@ -689,7 +897,7 @@ const PitchEditor: React.FC = () => {
                 <InlineTimePicker label="Kết thúc" value={autoGen.endTime} onChange={(endTime) => updateAutoGen({ ...autoGen, endTime })} />
               </div>
 
-              <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-[0.8fr_1.2fr]">
+              <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                 <label className="min-w-0">
                   <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">Mỗi khung</span>
                   <input type="number" min="0.5" step="0.5" value={autoGen.duration} onChange={(event) => updateAutoGen({ ...autoGen, duration: Number(event.target.value) })} className="h-12 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-black outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/5 dark:border-slate-800 dark:bg-slate-900 dark:text-white" placeholder="Số giờ" />
@@ -718,100 +926,174 @@ const PitchEditor: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Danh sách khung giờ</h3>
-                <p className="text-xs font-semibold text-slate-400">Có thể chỉnh từng khung sau khi hệ thống tự chia.</p>
-              </div>
-              <span className="inline-flex h-8 w-fit items-center rounded-full bg-slate-100 px-3 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {formData.timeSlots.length} khung
-              </span>
-            </div>
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Danh sách khung giờ</h3>
+                  <p className="text-sm font-semibold text-slate-500">
+                    Quản lý giờ bắt đầu, giờ kết thúc và giá bán theo từng khung.
+                  </p>
+                </div>
 
-            <div className="mt-3 grid min-w-0 gap-2">
-              {formData.timeSlots.map((slot, index) => (
-                <div key={`${slot.startTime}-${index}`} className="grid min-w-0 grid-cols-[1fr_auto_1fr_minmax(112px,1.15fr)_34px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    aria-label={`Giờ bắt đầu khung ${index + 1}`}
-                    title="Giờ bắt đầu"
-                    value={slot.startTime}
-                    onChange={(event) => {
-                      const slots = [...formData.timeSlots];
-                      slots[index].startTime = formatSlotTimeInput(event.target.value);
-                      setFormData({ ...formData, timeSlots: slots });
-                    }}
-                    onBlur={() => {
-                      const slots = [...formData.timeSlots];
-                      slots[index].startTime = normalizeSlotTimeInput(slot.startTime);
-                      setFormData({ ...formData, timeSlots: slots });
-                    }}
-                    className="h-9 min-w-0 w-full rounded-lg bg-slate-50 px-1.5 text-center text-[12px] font-black leading-none outline-none transition placeholder:text-slate-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-slate-900 dark:text-white"
-                    placeholder="07:00"
-                  />
-                  <span className="text-center text-xs font-black text-slate-300">-</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    aria-label={`Giờ kết thúc khung ${index + 1}`}
-                    title="Giờ kết thúc"
-                    value={slot.endTime}
-                    onChange={(event) => {
-                      const slots = [...formData.timeSlots];
-                      slots[index].endTime = formatSlotTimeInput(event.target.value);
-                      setFormData({ ...formData, timeSlots: slots });
-                    }}
-                    onBlur={() => {
-                      const slots = [...formData.timeSlots];
-                      slots[index].endTime = normalizeSlotTimeInput(slot.endTime);
-                      setFormData({ ...formData, timeSlots: slots });
-                    }}
-                    className="h-9 min-w-0 w-full rounded-lg bg-slate-50 px-1.5 text-center text-[12px] font-black leading-none outline-none transition placeholder:text-slate-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-slate-900 dark:text-white"
-                    placeholder="08:00"
-                  />
-                  <div className="relative min-w-0">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      aria-label={`Giá khung ${index + 1}`}
-                      value={formatMoneyInput(slot.price)}
-                      onChange={(event) => {
-                        const slots = [...formData.timeSlots];
-                        slots[index].price = event.target.value.replace(/\D/g, '');
-                        setFormData({ ...formData, timeSlots: slots });
-                      }}
-                      className="h-9 min-w-0 w-full rounded-lg bg-blue-50 px-2 pr-7 text-right text-[12px] font-black text-blue-700 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-blue-950/40"
-                      placeholder="200.000"
-                    />
-                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-400">đ</span>
-                  </div>
-                  <button type="button" onClick={() => setFormData({ ...formData, timeSlots: formData.timeSlots.filter((_, itemIndex) => itemIndex !== index) })} className="grid h-9 w-9 place-items-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100">
-                    <Trash2 size={14} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-black text-slate-600">
+                    {formData.timeSlots.length} khung
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        timeSlots: [
+                          ...formData.timeSlots,
+                          { startTime: '07:00', endTime: '08:00', price: autoGen.price },
+                        ],
+                      })
+                    }
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700"
+                  >
+                    <Plus size={14} />
+                    Thêm khung
                   </button>
                 </div>
-              ))}
-              {formData.timeSlots.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-950/50">
-                  Chưa có khung giờ. Dùng tạo nhanh hoặc thêm từng khung giờ bên dưới.
+              </div>
+
+              {formData.timeSlots.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <div className="hidden grid-cols-[52px_1fr_1fr_1.2fr_48px] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-500 md:grid">
+                    <span>#</span>
+                    <span>Bắt đầu</span>
+                    <span>Kết thúc</span>
+                    <span className="text-right">Giá</span>
+                    <span />
+                  </div>
+
+                  <div className="max-h-[460px] divide-y divide-slate-100 overflow-y-auto">
+                    {formData.timeSlots.map((slot, index) => (
+                      <div
+                        key={`${slot.startTime}-${slot.endTime}-${index}`}
+                        className="grid gap-3 bg-white p-3 transition hover:bg-blue-50/30 md:grid-cols-[52px_1fr_1fr_1.2fr_48px] md:items-center md:px-4"
+                      >
+                        <div className="flex items-center justify-between md:block">
+                          <span className="text-xs font-black uppercase tracking-wider text-slate-400 md:hidden">
+                            Khung
+                          </span>
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-700">
+                            {index + 1}
+                          </span>
+                        </div>
+
+                        <label>
+                          <span className="mb-1 block text-xs font-bold text-slate-500 md:hidden">Bắt đầu</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={5}
+                            aria-label={`Giờ bắt đầu khung ${index + 1}`}
+                            value={slot.startTime}
+                            onChange={(event) => {
+                              const slots = [...formData.timeSlots];
+                              slots[index].startTime = formatSlotTimeInput(event.target.value);
+                              setFormData({ ...formData, timeSlots: slots });
+                            }}
+                            onBlur={() => {
+                              const slots = [...formData.timeSlots];
+                              slots[index].startTime = normalizeSlotTimeInput(slot.startTime);
+                              setFormData({ ...formData, timeSlots: slots });
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/5"
+                            placeholder="07:00"
+                          />
+                        </label>
+
+                        <label>
+                          <span className="mb-1 block text-xs font-bold text-slate-500 md:hidden">Kết thúc</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={5}
+                            aria-label={`Giờ kết thúc khung ${index + 1}`}
+                            value={slot.endTime}
+                            onChange={(event) => {
+                              const slots = [...formData.timeSlots];
+                              slots[index].endTime = formatSlotTimeInput(event.target.value);
+                              setFormData({ ...formData, timeSlots: slots });
+                            }}
+                            onBlur={() => {
+                              const slots = [...formData.timeSlots];
+                              slots[index].endTime = normalizeSlotTimeInput(slot.endTime);
+                              setFormData({ ...formData, timeSlots: slots });
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-800 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/5"
+                            placeholder="08:00"
+                          />
+                        </label>
+
+                        <label>
+                          <span className="mb-1 block text-xs font-bold text-slate-500 md:hidden">Giá</span>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              aria-label={`Giá khung ${index + 1}`}
+                              value={formatMoneyInput(slot.price)}
+                              onChange={(event) => {
+                                const slots = [...formData.timeSlots];
+                                slots[index].price = event.target.value.replace(/\D/g, '');
+                                setFormData({ ...formData, timeSlots: slots });
+                              }}
+                              className="h-10 w-full rounded-lg border border-blue-100 bg-blue-50 px-3 pr-8 text-right text-sm font-black text-blue-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5"
+                              placeholder="200.000"
+                            />
+                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-blue-400">
+                              đ
+                            </span>
+                          </div>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              timeSlots: formData.timeSlots.filter((_, itemIndex) => itemIndex !== index),
+                            })
+                          }
+                          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 md:w-10 md:px-0"
+                          title="Xóa khung giờ"
+                        >
+                          <Trash2 size={14} />
+                          <span className="md:hidden">Xóa khung này</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      timeSlots: [
+                        ...formData.timeSlots,
+                        { startTime: '07:00', endTime: '08:00', price: autoGen.price },
+                      ],
+                    })
+                  }
+                  className="flex min-h-[110px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm font-black text-slate-500 transition hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600"
+                >
+                  <Plus size={20} />
+                  Chưa có khung giờ, bấm để thêm khung đầu tiên
+                </button>
               )}
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, timeSlots: [...formData.timeSlots, { startTime: '07:00', endTime: '08:00', price: autoGen.price }] })}
-                className="flex min-h-[62px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 text-sm font-black text-slate-400 transition hover:border-blue-300 hover:text-blue-600 dark:border-slate-800"
-              >
-                <Plus size={17} />
-                Thêm khung giờ lẻ
-              </button>
             </div>
+
           </section>
         </div>
 
-        <aside className="min-w-0 space-y-6 xl:sticky xl:top-24 xl:self-start">
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <aside className="min-w-0 space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-600">
                 <Camera size={20} />
@@ -822,7 +1104,7 @@ const PitchEditor: React.FC = () => {
               </div>
             </div>
 
-            <div className="mb-4 grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
+            <div className="mb-4 grid aspect-[4/3] place-items-center overflow-hidden rounded-xl bg-slate-100">
               {coverImage ? <img src={resolveLocalImageUrl(coverImage)} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={36} className="text-slate-300" />}
             </div>
 
@@ -866,7 +1148,7 @@ const PitchEditor: React.FC = () => {
             </div>
           </section>
 
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tóm tắt</p>
             <div className="mt-4 space-y-3 text-sm font-bold">
               <div className="flex justify-between gap-4">
@@ -886,10 +1168,10 @@ const PitchEditor: React.FC = () => {
                 <span className="min-w-0 break-words text-right text-slate-800 dark:text-slate-200">{formData.timeSlots.length}</span>
               </div>
             </div>
-            {formData.address && (
+            {buildFullAddress() && (
               <div className="mt-4 flex min-w-0 gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-500 dark:bg-slate-800">
                 <MapPin size={15} className="shrink-0 text-blue-600" />
-                <span className="min-w-0 break-words">{formData.address}</span>
+                <span className="min-w-0 break-words">{buildFullAddress()}</span>
               </div>
             )}
           </section>

@@ -16,8 +16,6 @@ namespace Application.UnitTests.Features.Dashboard;
 
 public class GetAdminDashboardStatsQueryHandlerTests
 {
-    private readonly Mock<IUserRepository> _userRepoMock = new();
-    private readonly Mock<IBookingRepository> _bookingRepoMock = new();
     private readonly Mock<IPitchRepository> _pitchRepoMock = new();
     private readonly Mock<IApplicationDbContext> _contextMock = new();
 
@@ -25,11 +23,6 @@ public class GetAdminDashboardStatsQueryHandlerTests
     public async Task Handle_WithUsers_ReturnsCorrectStats()
     {
         // Arrange
-        var users = new List<User>();
-        _userRepoMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(users);
-        _bookingRepoMock.Setup(r => r.GetAllByDateRangeAsync(It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Booking>());
         _pitchRepoMock.Setup(r => r.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, It.IsAny<CancellationToken>()))
             .ReturnsAsync(PagedResult<Pitch>.Empty());
         _contextMock.Setup(c => c.Users)
@@ -42,7 +35,7 @@ public class GetAdminDashboardStatsQueryHandlerTests
             .Returns(CreateAsyncDbSet(Array.Empty<SportCenter>()));
 
         var handler = new GetAdminDashboardStatsQueryHandler(
-            _userRepoMock.Object, _bookingRepoMock.Object, _pitchRepoMock.Object, _contextMock.Object);
+            _pitchRepoMock.Object, _contextMock.Object);
 
         // Act
         var result = await handler.Handle(new GetAdminDashboardStatsQuery(), CancellationToken.None);

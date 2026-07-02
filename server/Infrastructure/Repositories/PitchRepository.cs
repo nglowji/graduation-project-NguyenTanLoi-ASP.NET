@@ -56,13 +56,12 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(p => p.Reviews.Any() ? p.Reviews.Average(review => review.Rating) : 0)
+            .OrderByDescending(p => p.AverageRating)
             .ThenByDescending(p => p.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Include(p => p.Images)
             .Include(p => p.SportCenter)
-            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Pitch>(items, totalCount, pageNumber, pageSize);
@@ -74,11 +73,11 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
     {
         return await _context.Pitches
             .AsNoTracking()
+            .AsSplitQuery()
             .Where(p => p.OwnerId == ownerId)
             .Include(p => p.Images)
             .Include(p => p.TimeSlots)
             .Include(p => p.SportCenter)
-            .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
     }
 

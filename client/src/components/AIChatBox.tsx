@@ -27,11 +27,15 @@ type Message = {
 const starterOptions = [
   { label: 'Gợi ý sân phù hợp', prompt: 'Gợi ý sân phù hợp', icon: MapPin, tone: 'text-emerald-600 bg-emerald-50' },
   { label: 'Cách đặt và cọc sân', prompt: 'Cách đặt và cọc sân', icon: CalendarCheck, tone: 'text-blue-600 bg-blue-50' },
-  { label: 'Khởi động trước khi đá bóng', prompt: 'Khởi động trước khi đá bóng', icon: Clock3, tone: 'text-orange-600 bg-orange-50' },
+  { label: 'Khởi động trước khi đá bóng', prompt: 'Khởi động trước khi đá bóng', icon: Clock3, tone: 'text-amber-600 bg-amber-50' },
   { label: 'Luật việt vị', prompt: 'Luật việt vị', icon: Gavel, tone: 'text-violet-600 bg-violet-50' },
 ] as const;
 
-const starterQuestions = ['Sân bóng gần đây có trống không?', 'Giá thuê sân bóng 7 người là bao nhiêu?', 'Có sân cầu lông vào tối nay không?'];
+const starterQuestions = [
+  'Sân bóng gần đây có trống không?',
+  'Giá thuê sân bóng 7 người là bao nhiêu?',
+  'Có sân cầu lông vào tối nay không?',
+];
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -41,8 +45,7 @@ const normalize = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-const formatMoney = (value?: number | null) =>
-  value ? `${moneyFormatter.format(value)}đ` : undefined;
+const formatMoney = (value?: number | null) => (value ? `${moneyFormatter.format(value)}đ` : undefined);
 
 const answerSimpleMath = (message: string) => {
   const normalizedExpression = message
@@ -55,6 +58,7 @@ const answerSimpleMath = (message: string) => {
   const left = Number(normalizedExpression[1]);
   const operator = normalizedExpression[2];
   const right = Number(normalizedExpression[3]);
+
   if (!Number.isFinite(left) || !Number.isFinite(right)) return undefined;
 
   const result =
@@ -75,6 +79,7 @@ const isBackendFailureMessage = (value?: string) => {
   if (!value) return true;
 
   const text = normalize(value);
+
   return (
     text.includes('xin loi') &&
     (text.includes('loi xay ra') ||
@@ -87,9 +92,7 @@ const isBackendFailureMessage = (value?: string) => {
 const buildLocalAnswer = (message: string, isAuthenticated: boolean) => {
   const text = normalize(message);
   const mathAnswer = answerSimpleMath(message);
-  const authHint = isAuthenticated
-    ? ''
-    : '\n\nĐăng nhập sẽ giúp mình gợi ý theo dữ liệu sân và lịch sử đặt sân của bạn.';
+  const authHint = isAuthenticated ? '' : '\n\nĐăng nhập sẽ giúp mình gợi ý theo dữ liệu sân và lịch sử đặt sân của bạn.';
 
   if (mathAnswer) return `${mathAnswer}${authHint}`;
 
@@ -141,6 +144,21 @@ const renderMessageText = (content: string) =>
 const AIChatBox: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+
+  // Hide chatbox on auth and dashboard pages
+  const shouldHideChatbox = useMemo(() => {
+    const path = location.pathname.toLowerCase();
+    return (
+      path.startsWith('/login') ||
+      path.startsWith('/register') ||
+      path.startsWith('/forgot-password') ||
+      path.startsWith('/dashboard')
+    );
+  }, [location.pathname]);
+
+  if (shouldHideChatbox) {
+    return null;
+  }
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
@@ -151,18 +169,13 @@ const AIChatBox: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const frameRef = useRef<number | null>(null);
   const previewPositionRef = useRef({ x: 0, y: 0 });
-  const dragRef = useRef({
-    pointerId: -1,
-    startX: 0,
-    startY: 0,
-    originX: 0,
-    originY: 0,
-    moved: false,
-  });
+  const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, originX: 0, originY: 0, moved: false });
+
   const [position, setPosition] = useState(() => ({
     x: typeof window === 'undefined' ? 24 : Math.max(16, window.innerWidth - 80),
     y: typeof window === 'undefined' ? 24 : Math.max(88, window.innerHeight - 80),
   }));
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -171,8 +184,8 @@ const AIChatBox: React.FC = () => {
   ]);
 
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
-  const panelWidth = isExpanded ? 'w-[min(720px,calc(100vw-32px))]' : 'w-[min(520px,calc(100vw-32px))]';
-  const messageHeight = isExpanded ? 'max-h-[560px] min-h-[260px]' : 'max-h-[460px] min-h-[330px]';
+  const panelWidth = isExpanded ? 'w-[min(680px,calc(100vw-32px))]' : 'w-[min(440px,calc(100vw-32px))]';
+  const messageHeight = isExpanded ? 'max-h-[560px] min-h-[300px]' : 'max-h-[430px] min-h-[300px]';
   const panelAlign = typeof window !== 'undefined' && position.x < window.innerWidth / 2 ? 'left-0' : 'right-0';
   const panelVertical = typeof window !== 'undefined' && position.y < window.innerHeight * 0.45 ? 'top-[72px]' : 'bottom-[72px]';
 
@@ -190,17 +203,13 @@ const AIChatBox: React.FC = () => {
   }, [messages, isSending, isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      window.setTimeout(() => inputRef.current?.focus(), 120);
-    }
+    if (isOpen) window.setTimeout(() => inputRef.current?.focus(), 120);
   }, [isOpen]);
 
   useEffect(() => {
-    const handleResize = () => {
-      setPosition((current) => clampPosition(current.x, current.y));
-    };
-
+    const handleResize = () => setPosition((current) => clampPosition(current.x, current.y));
     window.addEventListener('resize', handleResize);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
@@ -243,10 +252,12 @@ const AIChatBox: React.FC = () => {
     if (dragRef.current.pointerId !== event.pointerId) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
     dragRef.current.pointerId = -1;
+
     if (frameRef.current !== null) {
       window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     }
+
     if (wrapperRef.current) wrapperRef.current.style.transform = '';
     setPosition(previewPositionRef.current);
   };
@@ -289,28 +300,22 @@ const AIChatBox: React.FC = () => {
   };
 
   return (
-    <div
-      ref={wrapperRef}
-      className="fixed z-[120] font-sans"
-      style={{ left: position.x, top: position.y }}
-    >
+    <div ref={wrapperRef} className="fixed z-[120] font-sans" style={{ left: position.x, top: position.y }}>
       {isOpen && (
         <section
-          className={`absolute ${panelVertical} ${panelAlign} ${panelWidth} overflow-hidden rounded-3xl border border-cyan-200 bg-white shadow-2xl shadow-blue-950/20 transition-all duration-200`}
+          className={`absolute ${panelVertical} ${panelAlign} ${panelWidth} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/15 transition-all duration-200`}
           aria-label="SmartSport AI chat"
         >
-          <header className="relative flex items-center justify-between gap-4 overflow-hidden border-b border-blue-600 bg-blue-700 px-4 py-4 text-white">
-            <span className="absolute -right-5 -top-8 h-24 w-24 rounded-full border-[16px] border-cyan-400" />
+          <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-300 text-blue-950">
+              <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">
                 <Bot size={20} />
-                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-blue-700 bg-emerald-400" />
+                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
               </div>
+
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-black text-white">SmartSport AI</h2>
-                <p className="truncate text-xs font-semibold text-blue-200">
-                  Tư vấn sân và hỗ trợ nhanh
-                </p>
+                <h2 className="truncate text-sm font-black text-slate-950">SmartSport AI</h2>
+                <p className="truncate text-xs font-semibold text-slate-500">Tư vấn sân và hỗ trợ nhanh</p>
               </div>
             </div>
 
@@ -318,15 +323,16 @@ const AIChatBox: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsExpanded((value) => !value)}
-                className="relative grid h-9 w-9 place-items-center rounded-xl text-blue-100 transition hover:bg-blue-600 hover:text-white"
+                className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label={isExpanded ? 'Thu nhỏ trợ lý AI' : 'Mở rộng trợ lý AI'}
               >
                 {isExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
               </button>
+
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="relative grid h-9 w-9 place-items-center rounded-xl text-blue-100 transition hover:bg-blue-600 hover:text-white"
+                className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Đóng trợ lý AI"
               >
                 <X size={18} />
@@ -334,66 +340,76 @@ const AIChatBox: React.FC = () => {
             </div>
           </header>
 
-          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-slate-50 px-5 py-5`}>
-            {messages.length === 1 ? <AIWelcome onPrompt={(prompt) => sendMessage(undefined, prompt)} /> : <>{messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                <div className={`flex max-w-[92%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  {message.role === 'assistant' && (
-                    <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-blue-700 text-amber-300">
-                      <Sparkles size={15} />
-                    </div>
-                  )}
+          <div ref={scrollRef} className={`custom-scrollbar ${messageHeight} space-y-4 overflow-y-auto bg-slate-50 px-4 py-4`}>
+            {messages.length === 1 ? (
+              <AIWelcome onPrompt={(prompt) => sendMessage(undefined, prompt)} />
+            ) : (
+              <>
+                {messages.map((message, index) => (
+                  <div key={`${message.role}-${index}`} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                    <div className={`flex max-w-[92%] gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                      {message.role === 'assistant' && (
+                        <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
+                          <Sparkles size={15} />
+                        </div>
+                      )}
 
-                  <div className="min-w-0">
-                    <div
-                      className={`space-y-2 rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${
-                        message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-cyan-100 bg-white text-slate-700 shadow-sm'
-                      }`}
-                    >
-                      {renderMessageText(message.content)}
-                    </div>
+                      <div className="min-w-0">
+                        <div
+                          className={`space-y-2 rounded-xl px-4 py-3 text-sm font-semibold leading-6 ${
+                            message.role === 'user'
+                              ? 'bg-blue-600 text-white'
+                              : 'border border-slate-200 bg-white text-slate-700 shadow-sm'
+                          }`}
+                        >
+                          {renderMessageText(message.content)}
+                        </div>
 
-                    {message.recommendations && message.recommendations.length > 0 && (
-                      <div className="mt-3 grid gap-2">
-                        {message.recommendations.slice(0, isExpanded ? 5 : 3).map((item) => (
-                          <Link
-                            key={item.pitchId}
-                            to={`/san/${item.pitchId}${item.pitchName ? `-${slugify(item.pitchName)}` : ''}`}
-                            onClick={() => setIsOpen(false)}
-                            className="group block rounded-xl border border-cyan-100 bg-white p-3 text-left transition hover:border-blue-400 hover:shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <span className="block truncate text-sm font-black text-slate-950">{item.pitchName}</span>
-                                <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
-                                  {item.reasons?.[0] || `Độ phù hợp ${Math.round(item.score)}%`}
-                                </span>
-                              </div>
-                              <ChevronRight size={18} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-700" />
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {formatMoney(item.estimatedPrice) && (
-                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">
-                                  Từ {formatMoney(item.estimatedPrice)}
-                                </span>
-                              )}
-                              {item.distanceKm && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                                  <MapPin size={11} />
-                                  {item.distanceKm.toFixed(1)} km
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        ))}
+                        {message.recommendations && message.recommendations.length > 0 && (
+                          <div className="mt-3 grid gap-2">
+                            {message.recommendations.slice(0, isExpanded ? 5 : 3).map((item) => (
+                              <Link
+                                key={item.pitchId}
+                                to={`/san/${item.pitchId}${item.pitchName ? `-${slugify(item.pitchName)}` : ''}`}
+                                onClick={() => setIsOpen(false)}
+                                className="group block rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-300 hover:shadow-sm"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <span className="block truncate text-sm font-black text-slate-950">{item.pitchName}</span>
+                                    <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
+                                      {item.reasons?.[0] || `Độ phù hợp ${Math.round(item.score)}%`}
+                                    </span>
+                                  </div>
+                                  <ChevronRight
+                                    size={18}
+                                    className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-700"
+                                  />
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {formatMoney(item.estimatedPrice) && (
+                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">
+                                      Từ {formatMoney(item.estimatedPrice)}
+                                    </span>
+                                  )}
+                                  {item.distanceKm && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                                      <MapPin size={11} />
+                                      {item.distanceKm.toFixed(1)} km
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}</>}
+                ))}
+              </>
+            )}
 
             {isSending && (
               <div className="flex items-center gap-2 text-xs font-black text-blue-700">
@@ -403,19 +419,19 @@ const AIChatBox: React.FC = () => {
             )}
           </div>
 
-          <div className="border-t border-slate-100 bg-white p-4">
+          <div className="border-t border-slate-200 bg-white p-4">
             <form onSubmit={sendMessage} className="flex gap-2">
               <input
                 ref={inputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Hỏi về sân, thanh toán hoặc luật thể thao..."
-                className="min-w-0 flex-1 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
               />
               <button
                 type="submit"
                 disabled={!canSend}
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Gửi tin nhắn"
               >
                 {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
@@ -438,33 +454,66 @@ const AIChatBox: React.FC = () => {
           }
           setIsOpen((value) => !value);
         }}
-        className="group relative grid h-[64px] w-[64px] touch-none place-items-center rounded-2xl border border-cyan-300 bg-blue-600 text-white shadow-2xl shadow-blue-600/30 transition hover:-translate-y-0.5 hover:bg-blue-700"
+        className="group relative grid h-14 w-14 touch-none place-items-center rounded-2xl border border-slate-200 bg-white text-blue-600 shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-blue-50"
         aria-label={isOpen ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'}
         title="Kéo để di chuyển"
       >
-        <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-emerald-400">
-          <span className="h-2 w-2 rounded-full bg-white" />
-        </span>
-        {isOpen ? (
-          <X size={24} />
-        ) : isSending ? (
-          <Sparkles size={25} className="animate-pulse" />
-        ) : (
-          <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/18 shadow-inner shadow-white/20">
-            <Bot size={27} />
-            <span className="absolute bottom-2 left-3 h-1.5 w-1.5 rounded-full bg-white" />
-            <span className="absolute bottom-2 right-3 h-1.5 w-1.5 rounded-full bg-white" />
-          </span>
-        )}
+        <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full border-2 border-white bg-emerald-400" />
+        {isOpen ? <X size={23} /> : isSending ? <Sparkles size={24} className="animate-pulse" /> : <Bot size={26} />}
       </button>
     </div>
   );
 };
 
-const AIWelcome = ({ onPrompt }: { onPrompt: (prompt: string) => void }) => <div className="space-y-5">
-  <div className="flex items-start gap-3"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-blue-800 text-amber-300 shadow-sm"><Bot size={25} /></span><div className="rounded-2xl bg-white px-5 py-4 text-base font-semibold leading-7 text-slate-700 shadow-sm"><p className="text-xl font-black text-slate-950">Xin chào!</p><p className="mt-2">Mình là SmartSport AI, mình có thể giúp bạn tìm sân phù hợp, hướng dẫn đặt sân hoặc giải đáp các câu hỏi về thể thao.</p></div></div>
-  <div className="rounded-2xl bg-white p-4 shadow-sm"><p className="mb-3 text-sm font-bold text-slate-500">Bạn có thể hỏi về:</p><div className="grid gap-2 sm:grid-cols-2">{starterOptions.map(({ label, prompt, icon: Icon, tone }) => <button key={label} type="button" onClick={() => onPrompt(prompt)} className="flex min-h-15 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-sm font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"><span className={`grid h-10 w-10 place-items-center rounded-full ${tone}`}><Icon size={20} /></span>{label}</button>)}</div></div>
-  <div className="space-y-2">{starterQuestions.map((question) => <button key={question} type="button" onClick={() => onPrompt(question)} className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"><span>{question}</span><ChevronRight size={19} /></button>)}</div>
-</div>;
+const AIWelcome = ({ onPrompt }: { onPrompt: (prompt: string) => void }) => (
+  <div className="space-y-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
+          <Bot size={22} />
+        </span>
+        <div>
+          <p className="text-lg font-black text-slate-950">Xin chào!</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            Mình có thể giúp bạn tìm sân phù hợp, hướng dẫn đặt sân, thanh toán cọc hoặc trả lời nhanh câu hỏi thể thao.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">Hỏi nhanh</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {starterOptions.map(({ label, prompt, icon: Icon, tone }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onPrompt(prompt)}
+            className="flex min-h-12 items-center gap-3 rounded-lg border border-slate-200 px-3 text-left text-sm font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"
+          >
+            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${tone}`}>
+              <Icon size={17} />
+            </span>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      {starterQuestions.map((question) => (
+        <button
+          key={question}
+          type="button"
+          onClick={() => onPrompt(question)}
+          className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+        >
+          <span>{question}</span>
+          <ChevronRight size={18} />
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
 export default AIChatBox;

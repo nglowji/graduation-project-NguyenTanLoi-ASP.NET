@@ -51,15 +51,21 @@ public class GetAvailableTimeSlotsQueryHandler
         var today = DateOnly.FromDateTime(vietnamNow.DateTime);
         var currentTime = TimeOnly.FromDateTime(vietnamNow.DateTime).ToTimeSpan();
 
+        var timeSlotIds = timeSlots.Select(ts => ts.Id).ToList();
+        var unavailableSlotIds = await _bookingRepository.GetUnavailableTimeSlotIdsAsync(
+            timeSlotIds, request.Date, cancellationToken);
+        var lockedSlotIds = await _bookingLockRepository.GetActiveLockedTimeSlotIdsAsync(
+            timeSlotIds, request.Date, cancellationToken);
+
         var timeSlotDtos = new List<TimeSlotDto>();
         foreach (var ts in timeSlots)
         {
             var dto = _mapper.Map<TimeSlotDto>(ts);
             var isPastDate = request.Date < today;
             var isPastTime = request.Date == today && ts.TimeRange.StartTime <= currentTime;
-            var isBooked = !await _bookingRepository.IsTimeSlotAvailableAsync(ts.Id, request.Date, cancellationToken);
-            var activeLock = await _bookingLockRepository.GetActiveLockAsync(ts.Id, request.Date, cancellationToken);
-            dto.IsAvailable = ts.IsActive && !isPastDate && !isPastTime && !isBooked && activeLock == null;
+            var isBooked = unavailableSlotIds.Contains(ts.Id);
+            var isLocked = lockedSlotIds.Contains(ts.Id);
+            dto.IsAvailable = ts.IsActive && !isPastDate && !isPastTime && !isBooked && !isLocked;
             
             // Apply dynamic pricing
             var effectivePrice = _pricingService.CalculateEffectivePrice(ts, request.Date);

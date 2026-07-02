@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
-import App from './App.tsx'
+import { GoogleOAuthProvider } from '@react-oauth/google'
+import App from './App'
 
 const GOOGLE_CLIENT_ID = "704431364110-pavu61gakv9n5ofmnf7rl7jt11md8qqc.apps.googleusercontent.com" // Replace with actual ID
 

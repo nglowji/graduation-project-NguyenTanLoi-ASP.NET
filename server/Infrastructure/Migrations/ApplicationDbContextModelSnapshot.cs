@@ -120,6 +120,8 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("BookingDate", "Status");
+
                     b.HasIndex("TimeSlotId", "BookingDate");
 
                     b.ToTable("Bookings", (string)null);
@@ -369,6 +371,8 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("TransactionDate");
 
+                    b.HasIndex("Status", "CreatedAt");
+
                     b.ToTable("PaymentTransactions", (string)null);
                 });
 
@@ -526,9 +530,9 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BookingId")
                         .IsUnique();
 
-                    b.HasIndex("PitchId");
-
                     b.HasIndex("UserId");
+
+                    b.HasIndex("PitchId", "CreatedAt");
 
                     b.ToTable("Reviews");
                 });

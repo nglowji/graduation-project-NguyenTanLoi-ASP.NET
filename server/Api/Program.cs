@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using Api.BackgroundServices;
@@ -210,7 +211,24 @@ try
 }
 catch (IOException ex) when (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase))
 {
-    Log.Fatal("Backend không thể khởi động vì cổng đang được một tiến trình khác sử dụng. Hãy dừng backend cũ trước khi chạy lại.");
+    Log.Fatal(
+        "Backend không thể khởi động vì cổng 5164 đang được dùng. " +
+        "Chạy: .\\scripts\\stop-backend.ps1 rồi thử lại.");
+}
+catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+{
+    Log.Fatal(
+        "Backend không thể khởi động vì cổng 5164 đang được dùng. " +
+        "Chạy: .\\scripts\\stop-backend.ps1 rồi thử lại.");
+}
+catch (Exception ex) when (ex.GetBaseException().Message.Contains("Failed to connect", StringComparison.OrdinalIgnoreCase)
+    || ex.GetBaseException().Message.Contains("Connection refused", StringComparison.OrdinalIgnoreCase)
+    || ex.GetBaseException().GetType().Name.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+{
+    Log.Fatal(
+        ex,
+        "Không kết nối được PostgreSQL (localhost:5432). " +
+        "Chạy: docker compose up -d postgres (từ thư mục gốc repo) rồi thử lại.");
 }
 catch (Exception ex)
 {

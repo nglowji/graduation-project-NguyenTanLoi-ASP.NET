@@ -12,19 +12,13 @@ namespace Application.Features.Dashboard.Queries;
 /// <summary>Handler for Admin dashboard stats</summary>
 public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashboardStatsQuery, Result<AdminDashboardStatsDto>>
 {
-    private readonly IUserRepository _userRepository;
-    private readonly IBookingRepository _bookingRepository;
     private readonly IPitchRepository _pitchRepository;
     private readonly IApplicationDbContext _context;
 
     public GetAdminDashboardStatsQueryHandler(
-        IUserRepository userRepository,
-        IBookingRepository bookingRepository,
         IPitchRepository pitchRepository,
         IApplicationDbContext context)
     {
-        _userRepository = userRepository;
-        _bookingRepository = bookingRepository;
         _pitchRepository = pitchRepository;
         _context = context;
     }
@@ -36,9 +30,29 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
         var lastMonthStart = thisMonthStart.AddMonths(-1);
         var lastMonthEnd = thisMonthStart.AddDays(-1);
 
-        var users = await _userRepository.GetAllAsync(cancellationToken);
-        var thisMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(thisMonthStart, today, cancellationToken);
-        var lastMonthBookings = await _bookingRepository.GetAllByDateRangeAsync(lastMonthStart, lastMonthEnd, cancellationToken);
+        var thisMonthStartUtc = thisMonthStart.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var lastMonthStartUtc = lastMonthStart.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+        var totalUsers = await _context.Users.AsNoTracking().CountAsync(cancellationToken);
+        var totalOwners = await _context.Users.AsNoTracking().CountAsync(u => u.Role == UserRole.PitchOwner, cancellationToken);
+        var activeOwners = await _context.Users.AsNoTracking().CountAsync(u => u.Role == UserRole.PitchOwner && u.IsActive, cancellationToken);
+        var thisMonthUsers = await _context.Users.AsNoTracking().CountAsync(u => u.CreatedAt >= thisMonthStartUtc, cancellationToken);
+        var lastMonthUsers = await _context.Users.AsNoTracking().CountAsync(
+            u => u.CreatedAt >= lastMonthStartUtc && u.CreatedAt < thisMonthStartUtc,
+            cancellationToken);
+
+        var confirmedStatuses = new[] { BookingStatus.Confirmed, BookingStatus.Completed };
+        var thisMonthRevenueBase = await _context.Bookings.AsNoTracking()
+            .Where(b => b.BookingDate >= thisMonthStart
+                && b.BookingDate <= today
+                && confirmedStatuses.Contains(b.Status))
+            .SumAsync(b => b.TotalPrice.Amount, cancellationToken);
+        var lastMonthRevenueBase = await _context.Bookings.AsNoTracking()
+            .Where(b => b.BookingDate >= lastMonthStart
+                && b.BookingDate <= lastMonthEnd
+                && confirmedStatuses.Contains(b.Status))
+            .SumAsync(b => b.TotalPrice.Amount, cancellationToken);
+
         var totalPitches = await _context.Pitches.AsNoTracking().CountAsync(cancellationToken);
         var totalBookings = await _context.Bookings.AsNoTracking().CountAsync(cancellationToken);
         var pendingPitches = await _pitchRepository.GetPagedAsync(1, 1, null, PitchStatus.PendingApproval, cancellationToken);
@@ -49,25 +63,23 @@ public class GetAdminDashboardStatsQueryHandler : IRequestHandler<GetAdminDashbo
         var commissionRate = await DashboardConfigurationReader.GetPlatformCommissionRateAsync(
             _context,
             cancellationToken);
-        var thisMonthRevenue = thisMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
-        var lastMonthRevenue = lastMonthBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
+        var thisMonthRevenue = thisMonthRevenueBase * commissionRate;
+        var lastMonthRevenue = lastMonthRevenueBase * commissionRate;
 
         var commissionGrowth = lastMonthRevenue > 0
             ? Math.Round((double)((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100), 1)
             : 0;
 
-        var thisMonthUsers = users.Count(u => DateOnly.FromDateTime(u.CreatedAt) >= thisMonthStart);
-        var lastMonthUsers = users.Count(u => DateOnly.FromDateTime(u.CreatedAt) >= lastMonthStart && DateOnly.FromDateTime(u.CreatedAt) < thisMonthStart);
         var userGrowth = lastMonthUsers > 0
             ? Math.Round((double)(thisMonthUsers - lastMonthUsers) / lastMonthUsers * 100, 1)
             : 0;
 
         return Result<AdminDashboardStatsDto>.Success(new AdminDashboardStatsDto(
-            users.Count,
-            users.Count(u => u.Role == UserRole.PitchOwner),
+            totalUsers,
+            totalOwners,
             totalPitches,
             totalBookings,
-            users.Count(u => u.Role == UserRole.PitchOwner && u.IsActive),
+            activeOwners,
             thisMonthRevenue,
             pendingPitches.TotalCount + pendingOwnerCenters,
             userGrowth,
@@ -191,15 +203,23 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
     {
         var pitches = await _pitchRepository.GetByOwnerIdAsync(request.OwnerId, cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var pitchIds = pitches.Select(p => p.Id).ToList();
+        var todayBookings = pitchIds.Count == 0
+            ? []
+            : await _bookingRepository.GetByPitchesAndDateRangeAsync(pitchIds, today, today, cancellationToken);
 
-        var summaries = new List<OwnerPitchSummaryDto>();
-        foreach (var pitch in pitches)
+        var confirmedStatuses = new[] { BookingStatus.Confirmed, BookingStatus.Completed };
+        var bookingsByPitch = todayBookings
+            .Where(b => b.TimeSlot != null && confirmedStatuses.Contains(b.Status))
+            .GroupBy(b => b.TimeSlot!.PitchId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var summaries = pitches.Select(pitch =>
         {
-            var todayBookings = await _bookingRepository.GetByPitchesAndDateRangeAsync(
-                new[] { pitch.Id }, today, today, cancellationToken);
-            var confirmed = todayBookings.Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed).ToList();
+            bookingsByPitch.TryGetValue(pitch.Id, out var confirmed);
+            confirmed ??= [];
 
-            summaries.Add(new OwnerPitchSummaryDto(
+            return new OwnerPitchSummaryDto(
                 pitch.Id,
                 pitch.Name,
                 NormalizePitchType(pitch.Type).ToString(),
@@ -207,8 +227,8 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
                 pitch.Status.ToString(),
                 confirmed.Count,
                 confirmed.Sum(b => b.TotalPrice.Amount),
-                pitch.Reviews.Any() ? pitch.Reviews.Average(review => review.Rating) : 0,
-                pitch.Reviews.Count,
+                (double)pitch.AverageRating,
+                pitch.TotalReviews,
                 pitch.SportCenter?.Address?.GetFullAddress() ?? "",
                 pitch.MapLink,
                 pitch.IsIndoor,
@@ -231,8 +251,8 @@ public class GetOwnerPitchesQueryHandler : IRequestHandler<GetOwnerPitchesQuery,
                     IsActive = ts.IsActive
                 }).ToList(),
                 pitch.TimeSlots.Where(ts => ts.IsActive).Any() ? pitch.TimeSlots.Where(ts => ts.IsActive).Min(ts => ts.Price.Amount) : 0
-            ));
-        }
+            );
+        }).ToList();
 
         return Result<List<OwnerPitchSummaryDto>>.Success(summaries);
     }
@@ -296,12 +316,12 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             .ThenByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var previousBookings = await _context.Bookings
+        var previousCommissionBase = await _context.Bookings
             .AsNoTracking()
             .Where(b => b.BookingDate >= previousFrom
                 && b.BookingDate <= previousTo
                 && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed))
-            .ToListAsync(cancellationToken);
+            .SumAsync(b => b.TotalPrice.Amount, cancellationToken);
 
         var ownerIds = bookings
             .Select(b => b.TimeSlot.Pitch.OwnerId)
@@ -318,7 +338,7 @@ public class GetAdminRevenueReportQueryHandler : IRequestHandler<GetAdminRevenue
             cancellationToken);
         var grossRevenue = bookings.Sum(b => b.TotalPrice.Amount);
         var platformCommission = grossRevenue * commissionRate;
-        var previousCommission = previousBookings.Sum(b => b.TotalPrice.Amount) * commissionRate;
+        var previousCommission = previousCommissionBase * commissionRate;
         var commissionGrowth = previousCommission > 0
             ? Math.Round((double)((platformCommission - previousCommission) / previousCommission * 100), 1)
             : 0;
@@ -466,16 +486,13 @@ public class GetAdminUsersQueryHandler : IRequestHandler<GetAdminUsersQuery, Res
 public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQuery, Result<PagedResult<PitchApprovalDto>>>
 {
     private readonly IPitchRepository _pitchRepository;
-    private readonly IUserRepository _userRepository;
     private readonly IApplicationDbContext _context;
 
     public GetPitchApprovalsQueryHandler(
         IPitchRepository pitchRepository,
-        IUserRepository userRepository,
         IApplicationDbContext context)
     {
         _pitchRepository = pitchRepository;
-        _userRepository = userRepository;
         _context = context;
     }
 
@@ -485,11 +502,16 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
         Enum.TryParse<PitchStatus>(normalizedStatus, true, out var status);
         var paged = await _pitchRepository.GetPagedAsync(1, 50, null, status, cancellationToken);
 
-        var dtos = new List<PitchApprovalDto>();
-        foreach (var pitch in paged.Items)
+        var ownerIds = paged.Items.Select(p => p.OwnerId).Distinct().ToList();
+        var owners = await _context.Users
+            .AsNoTracking()
+            .Where(u => ownerIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+        var dtos = paged.Items.Select(pitch =>
         {
-            var owner = await _userRepository.GetByIdAsync(pitch.OwnerId, cancellationToken);
-            dtos.Add(new PitchApprovalDto(
+            owners.TryGetValue(pitch.OwnerId, out var owner);
+            return new PitchApprovalDto(
                 pitch.Id,
                 pitch.Name,
                 owner?.FullName ?? "N/A",
@@ -498,8 +520,8 @@ public class GetPitchApprovalsQueryHandler : IRequestHandler<GetPitchApprovalsQu
                 pitch.Type.ToString(),
                 pitch.SportCenter?.Address?.GetFullAddress() ?? "N/A",
                 pitch.Status == PitchStatus.PendingApproval ? "pending" : pitch.Status.ToString().ToLowerInvariant()
-            ));
-        }
+            );
+        }).ToList();
 
         return Result<PagedResult<PitchApprovalDto>>.Success(
             new PagedResult<PitchApprovalDto>(dtos, dtos.Count, 1, 50));

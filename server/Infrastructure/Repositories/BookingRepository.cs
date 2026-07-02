@@ -66,6 +66,30 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
         return !hasConflict;
     }
 
+    public async Task<HashSet<Guid>> GetUnavailableTimeSlotIdsAsync(
+        IEnumerable<Guid> timeSlotIds,
+        DateOnly date,
+        CancellationToken cancellationToken = default)
+    {
+        var slotIdList = timeSlotIds as IReadOnlyCollection<Guid> ?? timeSlotIds.ToList();
+        if (slotIdList.Count == 0)
+            return [];
+
+        var unavailable = await _context.Bookings
+            .AsNoTracking()
+            .Where(b =>
+                slotIdList.Contains(b.TimeSlotId) &&
+                b.BookingDate == date &&
+                (b.Status == BookingStatus.PendingDeposit ||
+                 b.Status == BookingStatus.Confirmed ||
+                 b.Status == BookingStatus.Completed))
+            .Select(b => b.TimeSlotId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return unavailable.ToHashSet();
+    }
+
     public async Task<Booking?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Bookings
@@ -97,6 +121,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     {
         return await _context.Bookings
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
@@ -114,6 +139,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     {
         return await _context.Bookings
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)
@@ -161,6 +187,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     {
         var query = _context.Bookings
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(b => b.User)
             .Include(b => b.TimeSlot)
                 .ThenInclude(ts => ts.Pitch)

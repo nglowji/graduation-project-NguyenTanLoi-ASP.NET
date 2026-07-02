@@ -2,6 +2,15 @@
 
 ## Start API Locally
 
+```bash
+cd server/Api
+dotnet run
+```
+
+`dotnet run` tự chuẩn bị môi trường dev (PostgreSQL Docker, cổng 5164) trước khi khởi động API.
+
+Hoặc dùng script từ thư mục gốc repo: `.\scripts\start-backend.ps1`
+
 ### 1. Start PostgreSQL
 
 The backend development config uses PostgreSQL at `localhost:5432`:
@@ -88,8 +97,8 @@ dotnet tool install --global dotnet-ef
 ### 4. Start API
 
 ```bash
-cd ../Api
-dotnet run --launch-profile http
+cd server/Api
+dotnet run
 ```
 
 API URL:
@@ -156,7 +165,11 @@ The development connection string is in `server/Api/appsettings.Development.json
 
 ### Port 5164 Already In Use
 
-PowerShell:
+```powershell
+.\scripts\stop-backend.ps1
+```
+
+Hoặc thủ công:
 
 ```powershell
 $conn = Get-NetTCPConnection -LocalPort 5164 -ErrorAction SilentlyContinue

@@ -1,3 +1,4 @@
+using Application.Common;
 using Application.Common.Interfaces;
 using Application.Common.DTOs;
 using Domain.Entities;
@@ -50,7 +51,7 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
 
             if (sportCenter != null && !string.IsNullOrWhiteSpace(request.Address))
             {
-                sportCenter.UpdateAddress(BuildAddress(
+                sportCenter.UpdateAddress(AddressBuilder.FromFullAddress(
                     request.Address.Trim(),
                     sportCenter.Address,
                     request.Latitude,
@@ -61,39 +62,24 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
         else
         {
             var finalAddress = request.Address ?? owner.Address ?? "Địa chỉ trung tâm (Vui lòng cập nhật trong cài đặt)";
-            
-            // Cố gắng phân tách địa chỉ thông minh hơn
-            string city = "Thành phố Hồ Chí Minh"; // Mặc định
-            string district = "Quận 1";
-            string ward = "Phường 1";
-            
-            var parts = finalAddress.Split(',').Select(p => p.Trim()).ToList();
-            if (parts.Count >= 3)
-            {
-                city = parts[parts.Count - 1];
-                district = parts[parts.Count - 2];
-                ward = parts[parts.Count - 3];
-            }
-            else if (parts.Count == 2)
-            {
-                city = parts[1];
-                district = parts[0];
-            }
-            else if (parts.Count == 1 && !string.IsNullOrWhiteSpace(parts[0]))
-            {
-                city = parts[0];
-            }
+            var defaultAddress = Address.Create(
+                "Địa chỉ trung tâm",
+                string.Empty,
+                string.Empty,
+                "Thành phố Hồ Chí Minh",
+                10.762622,
+                106.660172);
 
             var sportCenter = new SportCenter(
                 "Trung tâm " + owner.FullName,
                 owner.Id,
-                Address.Create(
+                AddressBuilder.FromFullAddress(
                     finalAddress,
-                    ward,
-                    district,
-                    city,
-                    request.Latitude ?? 10.762622,
-                    request.Longitude ?? 106.660172),
+                    defaultAddress,
+                    request.Latitude,
+                    request.Longitude,
+                    10.762622,
+                    106.660172),
                 "Hệ thống tự động khởi tạo",
                 owner.PhoneNumber
             );
@@ -152,38 +138,4 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
         return Result<Guid>.Success(pitch.Id);
     }
 
-    private static Address BuildAddress(string fullAddress, Address currentAddress, double? latitude, double? longitude)
-    {
-        var parts = fullAddress
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-
-        var city = currentAddress.City;
-        var district = currentAddress.District;
-        var ward = currentAddress.Ward;
-
-        if (parts.Count >= 3)
-        {
-            city = parts[^1];
-            district = parts[^2];
-            ward = parts[^3];
-        }
-        else if (parts.Count == 2)
-        {
-            city = parts[^1];
-            district = parts[0];
-        }
-        else if (parts.Count == 1)
-        {
-            city = parts[0];
-        }
-
-        return Address.Create(
-            fullAddress,
-            ward,
-            district,
-            city,
-            latitude ?? currentAddress.Latitude,
-            longitude ?? currentAddress.Longitude);
-    }
 }

@@ -66,6 +66,7 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
         builder.HasIndex(pt => pt.ProviderTxnId);
         builder.HasIndex(pt => pt.Status);
         builder.HasIndex(pt => pt.TransactionDate);
+        builder.HasIndex(pt => new { pt.Status, pt.CreatedAt });
 
         builder.HasQueryFilter(pt => !pt.IsDeleted);
     }

@@ -2,22 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
-  Archive,
-  Box,
   CheckCircle2,
-  ChevronDown,
   DollarSign,
+  Edit3,
   Eye,
   Filter,
   Image as ImageIcon,
   Loader2,
   Package,
   Plus,
-  Save,
   Search,
   SlidersHorizontal,
   Trash2,
-  WalletCards,
+  Upload,
   X,
 } from 'lucide-react';
 import api from '../../../services/api';
@@ -32,41 +29,65 @@ type ServiceItem = {
   icon?: string;
 };
 
+type FormState = {
+  name: string;
+  price: string;
+  stockQuantity: string;
+  imageFile: File | null;
+  imagePreview: string;
+  category: string;
+  isActive: boolean;
+};
+
+type StatusFilter = 'all' | 'active' | 'inactive';
+type StockFilter = 'all' | 'in' | 'low' | 'out';
+type SortMode = 'name' | 'priceAsc' | 'priceDesc' | 'stockAsc' | 'stockDesc';
+
 const SERVICE_CATEGORIES = ['Đồ uống', 'Dụng cụ', 'Quần áo', 'Tiện ích khác', 'Khác'];
+
+const emptyForm: FormState = {
+  name: '',
+  price: '',
+  stockQuantity: '0',
+  imageFile: null,
+  imagePreview: '',
+  category: 'Đồ uống',
+  isActive: true,
+};
+
+const formatMoney = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+
+const unwrapArray = <T,>(response: any): T[] => {
+  const data = response?.data ?? response;
+  if (typeof data === 'string') return [];
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data)) return data;
+  return [];
+};
 
 const Services: React.FC = () => {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
-  const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'low' | 'out'>('all');
-  const [priceFilter, setPriceFilter] = useState<'all' | 'under50' | '50to100' | 'over100'>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'priceAsc' | 'priceDesc' | 'stockAsc' | 'stockDesc'>('name');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    stockQuantity: '0',
-    imageUrl: '',
-    category: 'Đồ uống',
-    isActive: true,
-  });
 
-  useEffect(() => {
-    fetchServices();
-  }, []);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<SortMode>('name');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [formData, setFormData] = useState<FormState>(emptyForm);
 
   const fetchServices = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/additional-services/my') as any;
-      setServices(Array.isArray(res) ? res : []);
+      const res = await api.get('/additional-services/my');
+      setServices(unwrapArray<ServiceItem>(res));
     } catch {
       setServices([]);
     } finally {
@@ -74,9 +95,13 @@ const Services: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    void fetchServices();
+  }, []);
+
   const openCreate = () => {
     setEditingService(null);
-    setFormData({ name: '', price: '', stockQuantity: '0', imageUrl: '', category: 'Đồ uống', isActive: true });
+    setFormData(emptyForm);
     setError('');
     setIsDrawerOpen(true);
   };
@@ -87,12 +112,55 @@ const Services: React.FC = () => {
       name: service.name || '',
       price: String(service.price || 0),
       stockQuantity: String(service.stockQuantity || 0),
-      imageUrl: service.imageUrl || '',
-      category: SERVICE_CATEGORIES.includes(service.icon || '') ? service.icon! : 'Khác',
-      isActive: service.isActive ?? true,
+      imageFile: null,
+      imagePreview: service.imageUrl || '',
+      category: SERVICE_CATEGORIES.includes(service.icon || '') ? String(service.icon) : 'Khác',
+      isActive: service.isActive !== false,
     });
     setError('');
     setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setEditingService(null);
+    setError('');
+    if (formData.imagePreview && formData.imageFile) {
+      URL.revokeObjectURL(formData.imagePreview);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (formData.imagePreview && formData.imageFile) {
+        URL.revokeObjectURL(formData.imagePreview);
+      }
+      setFormData((prev) => ({
+        ...prev,
+        imageFile: file,
+        imagePreview: URL.createObjectURL(file),
+      }));
+    }
+  };
+
+  const removeSelectedImage = () => {
+    if (formData.imagePreview && formData.imageFile) {
+      URL.revokeObjectURL(formData.imagePreview);
+    }
+    setFormData((prev) => ({
+      ...prev,
+      imageFile: null,
+      imagePreview: '',
+    }));
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setStockFilter('all');
+    setCategoryFilter('all');
+    setSortBy('name');
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -101,30 +169,34 @@ const Services: React.FC = () => {
     setError('');
 
     try {
-      const trimmedName = formData.name.trim();
-      if (!trimmedName) {
+      const name = formData.name.trim();
+      const price = Number(formData.price);
+      const stockQuantity = Number(formData.stockQuantity);
+
+      if (!name) {
         setError('Vui lòng nhập tên dịch vụ.');
+        setIsSubmitting(false);
         return;
       }
 
-      const priceValue = Number(formData.price);
-      if (!Number.isFinite(priceValue) || priceValue < 0) {
+      if (!Number.isFinite(price) || price < 0) {
         setError('Giá bán phải là số hợp lệ.');
+        setIsSubmitting(false);
         return;
       }
 
-      const stockValue = Number(formData.stockQuantity);
-      if (!Number.isFinite(stockValue) || stockValue < 0) {
+      if (!Number.isFinite(stockQuantity) || stockQuantity < 0) {
         setError('Tồn kho không được âm.');
+        setIsSubmitting(false);
         return;
       }
 
       const payload = {
-        name: trimmedName,
-        price: priceValue || 0,
+        name,
+        price,
         icon: formData.category,
-        stockQuantity: stockValue || 0,
-        imageUrl: formData.imageUrl.trim() || null,
+        stockQuantity,
+        imageUrl: formData.imagePreview.trim() || null,
         isActive: formData.isActive,
       };
 
@@ -134,10 +206,10 @@ const Services: React.FC = () => {
         await api.post('/additional-services', payload);
       }
 
-      setIsDrawerOpen(false);
-      fetchServices();
+      closeDrawer();
+      await fetchServices();
     } catch (err: any) {
-      setError(err.message || 'Không thể lưu dịch vụ.');
+      setError(err?.response?.data?.message || err?.message || 'Không thể lưu dịch vụ.');
     } finally {
       setIsSubmitting(false);
     }
@@ -145,305 +217,490 @@ const Services: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Xóa dịch vụ này?')) return;
+
     try {
       await api.delete(`/additional-services/${id}`);
-      fetchServices();
+      await fetchServices();
     } catch {
       alert('Không thể xóa dịch vụ.');
     }
   };
 
-  const formatMoney = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+  const stats = useMemo(() => {
+    const total = services.length;
+    const active = services.filter((item) => item.isActive !== false).length;
+    const lowStock = services.filter((item) => {
+      const stock = Number(item.stockQuantity || 0);
+      return stock > 0 && stock <= 5;
+    }).length;
+    const outOfStock = services.filter((item) => Number(item.stockQuantity || 0) <= 0).length;
+    const inventoryValue = services.reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.stockQuantity || 0),
+      0,
+    );
+
+    return { total, active, lowStock, outOfStock, inventoryValue };
+  }, [services]);
 
   const filteredServices = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    return services.filter((service) => {
-      const nameMatch = !keyword || String(service.name || '').toLowerCase().includes(keyword);
-      const isActive = service.isActive !== false;
-      const statusMatch = statusFilter === 'all' || (statusFilter === 'active' ? isActive : !isActive);
-      const stock = Number(service.stockQuantity || 0);
-      const price = Number(service.price || 0);
-      const stockMatch =
-        stockFilter === 'all' ||
-        (stockFilter === 'in' && stock > 0) ||
-        (stockFilter === 'low' && stock > 0 && stock <= 5) ||
-        (stockFilter === 'out' && stock <= 0);
-      const priceMatch =
-        priceFilter === 'all' ||
-        (priceFilter === 'under50' && price < 50000) ||
-        (priceFilter === '50to100' && price >= 50000 && price <= 100000) ||
-        (priceFilter === 'over100' && price > 100000);
-      const categoryMatch = categoryFilter === 'all' || service.icon === categoryFilter;
-      return nameMatch && statusMatch && stockMatch && priceMatch && categoryMatch;
-    }).sort((a, b) => {
-      if (sortBy === 'priceAsc') return Number(a.price || 0) - Number(b.price || 0);
-      if (sortBy === 'priceDesc') return Number(b.price || 0) - Number(a.price || 0);
-      if (sortBy === 'stockAsc') return Number(a.stockQuantity || 0) - Number(b.stockQuantity || 0);
-      if (sortBy === 'stockDesc') return Number(b.stockQuantity || 0) - Number(a.stockQuantity || 0);
-      return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
-    });
-  }, [services, search, statusFilter, stockFilter, priceFilter, sortBy, categoryFilter]);
 
-  const stats = useMemo(() => {
-    const active = services.filter((service) => service.isActive !== false).length;
-    const outOfStock = services.filter((service) => Number(service.stockQuantity || 0) <= 0).length;
-    const lowStock = services.filter((service) => Number(service.stockQuantity || 0) > 0 && Number(service.stockQuantity || 0) <= 5).length;
-    const inventoryValue = services.reduce(
-      (sum, service) => sum + Number(service.price || 0) * Number(service.stockQuantity || 0),
-      0
-    );
-    return { total: services.length, active, outOfStock, lowStock, inventoryValue };
-  }, [services]);
-  const activeFilterCount = [
-    statusFilter !== 'all',
-    stockFilter !== 'all',
-    priceFilter !== 'all',
-    sortBy !== 'name',
-  ].filter(Boolean).length;
-  const resetFilters = () => {
-    setStatusFilter('all');
-    setStockFilter('all');
-    setPriceFilter('all');
-    setSortBy('name');
-  };
+    return services
+      .filter((service) => {
+        const stock = Number(service.stockQuantity || 0);
+        const active = service.isActive !== false;
+
+        const matchKeyword = !keyword || String(service.name || '').toLowerCase().includes(keyword);
+        const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? active : !active);
+        const matchCategory = categoryFilter === 'all' || service.icon === categoryFilter;
+        const matchStock =
+          stockFilter === 'all' ||
+          (stockFilter === 'in' && stock > 5) ||
+          (stockFilter === 'low' && stock > 0 && stock <= 5) ||
+          (stockFilter === 'out' && stock <= 0);
+
+        return matchKeyword && matchStatus && matchCategory && matchStock;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'priceAsc') return Number(a.price || 0) - Number(b.price || 0);
+        if (sortBy === 'priceDesc') return Number(b.price || 0) - Number(a.price || 0);
+        if (sortBy === 'stockAsc') return Number(a.stockQuantity || 0) - Number(b.stockQuantity || 0);
+        if (sortBy === 'stockDesc') return Number(b.stockQuantity || 0) - Number(a.stockQuantity || 0);
+        return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
+      });
+  }, [services, search, statusFilter, stockFilter, categoryFilter, sortBy]);
+
+  const suggestions = useMemo(() => {
+    const outActive = services.filter((item) => item.isActive !== false && Number(item.stockQuantity || 0) <= 0).length;
+    const noImage = services.filter((item) => !item.imageUrl?.trim()).length;
+
+    return [
+      outActive > 0
+        ? {
+            title: `${outActive} dịch vụ hết hàng vẫn đang bán`,
+            desc: 'Nên tạm ẩn hoặc cập nhật tồn kho để tránh khách đặt nhầm.',
+            tone: 'warning' as const,
+          }
+        : null,
+      stats.lowStock > 0
+        ? {
+            title: `${stats.lowStock} dịch vụ sắp hết hàng`,
+            desc: 'Ưu tiên nhập thêm trước khung giờ cao điểm hoặc cuối tuần.',
+            tone: 'warning' as const,
+          }
+        : null,
+      noImage > 0
+        ? {
+            title: `${noImage} dịch vụ chưa có ảnh`,
+            desc: 'Thêm ảnh giúp khách dễ nhận biết dịch vụ khi xác nhận đặt sân.',
+            tone: 'info' as const,
+          }
+        : null,
+    ].filter(Boolean);
+  }, [services, stats.lowStock]);
+
+  const kpis = [
+    {
+      label: 'Tổng dịch vụ',
+      value: String(stats.total),
+      change: `${filteredServices.length} đang hiển thị`,
+      icon: Package,
+      color: 'text-blue-600 bg-blue-50',
+    },
+    {
+      label: 'Đang bán',
+      value: String(stats.active),
+      change: 'Sẵn sàng đặt kèm',
+      icon: CheckCircle2,
+      color: 'text-emerald-600 bg-emerald-50',
+    },
+    {
+      label: 'Sắp hết hàng',
+      value: String(stats.lowStock),
+      change: 'Cần nhập thêm',
+      icon: AlertCircle,
+      color: 'text-amber-600 bg-amber-50',
+    },
+    {
+      label: 'Hết hàng',
+      value: String(stats.outOfStock),
+      change: 'Nên tạm ẩn',
+      icon: Package,
+      color: 'text-red-600 bg-red-50',
+    },
+    {
+      label: 'Giá trị tồn kho',
+      value: formatMoney(stats.inventoryValue),
+      change: 'Theo đơn giá hiện tại',
+      icon: DollarSign,
+      color: 'text-violet-600 bg-violet-50',
+    },
+  ];
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-6 pb-16">
-      <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><Package size={23} /></span>
-          <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Kho dịch vụ</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 ">Dịch vụ & kho hàng</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Quản lý dịch vụ bán kèm, tồn kho và trạng thái kinh doanh.</p>
-          </div>
+    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">DỊCH VỤ BỔ SUNG</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Dịch vụ bổ sung</h1>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+            Quản lý dịch vụ bán kèm, tồn kho và trạng thái hiển thị khi khách đặt sân.
+          </p>
         </div>
 
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+          className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
-          <Plus size={18} strokeWidth={3} />
+          <Plus size={16} />
           Thêm dịch vụ
         </button>
-      </header>
+      </div>
 
-      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 xl:grid-cols-5">
-        <button type="button" onClick={() => { setStatusFilter('all'); setStockFilter('all'); }} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng dịch vụ</p><p className="mt-1 text-2xl font-black text-slate-950">{stats.total}</p></div></div>
-          <p className="mt-3 text-xs font-semibold text-slate-500">Bấm để xem toàn bộ dịch vụ đang quản lý.</p>
-        </button>
-        <button type="button" onClick={() => setStatusFilter('active')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang bán</p><p className="mt-1 text-2xl font-black text-emerald-600">{stats.active}</p></div></div>
-          <p className="mt-3 text-xs font-semibold text-slate-500">Theo dõi các món khách có thể mua kèm.</p>
-        </button>
-        <button type="button" onClick={() => setStockFilter('low')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-200 hover:bg-amber-50">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><AlertCircle size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sắp hết hàng</p><p className="mt-1 text-2xl font-black text-amber-600">{stats.lowStock}</p></div></div>
-          <p className="mt-3 text-xs font-semibold text-slate-500">Nên nhập thêm trước giờ cao điểm.</p>
-        </button>
-        <button type="button" onClick={() => setStockFilter('out')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-red-200 hover:bg-red-50">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-red-600"><Archive size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-red-600">Hết hàng</p><p className="mt-1 text-2xl font-black text-red-600">{stats.outOfStock}</p></div></div>
-          <p className="mt-3 text-xs font-semibold text-slate-500">Ẩn hoặc cập nhật tồn kho để tránh bán nhầm.</p>
-        </button>
-        <button type="button" onClick={() => setSortBy('stockDesc')} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><WalletCards size={19} /></span><div><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị tồn</p><p className="mt-1 text-lg font-black text-slate-950">{formatMoney(stats.inventoryValue)}</p></div></div>
-          <p className="mt-3 text-xs font-semibold text-slate-500">Bấm để ưu tiên món tồn kho nhiều.</p>
-        </button>
-      </section>
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-wrap gap-2">
-          {([
-            ['all', 'Tất cả'],
-            ['in', 'Còn hàng'],
-            ['low', 'Sắp hết'],
-            ['out', 'Hết hàng'],
-          ] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setStockFilter(id)} className={`rounded-full px-4 py-2 text-xs font-black transition ${stockFilter === id ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}>{label}</button>)}
-        </div>
-        <div className="mb-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => setCategoryFilter('all')} className={`rounded-lg px-3 py-2 text-xs font-black ${categoryFilter === 'all' ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'}`}>Tất cả danh mục</button>{SERVICE_CATEGORIES.map((category) => <button key={category} type="button" onClick={() => setCategoryFilter(category)} className={`rounded-lg px-3 py-2 text-xs font-black ${categoryFilter === category ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'}`}>{category}</button>)}</div>
-        <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto_auto] lg:items-center">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tìm dịch vụ theo tên..."
-            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
-          />
-        </div>
-          <button type="button" onClick={() => setIsFiltersOpen((value) => !value)} className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black uppercase tracking-widest transition ${isFiltersOpen || activeFilterCount > 0 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-            <Filter size={16} /> Bộ lọc
-            {activeFilterCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-blue-600 px-1 text-[10px] text-white">{activeFilterCount}</span>}
-            <ChevronDown size={15} className={`transition ${isFiltersOpen ? 'rotate-180' : ''}`} />
-          </button>
-          <p className="text-sm font-bold text-slate-400 lg:text-right">{filteredServices.length} / {services.length} dịch vụ</p>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {kpis.map((kpi, index) => {
+          const Icon = kpi.icon;
 
-        {isFiltersOpen && <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4  /40">
-        <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-          <span className="text-slate-400">Trạng thái</span>
-          {(
-            [
-              { id: 'all', label: 'Tất cả' },
-              { id: 'active', label: 'Đang bán' },
-              { id: 'inactive', label: 'Tạm ẩn' },
-            ] as const
-          ).map((item) => (
-            <button
-              key={item.id}
+          return (
+            <motion.button
+              key={kpi.label}
               type="button"
-              onClick={() => setStatusFilter(item.id)}
-              className={`rounded-full px-3 py-1 transition ${
-                statusFilter === item.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200  '
-              }`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04 }}
+              onClick={() => {
+                if (kpi.label === 'Đang bán') setStatusFilter('active');
+                if (kpi.label === 'Sắp hết hàng') setStockFilter('low');
+                if (kpi.label === 'Hết hàng') setStockFilter('out');
+              }}
+              className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:shadow-md"
             >
-              {item.label}
-            </button>
-          ))}
+              <div className="mb-3 flex items-center justify-between">
+                <div className={`rounded-lg p-2 ${kpi.color}`}>
+                  <Icon size={20} />
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-slate-600">{kpi.label}</p>
+              <p className="mt-1 text-xl font-bold text-slate-900">{kpi.value}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-400">{kpi.change}</p>
+            </motion.button>
+          );
+        })}
+      </div>
 
-          <span className="ml-1 text-slate-400">Tồn kho</span>
-          {(
-            [
-              { id: 'all', label: 'Tất cả' },
-              { id: 'in', label: 'Còn hàng' },
-              { id: 'low', label: 'Sắp hết' },
-              { id: 'out', label: 'Hết hàng' },
-            ] as const
-          ).map((item) => (
+      {suggestions.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900">Khuyến nghị quản lý</h2>
+            <p className="text-sm text-slate-600">Các hạng mục cần xử lý để đảm bảo trải nghiệm đặt sân.</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {suggestions.map((item) => (
+              <button
+                key={item!.title}
+                type="button"
+                onClick={() => {
+                  if (item!.title.includes('hết hàng')) setStockFilter('out');
+                  if (item!.title.includes('sắp hết')) setStockFilter('low');
+                }}
+                className={`rounded-lg border p-4 text-left transition hover:shadow-sm ${
+                  item!.tone === 'warning'
+                    ? 'border-amber-200 bg-amber-50'
+                    : 'border-blue-200 bg-blue-50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`rounded-lg p-2 ${
+                      item!.tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    <AlertCircle size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{item!.title}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{item!.desc}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm dịch vụ theo tên..."
+              className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              key={item.id}
               type="button"
-              onClick={() => setStockFilter(item.id)}
-              className={`rounded-full px-3 py-1 transition ${
-                stockFilter === item.id
-                  ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200  '
-              }`}
+              onClick={() => setShowFilters((value) => !value)}
+              className="flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              {item.label}
+              <Filter size={16} />
+              Bộ lọc
             </button>
-          ))}
+
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none"
+            >
+              <option value="all">Tất cả danh mục</option>
+              {SERVICE_CATEGORIES.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="h-11 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+            >
+              Đặt lại
+            </button>
+          </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><DollarSign size={15} className="text-blue-600" />Mức giá</span><select value={priceFilter} onChange={(event) => setPriceFilter(event.target.value as typeof priceFilter)} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-slate-600 outline-none"><option value="all">Mọi mức giá</option><option value="under50">Dưới 50.000đ</option><option value="50to100">50.000đ - 100.000đ</option><option value="over100">Trên 100.000đ</option></select></label>
-          <label><span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400"><SlidersHorizontal size={15} className="text-blue-600" />Sắp xếp</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-slate-600 outline-none"><option value="name">Tên A-Z</option><option value="priceAsc">Giá thấp trước</option><option value="priceDesc">Giá cao trước</option><option value="stockAsc">Tồn kho ít trước</option><option value="stockDesc">Tồn kho nhiều trước</option></select></label>
-        </div>
-        {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-600 hover:text-white"><X size={14} />Xóa lọc</button>}
-        </div>}
+
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-3">
+                <label>
+                  <span className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <CheckCircle2 size={14} />
+                    Trạng thái
+                  </span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold outline-none"
+                  >
+                    <option value="all">Tất cả</option>
+                    <option value="active">Đang bán</option>
+                    <option value="inactive">Tạm ẩn</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <Package size={14} />
+                    Tồn kho
+                  </span>
+                  <select
+                    value={stockFilter}
+                    onChange={(event) => setStockFilter(event.target.value as StockFilter)}
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold outline-none"
+                  >
+                    <option value="all">Tất cả</option>
+                    <option value="in">Còn hàng</option>
+                    <option value="low">Sắp hết</option>
+                    <option value="out">Hết hàng</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <SlidersHorizontal size={14} />
+                    Sắp xếp
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(event) => setSortBy(event.target.value as SortMode)}
+                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold outline-none"
+                  >
+                    <option value="name">Tên A-Z</option>
+                    <option value="priceAsc">Giá thấp trước</option>
+                    <option value="priceDesc">Giá cao trước</option>
+                    <option value="stockAsc">Tồn kho ít trước</option>
+                    <option value="stockDesc">Tồn kho nhiều trước</option>
+                  </select>
+                </label>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Danh sách dịch vụ</h2>
+            <p className="text-sm text-slate-600">
+              Hiển thị {filteredServices.length} / {services.length} dịch vụ
+            </p>
+          </div>
+        </div>
+
         {isLoading ? (
-          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
-            <Loader2 className="animate-spin text-blue-600" size={38} />
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Đang tải dịch vụ</p>
+          <div className="flex min-h-[360px] flex-col items-center justify-center gap-3">
+            <Loader2 className="animate-spin text-blue-600" size={40} />
+            <p className="text-sm font-semibold text-slate-500">Đang tải dịch vụ...</p>
           </div>
         ) : filteredServices.length === 0 ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
-            <Package size={54} className="mb-4 text-slate-200" />
-            <h3 className="text-lg font-black text-slate-800 ">Chưa có dịch vụ phù hợp</h3>
-            <p className="mt-2 text-sm font-semibold text-slate-400">Thêm dịch vụ mới để bán kèm khi đặt sân.</p>
+            <Package className="text-slate-300" size={52} />
+            <h3 className="mt-4 text-lg font-bold text-slate-900">Không có dịch vụ phù hợp</h3>
+            <p className="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc thêm dịch vụ mới.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="hidden grid-cols-[minmax(240px,1fr)_150px_130px_130px_112px] gap-4 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 xl:grid">
-              <span>Dịch vụ</span><span>Đơn giá</span><span>Tồn kho</span><span>Trạng thái</span><span className="text-right">Thao tác</span>
+          <div className="divide-y divide-slate-100">
+            <div className="hidden grid-cols-[1.4fr_0.8fr_0.7fr_0.7fr_120px] gap-4 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 xl:grid">
+              <span>Dịch vụ</span>
+              <span>Đơn giá</span>
+              <span>Tồn kho</span>
+              <span>Trạng thái</span>
+              <span className="text-right">Thao tác</span>
             </div>
+
             {filteredServices.map((service) => {
-              const isExpanded = expandedServiceId === service.id;
               const stock = Number(service.stockQuantity || 0);
+              const isExpanded = expandedId === service.id;
+              const isActive = service.isActive !== false;
+              const stockLabel = stock <= 0 ? 'Hết hàng' : stock <= 5 ? 'Sắp hết' : 'Còn hàng';
 
               return (
-                <div key={service.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="grid gap-4 p-4 xl:grid-cols-[minmax(240px,1fr)_150px_130px_130px_112px] xl:items-center">
-                    <div className="flex min-w-0 items-center gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ">
+                <article key={service.id} className="bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : service.id)}
+                    className="grid w-full gap-4 px-5 py-4 text-left transition hover:bg-slate-50 xl:grid-cols-[1.4fr_0.8fr_0.7fr_0.7fr_120px] xl:items-center"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100">
                         {service.imageUrl ? (
                           <img src={service.imageUrl} alt={service.name || 'Dịch vụ'} className="h-full w-full object-cover" />
                         ) : (
-                          <ImageIcon size={22} className="text-slate-300" />
+                          <ImageIcon className="text-slate-300" size={23} />
                         )}
                       </div>
+
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-950 ">{service.name || 'Dịch vụ chưa đặt tên'}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-400">{service.icon || 'Khác'} · {service.isActive !== false ? 'Đang bán' : 'Tạm ẩn'} · Tồn kho {stock}</p>
+                        <h3 className="truncate text-sm font-bold text-slate-950">
+                          {service.name || 'Dịch vụ chưa đặt tên'}
+                        </h3>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          {service.icon || 'Khác'} · {stockLabel}
+                        </p>
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đơn giá</p>
-                      <p className="mt-1 text-sm font-black text-blue-600">{formatMoney(service.price)}</p>
+                      <p className="text-sm font-bold text-slate-900">{formatMoney(service.price)}</p>
+                      <p className="mt-1 text-xs text-slate-500">Giá bán/thuê</p>
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tồn kho</p>
-                      <p className={`mt-1 text-sm font-black ${stock > 0 ? 'text-slate-950 ' : 'text-red-600'}`}>{stock}</p>
+                      <p className={`text-sm font-bold ${stock <= 0 ? 'text-red-600' : stock <= 5 ? 'text-amber-600' : 'text-slate-900'}`}>
+                        {stock}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">Số lượng</p>
                     </div>
 
-                    <span className={`inline-flex h-9 items-center justify-center rounded-xl px-3 text-[10px] font-black uppercase tracking-widest ${
-                      service.isActive !== false ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
-                    }`}>
-                      {service.isActive !== false ? 'Đang bán' : 'Tạm ẩn'}
-                    </span>
-
-                    <div className="flex gap-2 xl:justify-end">
-                      <button type="button" onClick={() => setExpandedServiceId(isExpanded ? null : service.id)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Xem chi tiết">
-                        <Eye size={17} />
-                      </button>
-                      <button type="button" onClick={() => handleDelete(service.id)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition hover:bg-red-50 hover:text-red-600 " title="Xóa">
-                        <Trash2 size={17} />
-                      </button>
+                    <div>
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                          isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {isActive ? 'Đang bán' : 'Tạm ẩn'}
+                      </span>
                     </div>
-                  </div>
 
-                  {isExpanded && (
-                    <div className="grid gap-4 bg-slate-50/80 p-5 md:grid-cols-3">
-                      <div className="rounded-xl bg-white p-4 shadow-sm">
-                        <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          <Box size={14} className="text-blue-600" />
-                          Thông tin
-                        </p>
-                        <p className="text-sm font-black text-slate-950 ">{service.name || 'Dịch vụ'}</p>
-                        <p className="mt-2 text-xs font-semibold text-slate-500">ID: {service.id.substring(0, 8).toUpperCase()}</p>
-                      </div>
-
-                      <div className="rounded-xl bg-white p-4 shadow-sm">
-                        <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          <DollarSign size={14} className="text-emerald-600" />
-                          Kho hàng
-                        </p>
-                        <dl className="space-y-2 text-xs font-bold">
-                          <div className="flex justify-between gap-3">
-                            <dt className="text-slate-400">Đơn giá</dt>
-                            <dd className="text-slate-800 ">{formatMoney(service.price)}</dd>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <dt className="text-slate-400">Tồn kho</dt>
-                            <dd className="text-slate-800 ">{stock}</dd>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <dt className="text-slate-400">Giá trị</dt>
-                            <dd className="text-slate-800 ">{formatMoney(stock * Number(service.price || 0))}</dd>
-                          </div>
-                        </dl>
-                      </div>
-
-                      <div className="rounded-xl bg-white p-4 shadow-sm">
-                        <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Thao tác</p>
-                        <button type="button" onClick={() => openEdit(service)} className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black text-white transition hover:bg-blue-700">
-                          <Archive size={15} />
-                          Cập nhật dịch vụ
-                        </button>
-                        <button type="button" onClick={() => handleDelete(service.id)} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-red-50 text-xs font-black text-red-600 transition hover:bg-red-600 hover:text-white">
-                          <Trash2 size={15} />
-                          Xóa dịch vụ
-                        </button>
-                      </div>
+                    <div className="flex justify-end gap-2">
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-600">
+                        <Eye size={16} />
+                      </span>
                     </div>
-                  )}
-                </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden border-t border-slate-100 bg-slate-50"
+                      >
+                        <div className="grid gap-4 p-5 md:grid-cols-[1fr_1fr_220px]">
+                          <div className="rounded-lg border border-slate-200 bg-white p-4">
+                            <h4 className="font-bold text-slate-900">Thông tin dịch vụ</h4>
+                            <dl className="mt-3 space-y-2 text-sm">
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Tên</dt>
+                                <dd className="font-semibold text-slate-900">{service.name || '---'}</dd>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Danh mục</dt>
+                                <dd className="font-semibold text-slate-900">{service.icon || 'Khác'}</dd>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Mã</dt>
+                                <dd className="font-semibold text-slate-900">{service.id.slice(0, 8).toUpperCase()}</dd>
+                              </div>
+                            </dl>
+                          </div>
+
+                          <div className="rounded-lg border border-slate-200 bg-white p-4">
+                            <h4 className="font-bold text-slate-900">Kho hàng</h4>
+                            <dl className="mt-3 space-y-2 text-sm">
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Đơn giá</dt>
+                                <dd className="font-semibold text-slate-900">{formatMoney(service.price)}</dd>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Tồn kho</dt>
+                                <dd className="font-semibold text-slate-900">{stock}</dd>
+                              </div>
+                              <div className="flex justify-between gap-3">
+                                <dt className="text-slate-500">Giá trị tồn</dt>
+                                <dd className="font-semibold text-blue-600">{formatMoney(stock * Number(service.price || 0))}</dd>
+                              </div>
+                            </dl>
+                          </div>
+
+                          <div className="rounded-lg border border-slate-200 bg-white p-4">
+                            <h4 className="font-bold text-slate-900">Thao tác</h4>
+                            <div className="mt-3 space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(service)}
+                                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                <Edit3 size={15} />
+                                Chỉnh sửa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(service.id)}
+                                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-red-50 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                              >
+                                <Trash2 size={15} />
+                                Xóa dịch vụ
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </article>
               );
             })}
           </div>
@@ -452,153 +709,167 @@ const Services: React.FC = () => {
 
       <AnimatePresence>
         {isDrawerOpen && (
-          <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDrawerOpen(false)} className="absolute inset-0 bg-slate-950/50" />
+          <>
+            <motion.button
+              type="button"
+              aria-label="Đóng form"
+              onClick={closeDrawer}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm"
+            />
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            <motion.aside
+              initial={{ x: 420, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 420, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-slate-50 shadow-2xl border-l border-slate-100"
             >
-              <aside className="hidden">
-                <div className="flex h-full flex-col justify-between">
-                  <div>
-                    <div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-white/10">
-                      <Package size={24} />
-                    </div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200">Service setup</p>
-                    <h3 className="mt-3 text-2xl font-black text-white">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
-                    <p className="mt-3 text-sm font-semibold text-slate-300">Thiết lập tên, giá bán, tồn kho và ảnh hiển thị cho dịch vụ bán kèm.</p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white/10 p-4">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-300">Xem trước</p>
-                    <div className="mt-4 flex items-center gap-3">
-                      <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-xl bg-white/10">
-                        {formData.imageUrl ? <img src={formData.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={20} />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black">{formData.name || 'Tên dịch vụ'}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-300">{formatMoney(Number(formData.price || 0))}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </aside>
-
-              <div className="flex max-h-[90vh] flex-col">
-                <div className="flex items-center justify-between border-b border-slate-100 p-5 sm:p-6">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600"><Package size={19} /></div>
-                    <div className="min-w-0">
-                    <h3 className="text-2xl font-black text-slate-950 ">{editingService ? 'Sửa dịch vụ' : 'Thêm dịch vụ'}</h3>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">Thông tin nhập ở đây sẽ hiển thị cho khách khi đặt sân.</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => setIsDrawerOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:text-slate-900  ">
-                    <X size={20} />
-                  </button>
+              <div className="flex items-center justify-between border-b border-slate-200 bg-white p-5 shadow-sm">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
+                    {editingService ? 'Cập nhật' : 'Tạo mới'}
+                  </p>
+                  <h2 className="mt-1 text-xl font-extrabold text-slate-950">
+                    {editingService ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}
+                  </h2>
                 </div>
 
-                <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6">
-                  {error && (
-                    <div className="mb-5 flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
-                      <AlertCircle size={18} />
-                      {error}
-                    </div>
-                  )}
-
-                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(240px,.75fr)]">
-                    <div className="rounded-2xl border border-slate-200 p-4">
-                      <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-400">Thông tin chính</p>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tên dịch vụ</label>
-                          <input
-                            required
-                            value={formData.name}
-                            onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
-                            placeholder="VD: Nước suối Lavie 500ml"
-                          />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div>
-                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Giá bán</label>
-                            <input
-                              required
-                              inputMode="numeric"
-                              value={formData.price}
-                              onChange={(event) => setFormData({ ...formData, price: event.target.value.replace(/[^0-9]/g, '') })}
-                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tồn kho</label>
-                            <input
-                              required
-                              type="number"
-                              min="0"
-                              value={formData.stockQuantity}
-                              onChange={(event) => setFormData({ ...formData, stockQuantity: event.target.value })}
-                              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
-                              placeholder="0"
-                            />
-                          </div>
-                          <div><label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Danh mục</label><select value={formData.category} onChange={(event) => setFormData({ ...formData, category: event.target.value })} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-blue-300">{SERVICE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 p-4">
-                      <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-400">Hiển thị</p>
-                      <div className="grid gap-4 md:grid-cols-[96px_minmax(0,1fr)]">
-                        <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl bg-slate-100 ">
-                          {formData.imageUrl ? <img src={formData.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={24} className="text-slate-300" />}
-                        </div>
-                        <div>
-                          <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Ảnh dịch vụ</label>
-                          <input
-                            value={formData.imageUrl}
-                            onChange={(event) => setFormData({ ...formData, imageUrl: event.target.value })}
-                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/5   "
-                            placeholder="https://..."
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-                        className={`mt-4 flex h-12 w-full items-center justify-between rounded-xl px-4 text-sm font-black transition ${
-                          formData.isActive ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <CheckCircle2 size={17} />
-                          {formData.isActive ? 'Đang bán' : 'Tạm ẩn'}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-widest">Nhấn để đổi</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex gap-3 border-t border-slate-100 pt-5">
-                    <button type="button" onClick={() => setIsDrawerOpen(false)} className="h-12 flex-1 rounded-xl border border-slate-200 bg-white text-xs font-black uppercase tracking-widest text-slate-500 transition hover:bg-slate-50  ">
-                      Hủy
-                    </button>
-                    <button type="submit" disabled={isSubmitting} className="flex h-12 flex-2 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700 disabled:opacity-60">
-                      {isSubmitting ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
-                      {editingService ? 'Lưu thay đổi' : 'Thêm dịch vụ'}
-                    </button>
-                  </div>
-                </form>
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+                >
+                  <X size={18} />
+                </button>
               </div>
-            </motion.div>
-          </div>
+
+              <form onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-6">
+                {error && (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600 shadow-sm animate-shake">
+                    <AlertCircle size={18} className="shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ảnh đại diện dịch vụ</span>
+                  <div className="group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center transition hover:border-blue-400 hover:bg-blue-50/30 overflow-hidden min-h-[140px]">
+                    {formData.imagePreview ? (
+                      <div className="relative h-28 w-full rounded-xl overflow-hidden group-hover:opacity-95 transition">
+                        <img src={formData.imagePreview} alt="Preview" className="h-full w-full object-contain" />
+                        <button
+                          type="button"
+                          onClick={removeSelectedImage}
+                          className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-slate-900/70 text-white backdrop-blur-sm transition hover:bg-slate-900"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center">
+                        <div className="rounded-xl bg-slate-50 p-3 text-slate-400 shadow-sm group-hover:bg-blue-50 group-hover:text-blue-500 transition duration-300">
+                          <Upload size={22} />
+                        </div>
+                        <p className="mt-2.5 text-sm font-bold text-slate-700">Tải ảnh lên từ thiết bị</p>
+                        <p className="mt-1 text-xs text-slate-400">Hỗ trợ định dạng JPG, PNG, WEBP</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Tên dịch vụ</span>
+                  <input
+                    value={formData.name}
+                    onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Ví dụ: Nước suối Aquafina, Thuê vợt Yonex..."
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Đơn giá (đ)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.price}
+                      onChange={(event) => setFormData((prev) => ({ ...prev, price: event.target.value }))}
+                      placeholder="0"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng tồn kho</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.stockQuantity}
+                      onChange={(event) => setFormData((prev) => ({ ...prev, stockQuantity: event.target.value }))}
+                      placeholder="0"
+                      className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
+
+                <label className="block space-y-1.5">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Danh mục nhóm</span>
+                  <div className="relative">
+                    <select
+                      value={formData.category}
+                      onChange={(event) => setFormData((prev) => ({ ...prev, category: event.target.value }))}
+                      className="h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    >
+                      {SERVICE_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 border-l border-slate-200 pl-2 text-slate-400">
+                      <SlidersHorizontal size={14} />
+                    </div>
+                  </div>
+                </label>
+
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Trạng thái hiển thị công khai</p>
+                    <p className="text-xs font-medium text-slate-400">Cho phép khách nhìn thấy khi đặt sân.</p>
+                  </div>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.isActive}
+                      onChange={(event) => setFormData((prev) => ({ ...prev, isActive: event.target.checked }))}
+                      className="peer sr-only"
+                    />
+                    <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-200"></div>
+                  </label>
+                </div>
+              </form>
+
+              <div className="border-t border-slate-200 bg-white p-5 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={(event) => void handleSubmit(event as unknown as React.FormEvent)}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-base font-bold text-white shadow-lg shadow-blue-600/10 transition hover:bg-blue-700 hover:shadow-blue-600/20 active:scale-[0.99] disabled:opacity-60"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                  {editingService ? 'Cập nhật thay đổi' : 'Kích hoạt dịch vụ mới'}
+                </button>
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
     </div>

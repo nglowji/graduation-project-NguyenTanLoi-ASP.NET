@@ -128,7 +128,10 @@ public class ReviewsController : ApiControllerBase
     [HttpGet("owner/reviews")]
     [Authorize(Roles = "PitchOwner,PitchStaff")]
     [ProducesResponseType(typeof(ApiResponse<List<OwnerReviewDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOwnerReviews(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetOwnerReviews(
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -144,7 +147,7 @@ public class ReviewsController : ApiControllerBase
             ownerId = staff.OwnerId.Value;
         }
 
-        var result = await _mediator.Send(new GetOwnerReviewsQuery(ownerId), cancellationToken);
+        var result = await _mediator.Send(new GetOwnerReviewsQuery(ownerId, fromDate, toDate), cancellationToken);
         if (!result.IsSuccess)
             return BadRequestResponse(result.ErrorMessage ?? "Failed to get owner reviews");
 

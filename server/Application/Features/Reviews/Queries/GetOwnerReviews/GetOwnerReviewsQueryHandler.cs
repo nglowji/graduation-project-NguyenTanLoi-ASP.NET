@@ -19,25 +19,36 @@ public class GetOwnerReviewsQueryHandler : IRequestHandler<GetOwnerReviewsQuery,
         GetOwnerReviewsQuery request,
         CancellationToken cancellationToken)
     {
-        var reviews = await _context.Reviews
+        var query = _context.Reviews
             .AsNoTracking()
-            .Include(r => r.User)
-            .Include(r => r.Pitch)
-            .Where(r => r.Pitch.OwnerId == request.OwnerId)
-            .OrderByDescending(r => r.CreatedAt)
-            .ToListAsync(cancellationToken);
+            .Where(r => r.Pitch.OwnerId == request.OwnerId);
 
-        var dtos = reviews.Select(r => new OwnerReviewDto(
-            r.Id,
-            r.User.FullName,
-            r.PitchId,
-            r.Pitch.Name,
-            r.Pitch.Type.ToString(),
-            r.Rating,
-            r.Comment,
-            r.OwnerReply,
-            r.CreatedAt
-        )).ToList();
+        if (request.FromDate.HasValue)
+        {
+            var fromDate = request.FromDate.Value.Date;
+            query = query.Where(r => r.CreatedAt >= fromDate);
+        }
+
+        if (request.ToDate.HasValue)
+        {
+            var toDateExclusive = request.ToDate.Value.Date.AddDays(1);
+            query = query.Where(r => r.CreatedAt < toDateExclusive);
+        }
+
+        var dtos = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new OwnerReviewDto(
+                r.Id,
+                r.User.FullName,
+                r.PitchId,
+                r.Pitch.Name,
+                r.Pitch.Type.ToString(),
+                r.Rating,
+                r.Comment,
+                r.OwnerReply,
+                r.CreatedAt
+            ))
+            .ToListAsync(cancellationToken);
 
         return Result<List<OwnerReviewDto>>.Success(dtos);
     }

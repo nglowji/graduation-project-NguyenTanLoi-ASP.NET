@@ -10,16 +10,13 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
 {
     private readonly IPitchRepository _pitchRepository;
     private readonly IBookingRepository _bookingRepository;
-    private readonly ITimeSlotRepository _timeSlotRepository;
 
     public GetOwnerDashboardQueryHandler(
         IPitchRepository pitchRepository,
-        IBookingRepository bookingRepository,
-        ITimeSlotRepository timeSlotRepository)
+        IBookingRepository bookingRepository)
     {
         _pitchRepository = pitchRepository;
         _bookingRepository = bookingRepository;
-        _timeSlotRepository = timeSlotRepository;
     }
 
     public async Task<Result<OwnerDashboardDto>> Handle(GetOwnerDashboardQuery request, CancellationToken cancellationToken)
@@ -40,29 +37,17 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         if (startDate > endDate)
             return Result<OwnerDashboardDto>.Failure("From date must be before or equal to to date");
 
-        // 3. Get bookings for these pitches
+        // 3. Get bookings for these pitches in date range
         var bookings = await _bookingRepository.GetByPitchesAndDateRangeAsync(pitchIds, startDate, endDate, cancellationToken);
-        var allOwnerBookings = await _bookingRepository.GetByPitchesAsync(pitchIds, cancellationToken);
         var rangeDays = Math.Max(endDate.DayNumber - startDate.DayNumber + 1, 1);
 
-        // 4. Get active timeslots to calculate occupancy more accurately
-        var allTimeSlots = pitches.SelectMany(p => p.TimeSlots).ToList();
-        if (!allTimeSlots.Any())
-        {
-            // Fetch if not loaded
-            var slotsList = new List<Domain.Entities.TimeSlot>();
-            foreach (var pid in pitchIds)
-            {
-                var slots = await _timeSlotRepository.GetByPitchIdAsync(pid, cancellationToken);
-                slotsList.AddRange(slots.Where(ts => ts.IsActive));
-            }
-            allTimeSlots = slotsList;
-        }
+        // 4. Time slots are already loaded with pitches
+        var allTimeSlots = pitches.SelectMany(p => p.TimeSlots).Where(ts => ts.IsActive).ToList();
 
         // 5. Calculate stats
         var dashboard = new OwnerDashboardDto
         {
-            Summary = CalculateSummary(pitches, bookings, allOwnerBookings, allTimeSlots, rangeDays),
+            Summary = CalculateSummary(pitches, bookings, allTimeSlots, rangeDays),
             RevenueChart = CalculateRevenueChart(bookings, startDate, endDate),
             BookingStatusDistribution = CalculateStatusDistribution(bookings),
             PitchRevenue = CalculatePitchRevenue(bookings),
@@ -139,7 +124,6 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
     private SummaryStatsDto CalculateSummary(
         IReadOnlyList<Domain.Entities.Pitch> pitches, 
         IReadOnlyList<Domain.Entities.Booking> filteredBookings,
-        IReadOnlyList<Domain.Entities.Booking> allOwnerBookings,
         IReadOnlyList<Domain.Entities.TimeSlot> timeSlots,
         int days)
     {

@@ -397,11 +397,12 @@ src
 
 ```bash
 cd server/Api
-
-dotnet ef database update
-
 dotnet run
 ```
+
+`dotnet run` tự khởi động PostgreSQL (Docker), giải phóng cổng 5164 nếu bị chiếm, rồi chạy API tại `http://localhost:5164`.
+
+Dừng backend: `Ctrl+C` hoặc `.\scripts\stop-backend.ps1`
 
 ## Frontend
 

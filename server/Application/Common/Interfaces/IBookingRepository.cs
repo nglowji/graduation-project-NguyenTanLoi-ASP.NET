@@ -22,6 +22,11 @@ public interface IBookingRepository : IRepository<Booking>
         Guid timeSlotId, 
         DateOnly date,
         CancellationToken cancellationToken = default);
+
+    Task<HashSet<Guid>> GetUnavailableTimeSlotIdsAsync(
+        IEnumerable<Guid> timeSlotIds,
+        DateOnly date,
+        CancellationToken cancellationToken = default);
     
     Task<Booking?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
 

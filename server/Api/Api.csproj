@@ -7,6 +7,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <UserSecretsId>60b903d8-3f8e-42d3-95d0-8b68a1ec2f1d</UserSecretsId>
+    <LaunchProfile>http</LaunchProfile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,5 +28,9 @@
     <ProjectReference Include="..\Application\Application.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
+
+  <Target Name="PrepareLocalDev" BeforeTargets="Run">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\prepare-dev.ps1&quot;" />
+  </Target>
 
 </Project>
