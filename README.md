@@ -1,150 +1,184 @@
 # SmartSport
 
-Sports Booking and Facility Management Platform built with ASP.NET Core (.NET 8), Clean Architecture, and CQRS.
+Sports Booking & Facility Management Platform built with **ASP.NET Core (.NET 8)**, following **Clean Architecture**, **Domain-Driven Design (DDD)**, and **CQRS** principles.
 
 ## Overview
 
-SmartSport is a sports facility booking platform that allows users to search, book, and manage sports venues while providing administrators and venue owners with tools for facility operations, scheduling, and business management.
+SmartSport is a full-featured sports facility booking and management platform designed to simplify the reservation process for customers while providing comprehensive management tools for venue owners and administrators.
 
-The project was developed to apply modern backend engineering practices, scalable architecture principles, and real-world business workflows such as booking management, payment processing, concurrency control, and real-time communication.
+The project focuses on building a scalable and maintainable backend architecture by applying enterprise software engineering practices, including Clean Architecture, CQRS, Domain-Driven Design, Redis caching, real-time communication, secure authentication, and payment integration.
 
-## Project Status
-
-| Module                         | Status      |
-| ------------------------------ | ----------- |
-| Authentication & Authorization | Completed   |
-| Venue Management               | Completed   |
-| Booking Management             | Completed   |
-| Payment Integration            | Completed   |
-| Real-Time Notification         | Completed   |
-| RESTful API                    | Completed   |
-| Frontend Dashboard             | In Progress |
-| Automated Testing              | In Progress |
+The system supports the complete booking lifecycle, from searching for available courts and online payment to real-time booking synchronization and facility management.
 
 ---
 
-# Key Features
+## Project Status
 
-## User Features
+Current Version: **v1.0.0**
 
-* User registration and login
-* JWT Authentication and Refresh Token
-* Search and filter sports venues
-* Court booking management
-* Booking history tracking
-* Online payment via VNPAY
-* Real-time booking status updates
+| Module | Status |
+|----------|--------|
+| Authentication & Authorization | Completed |
+| User Management | Completed |
+| Sports Center Management | Completed |
+| Court Management | Completed |
+| Booking Management | Completed |
+| Booking History | Completed |
+| Online Payment (VNPAY) | Completed |
+| Review & Rating | Completed |
+| Notification System | Completed |
+| SignalR Real-Time Communication | Completed |
+| Redis Caching | Completed |
+| Email Service | Completed |
+| RESTful API | Completed |
+| Automated Testing | Completed |
 
-## Venue Owner Features
+**Project Completion: 100%**
 
-* Sports center management
-* Court and schedule configuration
-* Booking monitoring
-* Revenue overview
-* Pricing management
+---
 
-## Administration Features
+# Features
 
-* User management
-* Role and permission management
-* Venue approval workflow
-* System monitoring
+## Customer
+
+- User registration and authentication
+- JWT Authentication with Refresh Token
+- Search and filter sports centers
+- Browse available courts
+- Court booking
+- Booking history
+- Online payment via VNPAY
+- Booking cancellation
+- Review and rating
+- Real-time booking updates
+
+## Venue Owner
+
+- Sports center management
+- Court management
+- Time slot configuration
+- Pricing management
+- Booking monitoring
+- Revenue overview
+- Customer review management
+
+## Administrator
+
+- User management
+- Role and permission management
+- Sports center approval
+- Booking supervision
+- System monitoring
+- Notification management
 
 ---
 
 # System Architecture
 
-The project follows Clean Architecture principles to ensure maintainability, scalability, and separation of concerns.
+SmartSport follows the Clean Architecture pattern to achieve separation of concerns, maintainability, scalability, and testability.
 
 ```mermaid
 flowchart TD
-    Client[React Client]
 
-    Client --> API[ASP.NET Core Web API]
-    Client --> Hub[SignalR Hub]
+Client[React Client]
 
-    API --> Middleware[Middleware Pipeline]
-    Middleware --> MediatR[MediatR]
+Client --> API[ASP.NET Core Web API]
+Client --> Hub[SignalR Hub]
 
-    MediatR --> Commands[Command Handlers]
-    MediatR --> Queries[Query Handlers]
+API --> Middleware
 
-    Commands --> Domain[Domain Layer]
-    Queries --> Domain
+Middleware --> MediatR
 
-    Domain --> Repositories[Repositories]
-    Repositories --> PostgreSQL[(PostgreSQL)]
+MediatR --> Commands
+MediatR --> Queries
 
-    Domain --> Redis[(Redis)]
-    Domain --> VNPAY[VNPAY]
-    Domain --> Email[Email Service]
+Commands --> Domain
+Queries --> Domain
 
-    Commands --> Hub
-    Hub --> Client
+Domain --> Repository
+
+Repository --> PostgreSQL
+
+Domain --> Redis
+
+Domain --> VNPAY
+
+Domain --> EmailService
+
+Commands --> Hub
+
+Hub --> Client
 ```
 
 ---
 
-# Clean Architecture Layers
+# Clean Architecture
 
 ## Presentation Layer
 
-Responsibilities:
+### Responsibilities
 
-* REST API Endpoints
-* SignalR Hubs
-* Middleware
-* Request/Response Handling
+- RESTful APIs
+- SignalR Hubs
+- Middleware
+- Authentication
+- Request and Response handling
 
-Technologies:
+### Technologies
 
-* ASP.NET Core Web API
-* Swagger
-* SignalR
+- ASP.NET Core Web API
+- Swagger
+- SignalR
+
+---
 
 ## Application Layer
 
-Responsibilities:
+### Responsibilities
 
-* CQRS Commands
-* CQRS Queries
-* DTOs
-* Validation
-* Business Use Cases
+- Commands
+- Queries
+- Business Use Cases
+- DTO Mapping
+- Validation
 
-Technologies:
+### Technologies
 
-* MediatR
-* FluentValidation
+- MediatR
+- FluentValidation
+
+---
 
 ## Domain Layer
 
-Responsibilities:
+### Responsibilities
 
-* Entities
-* Aggregates
-* Value Objects
-* Domain Services
-* Business Rules
+- Business Rules
+- Entities
+- Aggregates
+- Value Objects
+- Domain Services
 
-The domain layer contains no dependency on external frameworks.
+The Domain layer has no dependency on infrastructure or external frameworks.
+
+---
 
 ## Infrastructure Layer
 
-Responsibilities:
+### Responsibilities
 
-* Database Access
-* Caching
-* Payment Integration
-* Email Services
-* External Systems
+- Database Access
+- Redis Caching
+- Email Service
+- Payment Gateway
+- External Integrations
 
-Technologies:
+### Technologies
 
-* Entity Framework Core
-* PostgreSQL
-* Redis
-* VNPAY
+- Entity Framework Core
+- PostgreSQL
+- Redis
+- VNPAY
 
 ---
 
@@ -155,101 +189,101 @@ Technologies:
 ```mermaid
 erDiagram
 
-    USERS ||--o{ BOOKINGS : creates
-    USERS ||--o{ REVIEWS : writes
-    USERS }o--|| ROLES : assigned
+USERS ||--o{ BOOKINGS : creates
+USERS ||--o{ REVIEWS : writes
+USERS }o--|| ROLES : assigned
 
-    SPORTS_CENTERS ||--o{ COURTS : contains
-    SPORTS_CENTERS ||--o{ REVIEWS : receives
-    SPORTS_CENTERS }o--|| USERS : owned_by
+SPORTS_CENTERS ||--o{ COURTS : owns
+SPORTS_CENTERS ||--o{ REVIEWS : receives
+SPORTS_CENTERS }o--|| USERS : owner
 
-    COURTS ||--o{ TIMESLOTS : provides
-    COURTS ||--o{ BOOKINGS : reserved
+COURTS ||--o{ TIMESLOTS : contains
+COURTS ||--o{ BOOKINGS : reserved
 
-    TIMESLOTS ||--o{ BOOKINGS : scheduled
+TIMESLOTS ||--o{ BOOKINGS : scheduled
 
-    BOOKINGS ||--|| PAYMENTS : generates
+BOOKINGS ||--|| PAYMENTS : payment
 ```
 
-Main entities:
+### Main Entities
 
-* User
-* Role
-* SportsCenter
-* Court
-* TimeSlot
-* Booking
-* Payment
-* Review
-* Notification
+- User
+- Role
+- SportsCenter
+- Court
+- TimeSlot
+- Booking
+- Payment
+- Review
+- Notification
 
 ---
 
 # Booking Workflow
 
-The booking process is designed to prevent double-booking and ensure data consistency.
-
 ```mermaid
 sequenceDiagram
 
-    participant User
-    participant API
-    participant Application
-    participant Database
-    participant Payment
+participant User
+participant API
+participant Application
+participant Database
+participant Payment
 
-    User->>API: Create Booking Request
+User->>API: Create Booking
 
-    API->>Application: Validate Request
+API->>Application: Validate Request
 
-    Application->>Database: Check Court Availability
+Application->>Database: Check Availability
 
-    Database-->>Application: Available
+Database-->>Application: Available
 
-    Application->>Database: Create Booking Transaction
+Application->>Database: Create Booking Transaction
 
-    Application->>Payment: Create Payment URL
+Application->>Payment: Generate Payment URL
 
-    Payment-->>User: Payment Page
+Payment-->>User: Payment Page
 
-    User->>Payment: Complete Payment
+User->>Payment: Complete Payment
 
-    Payment->>API: Callback
+Payment->>API: Callback
 
-    API->>Database: Confirm Booking
+API->>Database: Confirm Booking
 
-    API-->>User: Booking Success
+API-->>User: Booking Success
 ```
 
 ---
 
 # Engineering Decisions
 
+## Why Clean Architecture?
+
+The application is divided into independent layers to separate business logic from infrastructure concerns. This architecture improves maintainability, scalability, and testability while reducing coupling between components.
+
+---
+
 ## Why CQRS?
 
-The system separates read and write operations using CQRS.
+The system separates read and write operations using Command Query Responsibility Segregation.
 
-Benefits:
+### Benefits
 
-* Clear separation of responsibilities
-* Easier maintenance
-* Better scalability
-* Independent optimization for queries and commands
-* Cleaner business logic
+- Better maintainability
+- Clear separation of responsibilities
+- Independent optimization of queries and commands
+- Improved scalability
+- Cleaner business logic
 
-Example:
-
-Query:
+### Examples
 
 ```csharp
 GetBookingByIdQuery
-```
 
-Command:
-
-```csharp
 CreateBookingCommand
+
 CancelBookingCommand
+
 ConfirmPaymentCommand
 ```
 
@@ -257,75 +291,62 @@ ConfirmPaymentCommand
 
 ## Why Redis?
 
-Redis is used to reduce database load and improve response time.
+Redis is used as a distributed cache to reduce database load and improve application performance.
 
-Use Cases:
+### Cache Targets
 
-* Frequently accessed venue data
-* Sports center information
-* Search results
-* Hot booking schedules
+- Sports centers
+- Court information
+- Search results
+- Booking schedules
 
-Benefits:
+### Benefits
 
-* Lower database traffic
-* Faster API responses
-* Better scalability
+- Faster response time
+- Lower database workload
+- Better scalability
 
 ---
 
 ## Why SignalR?
 
-A booking system requires real-time synchronization.
+SignalR provides real-time synchronization across connected clients.
 
-Without SignalR:
+### Use Cases
 
-* Users must refresh pages
-* Higher risk of outdated data
+- Live booking updates
+- Real-time court availability
+- Instant notifications
 
-With SignalR:
-
-* Instant booking updates
-* Real-time court status changes
-* Notification broadcasting
-
-Example:
-
-When User A books a court, User B immediately sees that slot become unavailable.
+When one customer books a court, every connected user immediately sees the updated availability without refreshing the page.
 
 ---
 
-## How Double-Booking Is Prevented?
+## Concurrency Control
 
-Double-booking is one of the most critical problems in booking systems.
+Preventing double booking is one of the most important requirements of the system.
 
-The project uses multiple protection layers.
+SmartSport uses multiple protection mechanisms.
 
-### Validation Layer
+### Validation
 
-Check court availability before creating a booking.
+Court availability is checked before processing every booking request.
 
-### Database Constraint Layer
-
-Unique constraints ensure the same court and time slot cannot be booked twice.
-
-Example:
+### Database Constraint
 
 ```sql
 UNIQUE(court_id, timeslot_id, booking_date)
 ```
 
-### Transaction Layer
+### Database Transactions
 
-Booking creation and payment confirmation are executed inside database transactions.
+Booking creation and payment confirmation are executed within ACID transactions.
 
-### Concurrency Control
+### Optimistic Concurrency
 
-Optimistic concurrency prevents conflicting updates.
+Conflicting updates are detected before committing changes.
 
-Result:
-
-Even when multiple users attempt to book the same slot simultaneously, only one booking can succeed.
+These mechanisms ensure that only one booking can succeed even when multiple users attempt to reserve the same court simultaneously.
 
 ---
 
@@ -333,40 +354,40 @@ Even when multiple users attempt to book the same slot simultaneously, only one 
 
 ## Backend
 
-* ASP.NET Core (.NET 8)
-* C# 12
-* Entity Framework Core
-* MediatR
-* FluentValidation
-* SignalR
-* Serilog
+- ASP.NET Core (.NET 8)
+- C# 12
+- Entity Framework Core
+- MediatR
+- FluentValidation
+- SignalR
+- Serilog
 
 ## Database
 
-* PostgreSQL
-* Redis
+- PostgreSQL
+- Redis
 
 ## Frontend
 
-* React 18
-* TypeScript
-* Vite
-* Tailwind CSS
-* Zustand
-* TanStack Query
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand
+- TanStack Query
 
 ## Testing
 
-* xUnit
-* Moq
-* FluentAssertions
+- xUnit
+- Moq
+- FluentAssertions
 
 ## DevOps
 
-* Docker
-* GitHub Actions
-* Postman
-* Swagger
+- Docker
+- GitHub Actions
+- Swagger
+- Postman
 
 ---
 
@@ -388,10 +409,11 @@ src
 
 ## Prerequisites
 
-* .NET 8 SDK
-* Node.js 18+
-* PostgreSQL
-* Redis
+- .NET 8 SDK
+- Node.js 18+
+- PostgreSQL
+- Redis
+- Docker Desktop
 
 ## Backend
 
@@ -400,9 +422,25 @@ cd server/Api
 dotnet run
 ```
 
-`dotnet run` tự khởi động PostgreSQL (Docker), giải phóng cổng 5164 nếu bị chiếm, rồi chạy API tại `http://localhost:5164`.
+The application automatically starts PostgreSQL through Docker, releases port **5164** if occupied, and launches the API at:
 
-Dừng backend: `Ctrl+C` hoặc `.\scripts\stop-backend.ps1`
+```text
+http://localhost:5164
+```
+
+To stop the backend:
+
+```powershell
+Ctrl + C
+```
+
+or
+
+```powershell
+.\scripts\stop-backend.ps1
+```
+
+---
 
 ## Frontend
 
@@ -416,20 +454,23 @@ npm run dev
 
 ---
 
-# Future Improvements
+# Future Enhancements
 
-* Recommendation Engine
-* Waitlist Management
-* Advanced Analytics Dashboard
-* Mobile Application
-* CI/CD Deployment Pipeline
-* Multi-Tenant Architecture
+Version **1.0.0** is fully completed. Future releases may include:
+
+- AI-powered court recommendation
+- Waitlist management
+- Advanced analytics dashboard
+- Mobile application
+- Multi-tenant architecture
+- Kubernetes deployment
+- Microservices migration
 
 ---
 
 # Author
 
-Nguyen Tan Loi
+**Nguyen Tan Loi**
 
 Backend Developer
 
