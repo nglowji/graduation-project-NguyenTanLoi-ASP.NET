@@ -3,7 +3,7 @@ using Application.Common.DTOs;
 
 namespace Application.Features.AdditionalServices.DTOs
 {
-    public record ServiceDto(Guid Id, string Name, decimal Price, string Icon, int StockQuantity, string? ImageUrl, bool IsActive);
+    public record ServiceDto(Guid Id, string Name, decimal Price, string Icon, int StockQuantity, string? ImageUrl, bool IsActive, string Status, Guid SportCenterId);
 }
 
 namespace Application.Features.AdditionalServices.Queries.GetOwnerServices

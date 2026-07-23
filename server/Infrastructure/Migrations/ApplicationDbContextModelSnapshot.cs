@@ -55,6 +55,12 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("SportCenterId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Active");
+
                     b.Property<int>("StockQuantity")
                         .HasColumnType("integer");
 
@@ -66,6 +72,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("IsActive");
 
                     b.HasIndex("SportCenterId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("AdditionalServices", (string)null);
                 });
@@ -588,25 +596,32 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Key")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Value")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("SystemConfigurations");
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SystemConfigurations_Key");
+
+                    b.ToTable("SystemConfigurations", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.TimeSlot", b =>
@@ -664,6 +679,11 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("HasSubmittedOwnerRegistration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()

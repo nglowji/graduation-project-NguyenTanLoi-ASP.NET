@@ -72,12 +72,6 @@ const toTimeInputValue = (value: unknown) => {
   return text.includes(':') ? text.substring(0, 5) : '';
 };
 
-const toAddressInputValue = (value: any) => {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  return resolveStreetFromAddress(value);
-};
-
 const normalizeLocationName = (value: string) =>
   value
     .normalize('NFD')

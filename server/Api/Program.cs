@@ -6,6 +6,7 @@ using Api.Middlewares;
 using Application;
 using Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -24,6 +25,14 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json"
+    });
+});
 
 // Prevent BackgroundService crashes from stopping the entire host
 builder.Services.Configure<HostOptions>(options =>
@@ -165,9 +174,17 @@ app.UseSerilogRequestLogging();
 
 // app.UseHttpsRedirection(); // Commented out for easier local development with HTTP
 
+app.UseResponseCompression();
+
 app.UseCors("AllowAll");
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        context.Context.Response.Headers.CacheControl = "public,max-age=604800";
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -190,7 +207,7 @@ app.MapHealthChecks("/health");
 try
 {
     Log.Information("=========================================================");
-    Log.Information("🚀 ĐANG KHỞI ĐỘNG BACKEND SPORTS PITCH BOOKING...");
+    Log.Information("DANG KHOI DONG BACKEND SPORTS PITCH BOOKING...");
     Log.Information("=========================================================");
     
     // Apply database migrations without creating default data.
@@ -205,21 +222,21 @@ try
         Log.Information("Database is ready. No default data was created.");
     }
 
-    Log.Information("🌟 SERVER ĐANG CHẠY MƯỢT MÀ! (Bấm Ctrl+C để tắt)");
+    Log.Information("SERVER DANG CHAY MUOT MA! (Bam Ctrl+C de tat)");
     Log.Information("=========================================================");
     app.Run();
 }
 catch (IOException ex) when (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase))
 {
     Log.Fatal(
-        "Backend không thể khởi động vì cổng 5164 đang được dùng. " +
-        "Chạy: .\\scripts\\stop-backend.ps1 rồi thử lại.");
+        "Backend khong the khoi dong vi cong 5164 dang duoc dung. " +
+        "Chay: .\\scripts\\stop-backend.ps1 roi thu lai.");
 }
 catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
 {
     Log.Fatal(
-        "Backend không thể khởi động vì cổng 5164 đang được dùng. " +
-        "Chạy: .\\scripts\\stop-backend.ps1 rồi thử lại.");
+        "Backend khong the khoi dong vi cong 5164 dang duoc dung. " +
+        "Chay: .\\scripts\\stop-backend.ps1 roi thu lai.");
 }
 catch (Exception ex) when (ex.GetBaseException().Message.Contains("Failed to connect", StringComparison.OrdinalIgnoreCase)
     || ex.GetBaseException().Message.Contains("Connection refused", StringComparison.OrdinalIgnoreCase)
@@ -227,12 +244,12 @@ catch (Exception ex) when (ex.GetBaseException().Message.Contains("Failed to con
 {
     Log.Fatal(
         ex,
-        "Không kết nối được PostgreSQL (localhost:5432). " +
-        "Chạy: docker compose up -d postgres (từ thư mục gốc repo) rồi thử lại.");
+        "Khong ket noi duoc PostgreSQL (localhost:5432). " +
+        "Chay: docker compose up -d postgres (tu thu muc goc repo) roi thu lai.");
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Backend khởi động thất bại.");
+    Log.Fatal(ex, "Backend khoi dong that bai.");
 }
 finally
 {

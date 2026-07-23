@@ -58,4 +58,31 @@ public class SmtpEmailService : IEmailService
             // but in a real system we might use a background job/queue.
         }
     }
+
+    public async Task SendMultiSlotBookingConfirmationAsync(
+        string email, 
+        string userName, 
+        string pitchName, 
+        int slotCount, 
+        DateOnly bookingDate, 
+        CancellationToken cancellationToken = default)
+    {
+        var subject = $"Xác nhận đặt {slotCount} khung giờ - SmartSport";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif;'>
+                <h2>Xin chào {userName},</h2>
+                <p>Cảm ơn bạn đã đặt sân tại <strong>{pitchName}</strong>!</p>
+                <p><strong>Chi tiết đặt sân:</strong></p>
+                <ul>
+                    <li>Số khung giờ: <strong>{slotCount} khung giờ</strong></li>
+                    <li>Ngày đặt: <strong>{bookingDate:dd/MM/yyyy}</strong></li>
+                </ul>
+                <p>Vui lòng kiểm tra email để hoàn tất thanh toán cọc và nhận mã check-in.</p>
+                <p>Trân trọng,<br/>Đội ngũ SmartSport</p>
+            </body>
+            </html>";
+
+        await SendEmailAsync(email, subject, body, cancellationToken);
+    }
 }

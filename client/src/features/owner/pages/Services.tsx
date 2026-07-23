@@ -17,7 +17,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import api from '../../../services/api';
+import api, { API_BASE_URL } from '../../../services/api';
 
 type ServiceItem = {
   id: string;
@@ -26,6 +26,7 @@ type ServiceItem = {
   stockQuantity?: number;
   imageUrl?: string | null;
   isActive?: boolean;
+  status?: string;
   icon?: string;
 };
 
@@ -57,6 +58,40 @@ const emptyForm: FormState = {
 
 const formatMoney = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
+const resolveImageUrl = (value?: string | null) => {
+  const imageUrl = String(value || '').trim();
+  if (!imageUrl || imageUrl.startsWith('blob:')) return '';
+  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+    return imageUrl.replace('http://localhost:5164', 'http://127.0.0.1:5164');
+  }
+
+  return `${API_BASE_URL.replace('/api/v1', '').replace(/\/$/, '')}/${imageUrl.replace(/^\//, '')}`;
+};
+
+const normalizeServiceStatus = (service: ServiceItem) => {
+  const status = String(service.status || '').toLowerCase();
+  if (status.includes('pending')) return 'pending';
+  if (status.includes('hidden') || status.includes('reject')) return 'hidden';
+  if (status.includes('active')) return service.isActive === false ? 'hidden' : 'active';
+  if (service.isActive === true) return 'active';
+  if (service.isActive === false) return 'hidden';
+  return 'pending';
+};
+
+const serviceStatusLabel = (service: ServiceItem) => {
+  const status = normalizeServiceStatus(service);
+  if (status === 'pending') return 'Chờ duyệt';
+  if (status === 'hidden') return 'Tạm ẩn';
+  return 'Đang bán';
+};
+
+const serviceStatusClass = (service: ServiceItem) => {
+  const status = normalizeServiceStatus(service);
+  if (status === 'pending') return 'bg-amber-100 text-amber-700';
+  if (status === 'hidden') return 'bg-slate-100 text-slate-600';
+  return 'bg-emerald-100 text-emerald-700';
+};
+
 const unwrapArray = <T,>(response: any): T[] => {
   const data = response?.data ?? response;
   if (typeof data === 'string') return [];
@@ -85,11 +120,13 @@ const Services: React.FC = () => {
 
   const fetchServices = async () => {
     setIsLoading(true);
+    setError('');
     try {
       const res = await api.get('/additional-services/my');
       setServices(unwrapArray<ServiceItem>(res));
-    } catch {
-      setServices([]);
+    } catch (err: any) {
+      console.error('Owner services: failed to load services', err);
+      setError(err?.message || 'Không thể tải danh sách dịch vụ.');
     } finally {
       setIsLoading(false);
     }
@@ -107,13 +144,14 @@ const Services: React.FC = () => {
   };
 
   const openEdit = (service: ServiceItem) => {
+    const imageUrl = resolveImageUrl(service.imageUrl);
     setEditingService(service);
     setFormData({
       name: service.name || '',
       price: String(service.price || 0),
       stockQuantity: String(service.stockQuantity || 0),
       imageFile: null,
-      imagePreview: service.imageUrl || '',
+      imagePreview: imageUrl,
       category: SERVICE_CATEGORIES.includes(service.icon || '') ? String(service.icon) : 'Khác',
       isActive: service.isActive !== false,
     });
@@ -191,12 +229,25 @@ const Services: React.FC = () => {
         return;
       }
 
+      let imageUrl: string | null = formData.imagePreview.trim() || null;
+      if (formData.imageFile) {
+        const uploadPayload = new FormData();
+        uploadPayload.append('file', formData.imageFile);
+        const uploaded = await api.post('/additional-services/images', uploadPayload, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }) as { imageUrl?: string; data?: { imageUrl?: string } };
+
+        imageUrl = uploaded.imageUrl || uploaded.data?.imageUrl || null;
+      } else if (imageUrl?.startsWith('blob:')) {
+        imageUrl = null;
+      }
+
       const payload = {
         name,
         price,
         icon: formData.category,
         stockQuantity,
-        imageUrl: formData.imagePreview.trim() || null,
+        imageUrl,
         isActive: formData.isActive,
       };
 
@@ -228,7 +279,7 @@ const Services: React.FC = () => {
 
   const stats = useMemo(() => {
     const total = services.length;
-    const active = services.filter((item) => item.isActive !== false).length;
+    const active = services.filter((item) => normalizeServiceStatus(item) === 'active').length;
     const lowStock = services.filter((item) => {
       const stock = Number(item.stockQuantity || 0);
       return stock > 0 && stock <= 5;
@@ -248,10 +299,11 @@ const Services: React.FC = () => {
     return services
       .filter((service) => {
         const stock = Number(service.stockQuantity || 0);
-        const active = service.isActive !== false;
+        const normalizedStatus = normalizeServiceStatus(service);
+        const active = normalizedStatus === 'active';
 
         const matchKeyword = !keyword || String(service.name || '').toLowerCase().includes(keyword);
-        const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? active : !active);
+        const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? active : normalizedStatus !== 'active');
         const matchCategory = categoryFilter === 'all' || service.icon === categoryFilter;
         const matchStock =
           stockFilter === 'all' ||
@@ -271,7 +323,7 @@ const Services: React.FC = () => {
   }, [services, search, statusFilter, stockFilter, categoryFilter, sortBy]);
 
   const suggestions = useMemo(() => {
-    const outActive = services.filter((item) => item.isActive !== false && Number(item.stockQuantity || 0) <= 0).length;
+    const outActive = services.filter((item) => normalizeServiceStatus(item) === 'active' && Number(item.stockQuantity || 0) <= 0).length;
     const noImage = services.filter((item) => !item.imageUrl?.trim()).length;
 
     return [
@@ -357,6 +409,13 @@ const Services: React.FC = () => {
           Thêm dịch vụ
         </button>
       </div>
+
+      {error && !isDrawerOpen && (
+        <div className="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map((kpi, index) => {
@@ -494,7 +553,7 @@ const Services: React.FC = () => {
                   >
                     <option value="all">Tất cả</option>
                     <option value="active">Đang bán</option>
-                    <option value="inactive">Tạm ẩn</option>
+                    <option value="inactive">Chờ duyệt / Tạm ẩn</option>
                   </select>
                 </label>
 
@@ -572,7 +631,6 @@ const Services: React.FC = () => {
             {filteredServices.map((service) => {
               const stock = Number(service.stockQuantity || 0);
               const isExpanded = expandedId === service.id;
-              const isActive = service.isActive !== false;
               const stockLabel = stock <= 0 ? 'Hết hàng' : stock <= 5 ? 'Sắp hết' : 'Còn hàng';
 
               return (
@@ -584,8 +642,8 @@ const Services: React.FC = () => {
                   >
                     <div className="flex items-center gap-4">
                       <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100">
-                        {service.imageUrl ? (
-                          <img src={service.imageUrl} alt={service.name || 'Dịch vụ'} className="h-full w-full object-cover" />
+                        {resolveImageUrl(service.imageUrl) ? (
+                          <img src={resolveImageUrl(service.imageUrl)} alt={service.name || 'Dịch vụ'} className="h-full w-full object-cover" />
                         ) : (
                           <ImageIcon className="text-slate-300" size={23} />
                         )}
@@ -615,11 +673,9 @@ const Services: React.FC = () => {
 
                     <div>
                       <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                          isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${serviceStatusClass(service)}`}
                       >
-                        {isActive ? 'Đang bán' : 'Tạm ẩn'}
+                        {serviceStatusLabel(service)}
                       </span>
                     </div>
 
@@ -865,7 +921,7 @@ const Services: React.FC = () => {
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-base font-bold text-white shadow-lg shadow-blue-600/10 transition hover:bg-blue-700 hover:shadow-blue-600/20 active:scale-[0.99] disabled:opacity-60"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                  {editingService ? 'Cập nhật thay đổi' : 'Kích hoạt dịch vụ mới'}
+                  {editingService ? 'Cập nhật thay đổi' : 'Gửi dịch vụ chờ duyệt'}
                 </button>
               </div>
             </motion.aside>

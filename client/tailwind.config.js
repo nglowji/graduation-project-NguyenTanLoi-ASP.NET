@@ -32,10 +32,20 @@ export default {
         marquee: {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(-100%)' },
-        }
+        },
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'toast-progress': {
+          '0%': { width: '100%' },
+          '100%': { width: '0%' },
+        },
       },
       animation: {
         marquee: 'marquee 30s linear infinite',
+        'toast-in': 'toast-in 180ms ease-out',
+        'toast-progress': 'toast-progress 3000ms linear forwards',
       }
     },
   },

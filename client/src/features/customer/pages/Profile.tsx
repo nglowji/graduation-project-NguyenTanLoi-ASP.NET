@@ -35,6 +35,13 @@ import Pagination from '../../../components/Pagination';
 
 type TabType = 'profile' | 'bookings' | 'notifications' | 'security';
 
+const StatCard: React.FC<{ label: string; value: React.ReactNode; tone: string }> = ({ label, value, tone }) => (
+  <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <p className={`w-fit rounded-lg px-2.5 py-1 text-lg font-black ${tone}`}>{value}</p>
+    <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+  </div>
+);
+
 type PaymentHistoryItem = {
   transactionId: string;
   bookingId: string;
@@ -377,7 +384,7 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (activeTab !== 'bookings' && activeTab !== 'notifications') return;
 
-    const timer = window.setInterval(() => fetchBookings(true), 20000);
+    const timer = window.setInterval(() => fetchBookings(true), 60000);
     return () => window.clearInterval(timer);
   }, [activeTab]);
 
@@ -389,7 +396,7 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (!toast) return;
 
-    const timer = window.setTimeout(() => setToast(null), 5000);
+    const timer = window.setTimeout(() => setToast(null), 3000);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -541,11 +548,9 @@ const Profile: React.FC = () => {
   const unreadCount = allNotifications.filter((item) => !item.isRead).length;
   const completedBookingCount = bookings.filter(isCompleted).length;
   const pendingBookingCount = bookings.filter(isPending).length;
-  const cancelledBookingCount = bookings.filter(isCancelled).length;
   const totalSpent = bookings
     .filter((booking) => !isCancelled(booking))
     .reduce((sum, booking) => sum + totalAmount(booking), 0);
-  const reviewedCount = Object.keys(reviewsByBooking).length;
 
   const joinedAddress = compactAddress(formData.address, selectedWard?.name, selectedDistrict?.name, selectedProvince?.name) || formData.address;
 
@@ -618,16 +623,9 @@ const Profile: React.FC = () => {
     { id: 'security' as const, label: 'Bảo mật', icon: Lock },
   ];
 
-  const StatCard: React.FC<{ label: string; value: React.ReactNode; tone: string }> = ({ label, value, tone }) => (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className={`w-fit rounded-lg px-2.5 py-1 text-lg font-black ${tone}`}>{value}</p>
-      <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-100 pb-16 pt-24 font-sans text-slate-900">
-      <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-330 px-4 sm:px-6 lg:px-8">
         {toast && (
           <div
             className={`fixed right-5 top-24 z-50 rounded-lg border px-4 py-3 text-sm font-bold shadow-lg ${
@@ -640,35 +638,46 @@ const Profile: React.FC = () => {
           </div>
         )}
 
-        <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="p-6 sm:p-7">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="grid h-18 w-18 shrink-0 place-items-center rounded-2xl bg-blue-600 text-2xl font-black text-white shadow-sm">
+        <main className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="space-y-5">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="bg-slate-950 p-6 text-white">
+                <div className="grid h-20 w-20 place-items-center rounded-2xl bg-blue-600 text-2xl font-black shadow-sm">
                   {initials(user?.fullName)}
                 </div>
 
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Hồ sơ cá nhân</p>
-                  <h1 className="mt-1 truncate text-3xl font-black tracking-tight text-slate-950">
-                    {user?.fullName || 'Người dùng'}
-                  </h1>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                      <Mail size={13} />
-                      {user?.email}
+                <h1 className="mt-4 truncate text-2xl font-black tracking-tight">
+                  {user?.fullName || 'Người dùng'}
+                </h1>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-300">{user?.email}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                    user?.emailConfirmed ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'
+                  }`}>
+                    <ShieldCheck size={13} />
+                    {user?.emailConfirmed ? 'Đã xác thực' : 'Chưa xác thực'}
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1 text-xs font-bold text-red-200">
+                      <Bell size={13} />
+                      {unreadCount} mới
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                      user?.emailConfirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                    }`}>
-                      <ShieldCheck size={13} />
-                      {user?.emailConfirmed ? 'Email đã xác thực' : 'Chưa xác thực email'}
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-3 p-4">
+                <StatCard label="Tổng đơn" value={bookings.length} tone="bg-blue-50 text-blue-700" />
+                <StatCard label="Hoàn tất" value={completedBookingCount} tone="bg-emerald-50 text-emerald-700" />
+                <StatCard label="Chờ cọc" value={pendingBookingCount} tone="bg-amber-50 text-amber-700" />
+                <StatCard label="Đã chi" value={fmtMoney(totalSpent)} tone="bg-slate-100 text-slate-800" />
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+              <p className="px-2 pb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Điều hướng</p>
+              <div className="space-y-1">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   const active = activeTab === item.id;
@@ -679,236 +688,214 @@ const Profile: React.FC = () => {
                       key={item.id}
                       type="button"
                       onClick={() => changeTab(item.id)}
-                      className={`relative inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-bold transition ${
-                        active
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-950'
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-3 transition ${
+                        active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                       }`}
                     >
-                      <Icon size={16} />
-                      {item.label}
-                      {badge && (
-                        <span className="ml-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
+                      <span className="flex items-center gap-3">
+                        <span className={`grid h-9 w-9 place-items-center rounded-lg ${
+                          active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          <Icon size={17} />
+                        </span>
+                        <span className="text-sm font-bold">{item.label}</span>
+                      </span>
+
+                      {badge ? (
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
                           {badge > 9 ? '9+' : badge}
                         </span>
+                      ) : (
+                        <ChevronRight size={15} className={active ? 'opacity-70' : 'opacity-30'} />
                       )}
                     </button>
                   );
                 })}
-
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100"
-                >
-                  <LogOut size={16} />
-                  Đăng xuất
-                </button>
               </div>
-            </div>
 
-            <div className="border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0">
-              <div className="grid h-full grid-cols-2 gap-3">
-                <StatCard label="Tổng đơn" value={bookings.length} tone="bg-blue-50 text-blue-700" />
-                <StatCard label="Hoàn tất" value={completedBookingCount} tone="bg-emerald-50 text-emerald-700" />
-                <StatCard label="Chờ cọc" value={pendingBookingCount} tone="bg-amber-50 text-amber-700" />
-                <StatCard label="Đã chi" value={fmtMoney(totalSpent)} tone="bg-slate-100 text-slate-800" />
-              </div>
-            </div>
-          </div>
-        </section>
+              <button
+                type="button"
+                onClick={logout}
+                className="mt-3 flex w-full items-center gap-3 rounded-lg border border-red-100 bg-red-50 px-3 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white">
+                  <LogOut size={17} />
+                </span>
+                Đăng xuất
+              </button>
+            </section>
 
-        <main className="min-w-0">
-          {activeTab === 'profile' && (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Thông tin cá nhân</p>
-                    <h2 className="mt-1 text-xl font-black text-slate-950">Thông tin liên hệ</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Cập nhật thông tin để đặt sân, nhận thông báo và thanh toán thuận tiện hơn.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing((current) => !current)}
-                    className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-bold transition ${
-                      isEditing
-                        ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isEditing ? <X size={15} /> : <Edit3 size={15} />}
-                    {isEditing ? 'Hủy chỉnh sửa' : 'Chỉnh sửa hồ sơ'}
-                  </button>
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
+                  <MapPin size={20} />
+                </span>
+                <div>
+                  <p className="text-sm font-black text-slate-900">Địa chỉ hiển thị</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                    {joinedAddress || 'Chưa cập nhật địa chỉ'}
+                  </p>
                 </div>
+              </div>
+            </section>
+          </aside>
 
-                <form onSubmit={handleSave} className="space-y-5">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <Field label="Họ và tên" icon={<User size={16} />}>
-                      <input
-                        type="text"
-                        value={formData.fullName}
-                        readOnly={!isEditing}
-                        onChange={(event) => setFormData({ ...formData, fullName: event.target.value })}
-                        className={inputClass(isEditing)}
-                        placeholder="Nhập họ tên đầy đủ"
-                      />
-                    </Field>
+          <section className="min-w-0">
+            {activeTab === 'profile' && (
+              <div className="space-y-5">
+                <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">Hồ sơ cá nhân</p>
+                      <h2 className="mt-1 text-2xl font-black text-slate-950">Thông tin liên hệ</h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        Cập nhật thông tin để đặt sân, nhận thông báo và thanh toán thuận tiện hơn.
+                      </p>
+                    </div>
 
-                    <Field label="Email" icon={<Mail size={16} />}>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        disabled
-                        className={inputClass(false) + ' cursor-not-allowed'}
-                      />
-                    </Field>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing((current) => !current)}
+                      className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-bold transition ${
+                        isEditing ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isEditing ? <X size={15} /> : <Edit3 size={15} />}
+                      {isEditing ? 'Hủy' : 'Chỉnh sửa'}
+                    </button>
+                  </div>
+                </section>
 
-                    <Field label="Số điện thoại" icon={<Phone size={16} />}>
-                      <input
-                        type="tel"
-                        value={formData.phoneNumber}
-                        readOnly={!isEditing}
-                        onChange={(event) => setFormData({ ...formData, phoneNumber: event.target.value })}
-                        className={inputClass(isEditing)}
-                        placeholder="09xx xxx xxx"
-                      />
-                    </Field>
+                <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                  <form onSubmit={handleSave} className="space-y-5">
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <Field label="Họ và tên" icon={<User size={16} />}>
+                        <input
+                          type="text"
+                          value={formData.fullName}
+                          readOnly={!isEditing}
+                          onChange={(event) => setFormData({ ...formData, fullName: event.target.value })}
+                          className={inputClass(isEditing)}
+                          placeholder="Nhập họ tên đầy đủ"
+                        />
+                      </Field>
 
-                    <label>
-                      <span className="mb-1.5 block text-xs font-bold text-slate-500">Tỉnh / Thành phố</span>
-                      <select
-                        disabled={!isEditing}
-                        value={selectedProvince?.code || ''}
-                        onChange={(event) => {
-                          const province = provinces.find((item) => item.code === Number(event.target.value));
-                          setSelectedProvince(province || null);
-                          setSelectedDistrict(null);
-                          setSelectedWard(null);
-                        }}
-                        className={selectClass(isEditing)}
-                      >
-                        <option value="">Chọn tỉnh / thành</option>
-                        {provinces.map((province) => (
-                          <option key={province.code} value={province.code}>
-                            {province.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      <Field label="Email" icon={<Mail size={16} />}>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          disabled
+                          className={inputClass(false) + ' cursor-not-allowed'}
+                        />
+                      </Field>
+
+                      <Field label="Số điện thoại" icon={<Phone size={16} />}>
+                        <input
+                          type="tel"
+                          value={formData.phoneNumber}
+                          readOnly={!isEditing}
+                          onChange={(event) => setFormData({ ...formData, phoneNumber: event.target.value })}
+                          className={inputClass(isEditing)}
+                          placeholder="09xx xxx xxx"
+                        />
+                      </Field>
+
+                      <label>
+                        <span className="mb-1.5 block text-xs font-bold text-slate-500">Tỉnh / Thành phố</span>
+                        <select
+                          disabled={!isEditing}
+                          value={selectedProvince?.code || ''}
+                          onChange={(event) => {
+                            const province = provinces.find((item) => item.code === Number(event.target.value));
+                            setSelectedProvince(province || null);
+                            setSelectedDistrict(null);
+                            setSelectedWard(null);
+                          }}
+                          className={selectClass(isEditing)}
+                        >
+                          <option value="">Chọn tỉnh / thành</option>
+                          {provinces.map((province) => (
+                            <option key={province.code} value={province.code}>
+                              {province.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {isEditing && (
+                        <>
+                          <label>
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">Quận / Huyện</span>
+                            <select
+                              value={selectedDistrict?.code || ''}
+                              disabled={!selectedProvince}
+                              onChange={(event) => {
+                                const district = districts.find((item) => item.code === Number(event.target.value));
+                                setSelectedDistrict(district || null);
+                                setSelectedWard(null);
+                              }}
+                              className={selectClass(true)}
+                            >
+                              <option value="">Chọn quận / huyện</option>
+                              {districts.map((district) => (
+                                <option key={district.code} value={district.code}>
+                                  {district.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label>
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">Phường / Xã</span>
+                            <select
+                              value={selectedWard?.code || ''}
+                              disabled={!selectedDistrict}
+                              onChange={(event) => {
+                                const ward = wards.find((item) => item.code === Number(event.target.value));
+                                setSelectedWard(ward || null);
+                              }}
+                              className={selectClass(true)}
+                            >
+                              <option value="">Chọn phường / xã</option>
+                              {wards.map((ward) => (
+                                <option key={ward.code} value={ward.code}>
+                                  {ward.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </>
+                      )}
+
+                      <label className="md:col-span-2">
+                        <span className="mb-1.5 block text-xs font-bold text-slate-500">Địa chỉ chi tiết</span>
+                        <textarea
+                          value={formData.address}
+                          readOnly={!isEditing}
+                          onChange={(event) => setFormData({ ...formData, address: event.target.value })}
+                          rows={3}
+                          className={`${isEditing ? 'border-blue-300 bg-white ring-2 ring-blue-100' : 'border-slate-200 bg-slate-50 text-slate-500'} w-full resize-none rounded-lg border px-4 py-3 text-sm font-semibold outline-none transition`}
+                          placeholder="Số nhà, tên đường..."
+                        />
+                      </label>
+                    </div>
 
                     {isEditing && (
-                      <>
-                        <label>
-                          <span className="mb-1.5 block text-xs font-bold text-slate-500">Quận / Huyện</span>
-                          <select
-                            value={selectedDistrict?.code || ''}
-                            disabled={!selectedProvince}
-                            onChange={(event) => {
-                              const district = districts.find((item) => item.code === Number(event.target.value));
-                              setSelectedDistrict(district || null);
-                              setSelectedWard(null);
-                            }}
-                            className={selectClass(true)}
-                          >
-                            <option value="">Chọn quận / huyện</option>
-                            {districts.map((district) => (
-                              <option key={district.code} value={district.code}>
-                                {district.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label>
-                          <span className="mb-1.5 block text-xs font-bold text-slate-500">Phường / Xã</span>
-                          <select
-                            value={selectedWard?.code || ''}
-                            disabled={!selectedDistrict}
-                            onChange={(event) => {
-                              const ward = wards.find((item) => item.code === Number(event.target.value));
-                              setSelectedWard(ward || null);
-                            }}
-                            className={selectClass(true)}
-                          >
-                            <option value="">Chọn phường / xã</option>
-                            {wards.map((ward) => (
-                              <option key={ward.code} value={ward.code}>
-                                {ward.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </>
+                      <div className="flex justify-end border-t border-slate-100 pt-5">
+                        <button
+                          type="submit"
+                          disabled={isSaving}
+                          className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                          Lưu thay đổi
+                        </button>
+                      </div>
                     )}
-
-                    <label className="md:col-span-2">
-                      <span className="mb-1.5 block text-xs font-bold text-slate-500">Địa chỉ chi tiết</span>
-                      <textarea
-                        value={formData.address}
-                        readOnly={!isEditing}
-                        onChange={(event) => setFormData({ ...formData, address: event.target.value })}
-                        rows={3}
-                        className={`${isEditing ? 'border-blue-300 bg-white ring-2 ring-blue-100' : 'border-slate-200 bg-slate-50 text-slate-500'} w-full resize-none rounded-lg border px-4 py-3 text-sm font-semibold outline-none transition`}
-                        placeholder="Số nhà, tên đường..."
-                      />
-                    </label>
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex justify-end border-t border-slate-100 pt-5">
-                      <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        Lưu thay đổi
-                      </button>
-                    </div>
-                  )}
-                </form>
-              </section>
-
-              <aside className="space-y-5">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
-                      <MapPin size={20} />
-                    </span>
-                    <div>
-                      <p className="text-sm font-black text-slate-900">Địa chỉ hiển thị</p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                        {joinedAddress || 'Chưa cập nhật địa chỉ'}
-                      </p>
-                    </div>
-                  </div>
+                  </form>
                 </section>
-
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${
-                      user?.emailConfirmed ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                    }`}>
-                      <MailCheck size={20} />
-                    </span>
-                    <div>
-                      <p className="text-sm font-black text-slate-900">Xác thực email</p>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                        {user?.emailConfirmed
-                          ? 'Tài khoản đã xác thực email.'
-                          : 'Bạn nên xác thực email để tăng độ an toàn.'}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              </aside>
-            </div>
-          )}
-
+              </div>
+            )}
           {activeTab === 'bookings' && (
             <div className="space-y-5">
               <PageHeader
@@ -1054,7 +1041,7 @@ const Profile: React.FC = () => {
                                 value={reviewComment}
                                 onChange={(event) => setReviewComment(event.target.value)}
                                 placeholder="Sân sạch, đúng giờ..."
-                                className="h-10 min-w-[240px] flex-1 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                                className="h-10 min-w-60 flex-1 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                               />
 
                               <button
@@ -1228,6 +1215,8 @@ const Profile: React.FC = () => {
               </section>
             </div>
           )}
+
+          </section>
         </main>
       </div>
     </div>
@@ -1343,7 +1332,7 @@ const InfoBox: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div className="flex justify-between gap-3">
     <dt className="text-slate-400">{label}</dt>
-    <dd className="max-w-[160px] truncate text-right font-black text-slate-800">{value}</dd>
+    <dd className="max-w-40 truncate text-right font-black text-slate-800">{value}</dd>
   </div>
 );
 

@@ -6,6 +6,7 @@ using Application.Features.AdditionalServices.Commands.DeleteService;
 using Application.Features.AdditionalServices.Commands.UpdateService;
 using Application.Features.AdditionalServices.DTOs;
 using Application.Features.AdditionalServices.Queries.GetOwnerServices;
+using Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,9 +32,14 @@ public class AdditionalServicesController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<List<ServiceDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyServices(CancellationToken ct)
     {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
         var ownerId = await GetOwnerId(ct);
         var result = await _mediator.Send(new GetOwnerServicesQuery(ownerId), ct);
-        return OkResponse(result.Value);
+        var services = (result.Value ?? [])
+            .Select(service => service with { ImageUrl = BuildAbsoluteUrl(service.ImageUrl, baseUrl) })
+            .ToList();
+
+        return OkResponse(services);
     }
 
     [HttpGet("pitch/{pitchId:guid}")]
@@ -46,8 +52,20 @@ public class AdditionalServicesController : ApiControllerBase
         var pitch = await _context.Pitches.FirstOrDefaultAsync(p => p.Id == pitchId, ct);
         if (pitch == null) return NotFoundResponse("Pitch not found");
         
+        var sportCenterIds = await _context.SportCenters
+            .Where(center => center.OwnerId == pitch.OwnerId)
+            .Select(center => center.Id)
+            .ToListAsync(ct);
+
+        if (!sportCenterIds.Contains(pitch.SportCenterId))
+        {
+            sportCenterIds.Add(pitch.SportCenterId);
+        }
+
         var services = await _context.AdditionalServices
-            .Where(s => s.SportCenterId == pitch.SportCenterId && s.IsActive)
+            .Where(s => sportCenterIds.Contains(s.SportCenterId)
+                && s.IsActive
+                && s.Status == AdditionalServiceStatus.Active)
             .Select(s => new { s.Id, s.Name, Price = s.Price.Amount, s.Icon, s.ImageUrl, s.StockQuantity })
             .ToListAsync(ct);
 
@@ -91,6 +109,45 @@ public class AdditionalServicesController : ApiControllerBase
         return result.IsSuccess 
             ? OkResponse(result.Value) 
             : BadRequestResponse(result.ErrorMessage ?? "Failed to create service");
+    }
+
+    [HttpPost("images")]
+    [Authorize(Roles = "PitchOwner")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadImage(IFormFile file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequestResponse("Vui lòng chọn ảnh dịch vụ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequestResponse("Ảnh dịch vụ không được vượt quá 5MB.");
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+        };
+
+        if (!allowedExtensions.Contains(extension))
+            return BadRequestResponse("Ảnh dịch vụ chỉ hỗ trợ JPG, PNG hoặc WEBP.");
+
+        var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "services");
+        Directory.CreateDirectory(uploadsPath);
+
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
+        var storedPath = Path.Combine(uploadsPath, storedFileName);
+
+        await using (var stream = System.IO.File.Create(storedPath))
+        {
+            await file.CopyToAsync(stream, ct);
+        }
+
+        var imageUrl = $"{Request.Scheme}://{Request.Host}/uploads/services/{storedFileName}";
+        return OkResponse(new { imageUrl });
     }
 
     [HttpPut("{id:guid}")]

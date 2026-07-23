@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,14 +7,13 @@ namespace Api.BackgroundServices;
 
 /// <summary>
 /// Background service to automatically fail expired pending payments
-/// Runs every 5 minutes to check for payments that have exceeded the 15-minute timeout
+/// Runs every minute to check for payments that exceeded the configured booking hold window.
 /// </summary>
 public class PaymentTimeoutService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PaymentTimeoutService> _logger;
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
-    private readonly TimeSpan _paymentTimeout = TimeSpan.FromMinutes(15);
 
     public PaymentTimeoutService(
         IServiceProvider serviceProvider,
@@ -50,8 +50,15 @@ public class PaymentTimeoutService : BackgroundService
         var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
         var notificationService = scope.ServiceProvider.GetRequiredService<IBookingNotificationService>();
         var cacheService = scope.ServiceProvider.GetRequiredService<ICacheService>();
+        var settingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
 
-        var cutoffTime = DateTime.UtcNow.Subtract(_paymentTimeout);
+        var timeoutMinutes = await settingService.GetIntAsync(
+            SystemConfiguration.Keys.BookingLockDurationMinutes,
+            10,
+            1,
+            60,
+            cancellationToken);
+        var cutoffTime = DateTime.UtcNow.AddMinutes(-timeoutMinutes);
 
         var expiredTransactions = await context.PaymentTransactions
             .Where(pt => pt.Status == PaymentStatus.Pending && pt.CreatedAt < cutoffTime)
@@ -74,7 +81,7 @@ public class PaymentTimeoutService : BackgroundService
 
         foreach (var transaction in expiredTransactions)
         {
-            transaction.MarkAsFailed("Payment timeout - exceeded 15 minutes");
+            transaction.MarkAsFailed($"Payment timeout - exceeded {timeoutMinutes} minutes");
             _logger.LogInformation(
                 "Marked transaction {TransactionId} as failed due to timeout",
                 transaction.Id
@@ -83,10 +90,11 @@ public class PaymentTimeoutService : BackgroundService
 
         foreach (var booking in expiredBookings)
         {
-            booking.Cancel("Deposit payment timeout - exceeded 15 minutes");
+            booking.Cancel($"Deposit payment timeout - exceeded {timeoutMinutes} minutes");
             _logger.LogInformation(
-                "Cancelled booking {BookingId} because deposit was not paid within 15 minutes",
-                booking.Id
+                "Cancelled booking {BookingId} because deposit was not paid within {TimeoutMinutes} minutes",
+                booking.Id,
+                timeoutMinutes
             );
         }
 

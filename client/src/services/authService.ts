@@ -21,6 +21,15 @@ export interface AuthResponse {
   mapLink?: string;
   avatar?: string;
   emailConfirmed?: boolean;
+  hasSubmittedOwnerRegistration?: boolean;
+}
+
+export interface OwnerRegistrationStatus {
+  hasSubmitted: boolean;
+  status: 'none' | 'submitted' | 'pending' | 'approved' | string;
+  sportCenterId?: string | null;
+  sportCenterName?: string | null;
+  submittedAt?: string | null;
 }
 
 export const authService = {
@@ -42,6 +51,10 @@ export const authService = {
 
   registerOwnerCenter: async (command: any): Promise<AuthResponse> => {
     return await api.post('/auth/register-owner-center', command);
+  },
+
+  getOwnerRegistrationStatus: async (): Promise<OwnerRegistrationStatus> => {
+    return await api.get('/auth/owner-registration-status');
   },
 
   forgotPassword: async (email: string): Promise<void> => {

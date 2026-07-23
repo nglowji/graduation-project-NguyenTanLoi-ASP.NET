@@ -22,6 +22,21 @@ public class TimeSlotRepository : ITimeSlotRepository
             .FirstOrDefaultAsync(ts => ts.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<TimeSlot>> GetByIdsAsync(
+        IEnumerable<Guid> ids, 
+        CancellationToken cancellationToken = default)
+    {
+        var idList = ids as IReadOnlyCollection<Guid> ?? ids.ToList();
+        if (idList.Count == 0)
+            return Array.Empty<TimeSlot>();
+
+        return await _context.TimeSlots
+            .AsNoTracking()
+            .Include(ts => ts.Pitch)
+            .Where(ts => idList.Contains(ts.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<TimeSlot>> GetByPitchIdAsync(
         Guid pitchId,
         CancellationToken cancellationToken = default)

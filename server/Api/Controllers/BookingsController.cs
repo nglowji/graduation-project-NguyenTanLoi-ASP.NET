@@ -3,6 +3,7 @@ using Application.Features.Bookings.Commands.CancelBooking;
 using Application.Features.Bookings.Commands.CompleteBooking;
 using Application.Features.Bookings.Commands.ConfirmBooking;
 using Application.Features.Bookings.Commands.CreateBooking;
+using Application.Features.Bookings.Commands.CreateMultiSlotBooking;
 using Application.Features.Bookings.Commands.LockTimeSlot;
 using Application.Features.Bookings.Commands.ReleaseLock;
 using Application.Features.Bookings.DTOs;
@@ -62,7 +63,13 @@ public class BookingsController : ApiControllerBase
         if (!result.IsSuccess)
             return BadRequestResponse(result.ErrorMessage ?? "Failed to lock time slot");
 
-        return OkResponse(new { LockId = result.Value, Message = "Time slot locked successfully" });
+        return OkResponse(new
+        {
+            result.Value!.LockId,
+            result.Value.ExpiresAt,
+            result.Value.DurationMinutes,
+            Message = "Time slot locked successfully"
+        });
     }
 
     [HttpPost("release-lock/{lockId:guid}")]
@@ -119,6 +126,32 @@ public class BookingsController : ApiControllerBase
         return CreatedResponse(nameof(GetById), new { id = result.Value }, result.Value!, "Booking created successfully");
     }
 
+    [HttpPost("multi-slot")]
+    [ProducesResponseType(typeof(ApiResponse<List<Guid>>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateMultiSlot(
+        [FromBody] CreateMultiSlotBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var timeSlots = request.TimeSlots.Select(ts => new BookingSlotRequest(ts.TimeSlotId, ts.BookingDate)).ToList();
+        
+        var command = new CreateMultiSlotBookingCommand(userId, timeSlots, request.SelectedServices);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Không thể tạo đặt sân");
+
+        return CreatedResponse(
+            "GetMultiSlotBookings", 
+            new { bookingIds = result.Value }, 
+            result.Value!, 
+            $"Đã tạo thành công {result.Value!.Count} đặt sân");
+    }
+
     [HttpPost("{id:guid}/cancel")]
     [HttpPatch("{id:guid}/cancel")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
@@ -168,9 +201,9 @@ public class BookingsController : ApiControllerBase
     {
         var requesterId = GetCurrentUserId();
         var booking = await _context.Bookings
-            .AsNoTracking()
             .Include(item => item.TimeSlot)
                 .ThenInclude(slot => slot.Pitch)
+            .Include(item => item.Services)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (booking?.TimeSlot?.Pitch == null) return NotFoundResponse("Booking not found");
         if (booking.Status != BookingStatus.Confirmed)
@@ -191,47 +224,23 @@ public class BookingsController : ApiControllerBase
         if (quantities.Values.Any(quantity => quantity <= 0)) return BadRequestResponse("Service quantity must be greater than zero");
 
         var availableServices = await _context.AdditionalServices
-            .AsNoTracking()
-            .Where(service => quantities.Keys.Contains(service.Id) && service.IsActive)
+            .Where(service => quantities.Keys.Contains(service.Id)
+                && (service.Status == AdditionalServiceStatus.Active || service.Status == AdditionalServiceStatus.PendingApproval)
+                && service.SportCenterId == booking.TimeSlot.Pitch.SportCenterId)
             .ToListAsync(cancellationToken);
-        if (availableServices.Count != quantities.Count) return BadRequestResponse("One or more services are unavailable");
+        if (availableServices.Count != quantities.Count) return BadRequestResponse("Một hoặc nhiều dịch vụ không khả dụng cho sân này.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
             var additionalTotal = 0m;
+            var addedBy = await _userRepository.GetByIdAsync(requesterId, cancellationToken);
             foreach (var service in availableServices)
             {
                 var quantity = quantities[service.Id];
-                var affectedRows = await _context.AdditionalServices
-                    .Where(item => item.Id == service.Id && item.IsActive && item.StockQuantity >= quantity)
-                    .ExecuteUpdateAsync(
-                        setters => setters.SetProperty(item => item.StockQuantity, item => item.StockQuantity - quantity),
-                        cancellationToken);
-
-                if (affectedRows == 0)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return BadRequestResponse($"Service {service.Name} does not have enough stock");
-                }
-
-                var addedBy = await _userRepository.GetByIdAsync(requesterId, cancellationToken);
-                _context.BookingServices.Add(BookingService.Create(id, service.Id, service.Name, service.Price, quantity, addedBy?.FullName));
+                service.DecreaseStock(quantity);
+                booking.AddIncidentalService(service.Id, service.Name, service.Price, quantity, addedBy?.FullName);
                 additionalTotal += service.Price.Amount * quantity;
-            }
-
-            var bookingRows = await _context.Bookings
-                .Where(item => item.Id == id)
-                .ExecuteUpdateAsync(
-                    setters => setters
-                        .SetProperty(item => item.TotalPrice.Amount, item => item.TotalPrice.Amount + additionalTotal)
-                        .SetProperty(item => item.UpdatedAt, DateTime.UtcNow),
-                    cancellationToken);
-
-            if (bookingRows == 0)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return BadRequestResponse("Booking was changed. Please reload and try again.");
             }
 
             var serviceSummary = string.Join(", ", availableServices.Select(service =>
@@ -251,10 +260,20 @@ public class BookingsController : ApiControllerBase
             await transaction.CommitAsync(cancellationToken);
             return OkResponse<object?>(null, "Services added successfully");
         }
+        catch (Domain.Exceptions.DomainException ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return BadRequestResponse(ex.Message);
+        }
         catch (DbUpdateConcurrencyException)
         {
             await transaction.RollbackAsync(cancellationToken);
             return BadRequestResponse("Booking was changed by another user. Please reload and try again.");
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return BadRequestResponse("Không thể cập nhật dịch vụ cho đơn đặt sân.");
         }
     }
 

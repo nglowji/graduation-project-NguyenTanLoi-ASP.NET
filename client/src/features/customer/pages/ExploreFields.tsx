@@ -6,7 +6,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { pitchService } from '../../../services/pitchService';
 import type { PitchResponse } from '../../../services/pitchService';
-import { useVietnamLocations } from '../../../hooks/useVietnamLocations';
+import { normalizeLocationName, useVietnamLocations } from '../../../hooks/useVietnamLocations';
 import { PitchCard } from '../components/PitchCard';
 import exploreBanner from '../../../assets/banner-field.png';
 
@@ -53,8 +53,6 @@ const priceOptions = [
   { value: '1000000', label: '1.000.000đ' },
 ];
 
-const normalizeLocationName = (value?: string) =>
-  String(value || '').replace(/^(Tỉnh|Thành phố|TP\.?|Quận|Huyện|Thị xã)\s+/i, '').trim();
 
 /* ─── Sub-components ─── */
 const SelectField = ({ label, value, onChange, children, disabled = false }: React.PropsWithChildren<{

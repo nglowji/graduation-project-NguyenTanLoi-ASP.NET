@@ -99,13 +99,15 @@ const Navbar: React.FC = () => {
 
     void fetchUnreadNotifications();
 
-    const timer = window.setInterval(fetchUnreadNotifications, 30000);
+    const timer = window.setInterval(fetchUnreadNotifications, 120000);
+    window.addEventListener('focus', fetchUnreadNotifications);
     window.addEventListener(NOTIFICATION_READ_EVENT, fetchUnreadNotifications);
     window.addEventListener('storage', fetchUnreadNotifications);
 
     return () => {
       isMounted = false;
       window.clearInterval(timer);
+      window.removeEventListener('focus', fetchUnreadNotifications);
       window.removeEventListener(NOTIFICATION_READ_EVENT, fetchUnreadNotifications);
       window.removeEventListener('storage', fetchUnreadNotifications);
     };

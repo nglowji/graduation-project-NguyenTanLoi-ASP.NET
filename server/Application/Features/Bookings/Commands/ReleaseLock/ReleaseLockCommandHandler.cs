@@ -10,15 +10,18 @@ public class ReleaseLockCommandHandler : IRequestHandler<ReleaseLockCommand, Res
 {
     private readonly IApplicationDbContext _context;
     private readonly IBookingNotificationService _notificationService;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<ReleaseLockCommandHandler> _logger;
 
     public ReleaseLockCommandHandler(
         IApplicationDbContext context,
         IBookingNotificationService notificationService,
+        ICacheService cacheService,
         ILogger<ReleaseLockCommandHandler> logger)
     {
         _context = context;
         _notificationService = notificationService;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
@@ -51,6 +54,9 @@ public class ReleaseLockCommandHandler : IRequestHandler<ReleaseLockCommand, Res
             // Notify real-time status update
             if (bookingLock.TimeSlot != null)
             {
+                var cacheKey = $"available_slots_{bookingLock.TimeSlot.PitchId}_{bookingLock.BookingDate:yyyyMMdd}";
+                await _cacheService.RemoveAsync(cacheKey, cancellationToken);
+
                 await _notificationService.NotifyTimeSlotStatusChangedAsync(
                     bookingLock.TimeSlot.PitchId,
                     bookingLock.TimeSlotId,

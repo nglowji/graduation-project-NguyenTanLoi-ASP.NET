@@ -35,6 +35,10 @@ public interface IPitchRepository : IRepository<Pitch>
         Guid id, 
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Pitch>> GetActiveForRecommendationsAsync(
+        DateOnly targetDate,
+        CancellationToken cancellationToken = default);
+
     Task<PagedResult<Pitch>> SearchAsync(
         string? searchTerm,
         PitchType? type,

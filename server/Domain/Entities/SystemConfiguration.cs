@@ -80,6 +80,7 @@ public class SystemConfiguration : BaseEntity, IAggregateRoot
         public const string DepositPercentage = "DepositPercentage";
         public const string MinimumCancellationHours = "MinimumCancellationHours";
         public const string PlatformCommissionPercentage = "PlatformCommissionPercentage";
+        public const string BookingLockDurationMinutes = "BookingLockDurationMinutes";
         public const string MaxBookingsPerUser = "MaxBookingsPerUser";
     }
 }

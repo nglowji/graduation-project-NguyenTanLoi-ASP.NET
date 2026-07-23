@@ -6,7 +6,9 @@ import {
   ArrowRight,
   BadgeCheck,
   CalendarDays,
+  CheckCircle2,
   Clock,
+  Copy,
   CreditCard,
   ExternalLink,
   Hourglass,
@@ -25,12 +27,18 @@ import {
 import { motion } from 'framer-motion';
 import { bookingService, type BookingResponse } from '../../../services/bookingService';
 import { paymentService, type PaymentProvider } from '../../../services/paymentService';
+import { systemService, type CheckoutSettings } from '../../../services/systemService';
 import { formatCompactAddress } from '../../../utils/address';
 import api from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 const PAYMENT_STATUS_POLL_INTERVAL_MS = 8_000;
+const SERVICES_PAGE_SIZE = 6;
+const DEFAULT_CHECKOUT_SETTINGS: CheckoutSettings = {
+  bookingHoldMinutes: 10,
+  depositPercentage: 10,
+};
 type PaymentUiStatus = 'idle' | 'pending' | 'success' | 'failed';
 
 const formatMoney = (value?: number | null) => `${moneyFormatter.format(Number(value || 0))}đ`;
@@ -124,10 +132,15 @@ const BookingReview: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentUiStatus>('idle');
   const [paymentFailureReason, setPaymentFailureReason] = useState<string | null>(null);
+  const [qrLoadFailed, setQrLoadFailed] = useState(false);
+  const [copiedPaymentUrl, setCopiedPaymentUrl] = useState(false);
   const [suggestedServices, setSuggestedServices] = useState<any[]>([]);
   const [selectedExtras, setSelectedExtras] = useState<Record<string, number>>({});
   const [serviceCategory, setServiceCategory] = useState('Tất cả');
+  const [servicePage, setServicePage] = useState(1);
   const [now, setNow] = useState(() => Date.now());
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>(DEFAULT_CHECKOUT_SETTINGS);
+  const [lockExpiresAt, setLockExpiresAt] = useState<number | null>(null);
   const [paymentModal, setPaymentModal] = useState<{
     isOpen: boolean;
     paymentUrl: string;
@@ -206,10 +219,24 @@ const BookingReview: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
+    let isActive = true;
+
+    systemService.getCheckoutSettings().then((settings) => {
+      if (!isActive) return;
+      setCheckoutSettings(settings);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const pitchId = draft?.pitchId || booking?.timeSlot?.pitch?.id;
     if (!pitchId) return;
     api.get(`/additional-services/pitch/${pitchId}`).then((response) => {
-      const data = Array.isArray(response) ? response : response.data;
+      const raw = (response as any)?.data ?? response;
+      const data = Array.isArray(raw) ? raw : raw?.items;
       setSuggestedServices(Array.isArray(data) ? data.map((item: any) => ({
         id: item.id || item.Id,
         name: item.name || item.Name,
@@ -217,7 +244,10 @@ const BookingReview: React.FC = () => {
         imageUrl: item.imageUrl || item.ImageUrl || '',
         stockQuantity: Number(item.stockQuantity ?? item.StockQuantity ?? 0),
       })) : []);
-    }).catch(() => setSuggestedServices([]));
+    }).catch((error) => {
+      console.error('Booking review: failed to load additional services', error);
+      setSuggestedServices([]);
+    });
   }, [booking?.timeSlot?.pitch?.id, draft?.pitchId]);
 
   const selectedSuggestedServices = useMemo(() => suggestedServices.filter((service) => selectedExtras[service.id]).map((service) => ({
@@ -229,14 +259,43 @@ const BookingReview: React.FC = () => {
     lineTotal: service.price * selectedExtras[service.id],
   })), [selectedExtras, suggestedServices]);
 
+  const filteredSuggestedServices = useMemo(
+    () => suggestedServices.filter((service) => serviceCategory === 'Tất cả' || getServiceCategory(service.name) === serviceCategory),
+    [serviceCategory, suggestedServices]
+  );
+  const servicePageCount = Math.max(1, Math.ceil(filteredSuggestedServices.length / SERVICES_PAGE_SIZE));
+  const visibleSuggestedServices = useMemo(() => {
+    const startIndex = (servicePage - 1) * SERVICES_PAGE_SIZE;
+    return filteredSuggestedServices.slice(startIndex, startIndex + SERVICES_PAGE_SIZE);
+  }, [filteredSuggestedServices, servicePage]);
+  const serviceRangeStart = filteredSuggestedServices.length === 0 ? 0 : (servicePage - 1) * SERVICES_PAGE_SIZE + 1;
+  const serviceRangeEnd = Math.min(servicePage * SERVICES_PAGE_SIZE, filteredSuggestedServices.length);
+
+  useEffect(() => {
+    setServicePage(1);
+  }, [serviceCategory, suggestedServices.length]);
+
+  useEffect(() => {
+    setServicePage((current) => Math.min(current, servicePageCount));
+  }, [servicePageCount]);
+
   const details = useMemo(() => {
     const pitch = booking?.timeSlot?.pitch;
     const preview = draft?.preview;
     const services: NonNullable<BookingResponse['services']> = isDraft ? selectedSuggestedServices : (booking?.services || preview?.services || []);
-    const fieldPrice = Number(booking?.timeSlot?.price ?? preview?.fieldPrice ?? booking?.totalPrice ?? 0);
+    
+    const selectedSlots = Array.isArray(preview?.selectedSlots) ? preview.selectedSlots : [];
+    const isMultiSlot = selectedSlots.length > 1;
+    const selectedSlotsTotal = selectedSlots.reduce((sum: number, slot: any) => sum + Number(slot.price || 0), 0);
+    const draftFieldPrice = Number(preview?.fieldPrice || preview?.totalPrice || selectedSlotsTotal || 0);
+    const fieldPrice = isDraft
+      ? draftFieldPrice
+      : Number(booking?.timeSlot?.price ?? preview?.fieldPrice ?? booking?.totalPrice ?? 0);
     const serviceTotal = services.reduce((sum, item) => sum + Number(item.lineTotal || item.price * item.quantity || 0), 0);
     const total = fieldPrice + serviceTotal;
-    const deposit = Number(booking?.depositAmount || 0);
+    const savedDeposit = Number(booking?.depositAmount || 0);
+    const depositRate = Math.max(Number(checkoutSettings.depositPercentage || 10), 0) / 100;
+    const deposit = savedDeposit > 0 ? savedDeposit : Math.round(total * depositRate);
 
     return {
       bookingCode: booking?.checkInCode || booking?.id?.slice(0, 8).toUpperCase() || 'TẠM TÍNH',
@@ -248,13 +307,16 @@ const BookingReview: React.FC = () => {
       endTime: booking?.endTime || booking?.timeSlot?.endTime || preview?.endTime,
       services,
       fieldPrice: Math.max(fieldPrice, total - serviceTotal),
+      isMultiSlot,
+      selectedSlots,
+      slotCount: isMultiSlot ? selectedSlots.length : 1,
       serviceTotal,
       total,
       deposit,
       remaining: Math.max(total - deposit, 0),
-      expiresAt: booking?.createdAt ? new Date(booking.createdAt).getTime() + 15 * 60 * 1000 : null,
+      expiresAt: lockExpiresAt ?? (booking?.createdAt ? new Date(booking.createdAt).getTime() + checkoutSettings.bookingHoldMinutes * 60 * 1000 : null),
     };
-  }, [booking, draft, isDraft, selectedSuggestedServices]);
+  }, [booking, checkoutSettings.bookingHoldMinutes, checkoutSettings.depositPercentage, draft, isDraft, lockExpiresAt, selectedSuggestedServices]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -264,7 +326,7 @@ const BookingReview: React.FC = () => {
   const holdRemainingMs = details.expiresAt ? Math.max(details.expiresAt - now, 0) : null;
   const holdExpired = holdRemainingMs !== null && holdRemainingMs <= 0;
   const formatCountdown = (value: number | null) => {
-    if (value === null) return '15:00';
+    if (value === null) return `${String(checkoutSettings.bookingHoldMinutes).padStart(2, '0')}:00`;
     const totalSeconds = Math.max(Math.ceil(value / 1000), 0);
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
@@ -275,7 +337,7 @@ const BookingReview: React.FC = () => {
     if (!booking && !draft) return;
 
     if (holdExpired) {
-      setError('Đơn giữ chỗ đã quá 15 phút. Vui lòng tải lại trang hoặc chọn lại khung giờ.');
+      setError(`Đơn giữ chỗ đã quá ${checkoutSettings.bookingHoldMinutes} phút. Vui lòng tải lại trang hoặc chọn lại khung giờ.`);
       return;
     }
 
@@ -288,25 +350,78 @@ const BookingReview: React.FC = () => {
     setError(null);
     setPaymentStatus('idle');
     setPaymentFailureReason(null);
-    let lockId: string | undefined;
+    setQrLoadFailed(false);
+    setCopiedPaymentUrl(false);
+    const lockIds: string[] = [];
     try {
       let confirmedBooking = booking;
       if (isDraft) {
-        const lock = await bookingService.lock(draft.timeSlotId, draft.bookingDate);
-        lockId = (lock as any).lockId || (lock as any).LockId;
-        confirmedBooking = await bookingService.create({
-          timeSlotId: draft.timeSlotId,
-          bookingDate: draft.bookingDate,
-          selectedServices: selectedSuggestedServices.map((service) => ({ serviceId: service.serviceId, quantity: service.quantity })),
-        });
+        // Check if multiple slots are selected
+        const timeSlotIds = draft.timeSlotIds || [draft.timeSlotId];
+        const isMultiSlot = timeSlotIds.length > 1;
+
+        if (isMultiSlot) {
+          // Lock all time slots
+          for (const slotId of timeSlotIds) {
+            try {
+              const lock = await bookingService.lock(slotId, draft.bookingDate);
+              const lockId = (lock as any).lockId || (lock as any).LockId;
+              if (lockId) lockIds.push(lockId);
+              const expiresAt = (lock as any).expiresAt || (lock as any).ExpiresAt;
+              if (expiresAt) {
+                const expiresTime = new Date(expiresAt).getTime();
+                if (!Number.isNaN(expiresTime)) {
+                  setLockExpiresAt((current) => (current === null ? expiresTime : Math.min(current, expiresTime)));
+                }
+              }
+            } catch (lockError: any) {
+              throw new Error(`Không thể giữ chỗ khung giờ. ${lockError.message || ''}`);
+            }
+          }
+
+          const createdBookings = await bookingService.createMultiSlot({
+            timeSlots: timeSlotIds.map((slotId: string) => ({
+              timeSlotId: slotId,
+              bookingDate: draft.bookingDate,
+            })),
+            selectedServices: selectedSuggestedServices.map((service) => ({ 
+              serviceId: service.serviceId, 
+              quantity: service.quantity 
+            })),
+          });
+
+          confirmedBooking = createdBookings[0];
+        } else {
+          // Single slot booking (original logic)
+          const lock = await bookingService.lock(draft.timeSlotId, draft.bookingDate);
+          const lockId = (lock as any).lockId || (lock as any).LockId;
+          if (lockId) lockIds.push(lockId);
+          const expiresAt = (lock as any).expiresAt || (lock as any).ExpiresAt;
+          if (expiresAt) {
+            const expiresTime = new Date(expiresAt).getTime();
+            if (!Number.isNaN(expiresTime)) setLockExpiresAt(expiresTime);
+          }
+          
+          confirmedBooking = await bookingService.create({
+            timeSlotId: draft.timeSlotId,
+            bookingDate: draft.bookingDate,
+            selectedServices: selectedSuggestedServices.map((service) => ({ 
+              serviceId: service.serviceId, 
+              quantity: service.quantity 
+            })),
+          });
+        }
+        
         setBooking(confirmedBooking);
         sessionStorage.removeItem('bookingDraft');
       }
+      
       const paymentResponse = await paymentService.createPayment({
         bookingId: confirmedBooking!.id,
         returnUrl: `${window.location.origin}/payment-result`,
         provider: 'ZALOPAY',
       });
+      
       if (paymentResponse.provider === 'ZALOPAY') {
         setPaymentModal({
           isOpen: true,
@@ -319,8 +434,14 @@ const BookingReview: React.FC = () => {
         window.location.href = paymentResponse.paymentUrl;
       }
     } catch (paymentError: any) {
-      if (lockId) await bookingService.releaseLock(lockId).catch(() => undefined);
-      setError(paymentError.message || 'Không thể khởi tạo thanh toán. Vui lòng thử lại.');
+      console.error('[Booking] Error:', paymentError);
+      console.error('[Booking] Error response:', paymentError.response);
+      
+      // Release all locks on error
+      for (const lockId of lockIds) {
+        await bookingService.releaseLock(lockId).catch(() => undefined);
+      }
+      setError(paymentError.message || paymentError.response?.data?.message || 'Không thể khởi tạo thanh toán. Vui lòng thử lại.');
     } finally {
       setIsProcessing(false);
     }
@@ -332,7 +453,24 @@ const BookingReview: React.FC = () => {
     if (qrPayload.startsWith('data:image')) return qrPayload;
     if (/^https?:\/\/.+\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(qrPayload)) return qrPayload;
 
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrPayload)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(qrPayload)}`;
+  };
+
+  const qrSource = useMemo(
+    () => buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl),
+    [paymentModal.qrCode, paymentModal.paymentUrl]
+  );
+
+  const copyPaymentUrl = async () => {
+    if (!paymentModal.paymentUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(paymentModal.paymentUrl);
+      setCopiedPaymentUrl(true);
+      window.setTimeout(() => setCopiedPaymentUrl(false), 1800);
+    } catch {
+      setCopiedPaymentUrl(false);
+    }
   };
 
   useEffect(() => {
@@ -457,7 +595,13 @@ const BookingReview: React.FC = () => {
           <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:min-w-[620px]">
             {[
               { icon: <CalendarDays size={17} />, label: 'Ngày chơi', value: formatDate(booking.bookingDate) },
-              { icon: <Clock size={17} />, label: 'Khung giờ', value: `${shortTime(details.startTime)} - ${shortTime(details.endTime)}` },
+              { 
+                icon: <Clock size={17} />, 
+                label: details.isMultiSlot ? `${details.slotCount} Khung giờ` : 'Khung giờ', 
+                value: details.isMultiSlot 
+                  ? `${shortTime(details.startTime)} - ${shortTime(details.endTime)}`
+                  : `${shortTime(details.startTime)} - ${shortTime(details.endTime)}`
+              },
               { icon: <WalletCards size={17} />, label: 'Cọc hôm nay', value: formatMoney(details.deposit) },
             ].map((item) => (
               <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
@@ -471,6 +615,26 @@ const BookingReview: React.FC = () => {
               </div>
             ))}
           </div>
+          
+          {/* Multi-slot details */}
+          {details.isMultiSlot && details.selectedSlots.length > 0 && (
+            <div className="w-full rounded-lg border border-blue-200 bg-blue-50 p-4 lg:basis-full">
+              <div className="mb-3 flex items-center gap-2">
+                <Clock size={16} className="text-blue-600" />
+                <span className="text-sm font-bold text-blue-900">Chi tiết {details.slotCount} khung giờ đã chọn:</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {details.selectedSlots.map((slot: any, index: number) => (
+                  <div key={slot.id || index} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
+                    <span className="font-semibold text-slate-700">
+                      {shortTime(slot.startTime)} - {shortTime(slot.endTime)}
+                    </span>
+                    <span className="font-black text-blue-700">{formatMoney(slot.price)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -534,9 +698,30 @@ const BookingReview: React.FC = () => {
               <div className="min-w-0 py-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">{pitchTypeLabel(details.pitchType)}</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 font-heading">{details.pitchName}</h2>
-                <p className="mt-3 flex items-center gap-2 text-sm font-bold text-amber-600"><Star size={16} className="fill-current" />Sân đã chọn theo khung giờ của bạn</p>
-                <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600"><span className="flex items-center gap-2"><CalendarDays size={16} className="text-[var(--accent)]" />{formatDate(booking.bookingDate)}</span><span className="flex items-center gap-2"><Clock size={16} className="text-[var(--accent)]" />{shortTime(details.startTime)} - {shortTime(details.endTime)} (1 giờ)</span><span className="flex items-center gap-2"><MapPin size={16} className="text-[var(--accent)]" />{details.pitchAddress}</span></div>
-                <button type="button" onClick={() => navigate(-1)} className="mt-5 inline-flex h-9 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100">Xem chi tiết sân <ArrowRight size={14} /></button>
+                <p className="mt-3 flex items-center gap-2 text-sm font-bold text-amber-600">
+                  <Star size={16} className="fill-current" />
+                  {details.isMultiSlot ? `${details.slotCount} khung giờ liên tiếp` : 'Sân đã chọn theo khung giờ của bạn'}
+                </p>
+                <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600">
+                  <span className="flex items-center gap-2">
+                    <CalendarDays size={16} className="text-[var(--accent)]" />
+                    {formatDate(booking.bookingDate)}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Clock size={16} className="text-[var(--accent)]" />
+                    {details.isMultiSlot 
+                      ? `${shortTime(details.startTime)} - ${shortTime(details.endTime)} (${details.slotCount} giờ)`
+                      : `${shortTime(details.startTime)} - ${shortTime(details.endTime)} (1 giờ)`
+                    }
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <MapPin size={16} className="text-[var(--accent)]" />
+                    {details.pitchAddress}
+                  </span>
+                </div>
+                <button type="button" onClick={() => navigate(-1)} className="mt-5 inline-flex h-9 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-100">
+                  Xem chi tiết sân <ArrowRight size={14} />
+                </button>
               </div>
             </div>
 
@@ -570,9 +755,19 @@ const BookingReview: React.FC = () => {
                     ))}
                   </div>
 
+                  <div className="mb-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-500">
+                    <span>
+                      Hiển thị {serviceRangeStart}-{serviceRangeEnd} / {filteredSuggestedServices.length} dịch vụ
+                    </span>
+                    {servicePageCount > 1 && (
+                      <span>
+                        Trang {servicePage} / {servicePageCount}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {suggestedServices
-                      .filter((service) => serviceCategory === 'Tất cả' || getServiceCategory(service.name) === serviceCategory)
+                    {visibleSuggestedServices
                       .map((service) => {
                         const quantity = selectedExtras[service.id] || 0;
                         const stock = Number(service.stockQuantity || 0);
@@ -645,6 +840,47 @@ const BookingReview: React.FC = () => {
                         );
                       })}
                   </div>
+
+                  {servicePageCount > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                      <button
+                        type="button"
+                        disabled={servicePage <= 1}
+                        onClick={() => setServicePage((page) => Math.max(1, page - 1))}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ArrowLeft size={15} />
+                        Trước
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        {Array.from({ length: servicePageCount }, (_, index) => index + 1).map((page) => (
+                          <button
+                            key={page}
+                            type="button"
+                            onClick={() => setServicePage(page)}
+                            className={`grid h-9 w-9 place-items-center rounded-lg text-xs font-black transition ${
+                              servicePage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={servicePage >= servicePageCount}
+                        onClick={() => setServicePage((page) => Math.min(servicePageCount, page + 1))}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Sau
+                        <ArrowRight size={15} />
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
@@ -669,15 +905,47 @@ const BookingReview: React.FC = () => {
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="truncate text-sm font-black text-slate-950">{details.pitchName}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">
-                  {shortTime(details.startTime)} - {shortTime(details.endTime)} · {formatDate(booking.bookingDate)}
+                  {details.isMultiSlot 
+                    ? `${details.slotCount} khung giờ · ${formatDate(booking.bookingDate)}`
+                    : `${shortTime(details.startTime)} - ${shortTime(details.endTime)} · ${formatDate(booking.bookingDate)}`
+                  }
                 </p>
+                {details.isMultiSlot && (
+                  <p className="mt-1 text-xs font-bold text-blue-600">
+                    {shortTime(details.startTime)} - {shortTime(details.endTime)}
+                  </p>
+                )}
               </div>
 
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-4 text-slate-600">
-                  <span>Tiền thuê sân</span>
+                  <span>
+                    {details.isMultiSlot 
+                      ? `Tiền thuê sân (${details.slotCount} giờ)` 
+                      : 'Tiền thuê sân'
+                    }
+                  </span>
                   <strong className="text-slate-900">{formatMoney(details.fieldPrice)}</strong>
                 </div>
+                
+                {/* Hiển thị chi tiết từng khung giờ nếu đặt nhiều */}
+                {details.isMultiSlot && details.selectedSlots.length > 0 && (
+                  <div className="rounded-lg bg-slate-50 p-2">
+                    {details.selectedSlots.slice(0, 3).map((slot: any, index: number) => (
+                      <div key={slot.id || index} className="flex items-center justify-between gap-3 py-1 text-xs font-semibold text-slate-500">
+                        <span className="truncate">
+                          {shortTime(slot.startTime)} - {shortTime(slot.endTime)}
+                        </span>
+                        <span className="shrink-0">{formatMoney(slot.price)}</span>
+                      </div>
+                    ))}
+                    {details.selectedSlots.length > 3 && (
+                      <div className="mt-1 text-center text-xs font-bold text-blue-600">
+                        +{details.selectedSlots.length - 3} khung giờ khác
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {details.serviceTotal > 0 && (
                   <div>
@@ -726,7 +994,7 @@ const BookingReview: React.FC = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
-                  Quá 15 phút chưa thanh toán, khung giờ sẽ được mở lại.
+                  Quá {checkoutSettings.bookingHoldMinutes} phút chưa thanh toán, khung giờ sẽ được mở lại.
                 </p>
               </div>
 
@@ -763,8 +1031,8 @@ const BookingReview: React.FC = () => {
       </div>
 
       {paymentModal.isOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4">
-          <div className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-3 sm:p-5">
+          <div className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]">
             <button
               type="button"
               onClick={() => setPaymentModal((prev) => ({ ...prev, isOpen: false }))}
@@ -786,15 +1054,23 @@ const BookingReview: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[300px_minmax(0,1fr)]">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[340px_minmax(0,1fr)]">
               <div className="bg-slate-50 px-4 py-4 sm:px-5">
-                <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-3">
-                  <div className="flex items-center justify-center rounded-xl bg-white p-3 shadow-sm">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="flex min-h-[256px] items-center justify-center rounded-xl bg-white p-3 shadow-sm">
                     <img
-                      src={buildQrSource(paymentModal.qrCode, paymentModal.paymentUrl)}
+                      src={qrSource}
                       alt="Mã QR thanh toán cọc"
-                      className="h-48 w-48 rounded-lg object-contain sm:h-52 sm:w-52"
+                      onError={() => setQrLoadFailed(true)}
+                      className={`h-64 w-64 rounded-lg object-contain ${qrLoadFailed ? 'hidden' : ''}`}
                     />
+                    {qrLoadFailed && (
+                      <div className="flex min-h-64 w-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
+                        <QrCode size={42} className="text-slate-300" />
+                        <p className="mt-3 text-sm font-black text-slate-800">Chua tai duoc ma QR</p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Mo trang thanh toan hoac sao chep lien ket ben duoi.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -809,7 +1085,7 @@ const BookingReview: React.FC = () => {
                     </strong>
                   </div>
                   <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
-                    Quá 15 phút chưa thanh toán cọc, đơn sẽ tự hủy và khung giờ được mở lại.
+                    Quá {checkoutSettings.bookingHoldMinutes} phút chưa thanh toán cọc, đơn sẽ tự hủy và khung giờ được mở lại.
                   </p>
                 </div>
 
@@ -830,6 +1106,7 @@ const BookingReview: React.FC = () => {
 
                 <div className="mt-3 grid gap-2">
                   {paymentModal.paymentUrl && (
+                    <div className="grid gap-2">
                     <a
                       href={paymentModal.paymentUrl}
                       target="_blank"
@@ -839,6 +1116,15 @@ const BookingReview: React.FC = () => {
                       Mở trang thanh toán
                       <ExternalLink size={16} />
                     </a>
+                    <button
+                      type="button"
+                      onClick={copyPaymentUrl}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-700 transition hover:bg-slate-50"
+                    >
+                      {copiedPaymentUrl ? <CheckCircle2 size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                      {copiedPaymentUrl ? 'Da sao chep lien ket' : 'Sao chep lien ket'}
+                    </button>
+                    </div>
                   )}
                   {paymentStatus === 'failed' && (
                     <button
@@ -884,8 +1170,12 @@ const BookingReview: React.FC = () => {
                     <p className="mt-1 text-sm font-black text-slate-900">{formatDate(booking.bookingDate)}</p>
                   </div>
                   <div className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Khung giờ</p>
-                    <p className="mt-1 text-sm font-black text-slate-900">{shortTime(details.startTime)} - {shortTime(details.endTime)}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {details.isMultiSlot ? `${details.slotCount} Khung giờ` : 'Khung giờ'}
+                    </p>
+                    <p className="mt-1 text-sm font-black text-slate-900">
+                      {shortTime(details.startTime)} - {shortTime(details.endTime)}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-slate-200 p-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Người đặt</p>
@@ -905,9 +1195,30 @@ const BookingReview: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Hiển thị chi tiết từng khung giờ trong modal QR */}
+                {details.isMultiSlot && details.selectedSlots.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 mb-2">
+                      Chi tiết {details.slotCount} khung giờ đã đặt
+                    </p>
+                    <div className="grid gap-1.5 max-h-48 overflow-y-auto">
+                      {details.selectedSlots.map((slot: any, index: number) => (
+                        <div key={slot.id || index} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
+                          <span className="font-semibold text-slate-700">
+                            Giờ {index + 1}: {shortTime(slot.startTime)} - {shortTime(slot.endTime)}
+                          </span>
+                          <strong className="text-blue-700">{formatMoney(slot.price)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                    <span className="font-semibold text-slate-600">Tiền thuê sân</span>
+                    <span className="font-semibold text-slate-600">
+                      {details.isMultiSlot ? `Tiền thuê sân (${details.slotCount} giờ)` : 'Tiền thuê sân'}
+                    </span>
                     <strong>{formatMoney(details.fieldPrice)}</strong>
                   </div>
                   {details.serviceTotal > 0 && (

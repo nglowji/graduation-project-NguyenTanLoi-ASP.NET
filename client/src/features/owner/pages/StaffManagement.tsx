@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
   Calendar,
-  CheckCircle2,
   Lock,
   Mail,
   MessageSquare,
@@ -138,7 +137,7 @@ const StaffManagement: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+    <div className="mx-auto max-w-350 space-y-6 pb-16">
       {/* Header */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -331,12 +330,12 @@ const StaffManagement: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <div className="flex min-h-[360px] flex-col items-center justify-center gap-4">
+          <div className="flex min-h-90 flex-col items-center justify-center gap-4">
             <RefreshCw className="animate-spin text-blue-600" size={38} />
             <p className="text-sm font-semibold text-slate-500">Đang tải nhân viên...</p>
           </div>
         ) : filteredStaff.length === 0 ? (
-          <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+          <div className="flex min-h-80 flex-col items-center justify-center text-center">
             <Users size={54} className="mb-4 text-slate-200" />
             <h3 className="text-lg font-bold text-slate-800">Chưa có nhân viên phù hợp</h3>
             <p className="mt-2 text-sm font-semibold text-slate-400">
@@ -520,7 +519,7 @@ const StaffManagement: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="h-11 flex-[2] rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+                    className="h-11 flex-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
                   >
                     Tạo tài khoản nhân viên
                   </button>

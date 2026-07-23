@@ -425,7 +425,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({ options, sele
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none hover:bg-slate-100 hover:border-slate-300 transition min-w-[150px]"
+        className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none hover:bg-slate-100 hover:border-slate-300 transition min-w-37.5"
       >
         <span className="truncate">{labelText}</span>
         <ChevronDown size={14} className={`text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -643,7 +643,7 @@ const Revenue: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[500px] flex-col items-center justify-center gap-4">
+      <div className="flex min-h-125 flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-blue-600" size={40} />
         <p className="text-sm font-semibold text-slate-500">Đang tải dữ liệu doanh thu...</p>
       </div>
@@ -660,7 +660,7 @@ const Revenue: React.FC = () => {
   ];
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+    <div className="mx-auto max-w-350 space-y-6 pb-16">
       
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

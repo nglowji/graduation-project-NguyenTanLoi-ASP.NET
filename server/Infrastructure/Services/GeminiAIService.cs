@@ -114,11 +114,23 @@ public class GeminiAIService : IGeminiAIService
             var preference = await _preferenceRepository.GetByUserIdAsync(userId);
             var recentBookingsResult = await _bookingRepository.GetByUserIdAsync(userId, 1, 10);
             var recentBookings = recentBookingsResult.Items.ToList();
-            var allPitches = (await _pitchRepository.GetAllAsync()).ToList();
+            var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var allPitches = (await _pitchRepository.GetActiveForRecommendationsAsync(targetDate)).ToList();
 
             if (!allPitches.Any())
             {
                 return EmptyRecommendationResponse();
+            }
+
+            if (UseLocalRecommendationRanking())
+            {
+                var immediateRecommendations = BuildSmartFallbackRecommendations(allPitches, userQuery, preference, recentBookings);
+                return new PitchRecommendationResponse
+                {
+                    Recommendations = immediateRecommendations,
+                    Explanation = GenerateExplanation(immediateRecommendations),
+                    ConversationalResponse = GenerateConversationalResponse(immediateRecommendations)
+                };
             }
 
             var aiPrompt =
@@ -132,7 +144,7 @@ public class GeminiAIService : IGeminiAIService
 
             if (!recommendations.Any())
             {
-                recommendations = BuildSmartFallbackRecommendations(allPitches, userQuery);
+                recommendations = BuildSmartFallbackRecommendations(allPitches, userQuery, preference, recentBookings);
             }
 
             return new PitchRecommendationResponse
@@ -227,6 +239,11 @@ Kiến thức SmartSport cần nắm:
 - Quy trình đặt sân: chọn sân và khung giờ, giữ chỗ, thanh toán cọc 10% qua VNPAY, nhận mã check-in.
 - Chủ sân quản lý sân, lịch đặt, dịch vụ, đánh giá và doanh thu. Admin duyệt sân, quản lý người dùng, doanh thu và báo cáo hoa hồng.
 - Booking hợp lệ thường là Confirmed hoặc Completed. PendingDeposit là chờ thanh toán cọc.
+- Các tình huống khách hay hỏi: tìm sân theo môn/giá/giờ/khu vực, xem giờ trống, cách đặt sân, tiền cọc, thanh toán VNPAY, mã check-in, hủy lịch, hoàn tiền, lịch sử đặt sân, đánh giá sân.
+- Các tình huống chủ sân hay hỏi: tạo/sửa sân, thêm ảnh, thêm khung giờ, đặt giá từng khung giờ, quản lý booking, quản lý dịch vụ, xem review, xem doanh thu.
+- Các tình huống staff hay hỏi: hỗ trợ khách tại sân, kiểm tra lịch đặt, kiểm tra mã check-in, cập nhật việc vận hành theo phân quyền của chủ sân.
+- Các tình huống admin hay hỏi: duyệt đối tác, duyệt sân/dịch vụ, quản lý người dùng, kiểm duyệt nội dung, cấu hình hệ thống, theo dõi doanh thu nền tảng và hoa hồng.
+- Giá sân phải lấy đúng giá của TimeSlot trong dữ liệu hệ thống. Không tự thêm phụ phí giờ tối, cuối tuần hoặc hệ số tăng giá nếu dữ liệu không nói rõ.
 
 Quy tắc trả lời:
 - Luôn dùng tiếng Việt tự nhiên, ngắn gọn, có ích, giống đang chat trực tiếp với người dùng.
@@ -342,18 +359,42 @@ Quy tắc trả lời:
             .ToList();
     }
 
-    private static List<RecommendedPitch> BuildSmartFallbackRecommendations(List<Pitch> pitches, string? userQuery)
+    private static List<RecommendedPitch> BuildSmartFallbackRecommendations(
+        List<Pitch> pitches,
+        string? userQuery,
+        UserPreference? preference = null,
+        List<Booking>? recentBookings = null)
     {
+        var activePitches = pitches.Where(p => p.Status == PitchStatus.Active).ToList();
+        if (!activePitches.Any()) return new List<RecommendedPitch>();
+
         var normalizedQuery = Normalize(userQuery ?? string.Empty);
         var budget = ExtractBudget(normalizedQuery);
+        var requestedTime = ExtractRequestedTime(normalizedQuery);
+        var requestedSport = ExtractSportType(normalizedQuery);
+        var priceSort = ExtractPriceSort(normalizedQuery);
+        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var behavior = UserTrainingProfile.From(preference, recentBookings ?? new List<Booking>());
 
-        return pitches
+        var candidates = activePitches
             .Where(p => p.Status == PitchStatus.Active)
+            .Where(p => SportMatchesRequestedType(p.Type, requestedSport))
             .Select(p =>
             {
                 var score = 55m + Math.Min(p.AverageRating * 8m, 35m);
                 var reasons = new List<string>();
                 var minPrice = GetPitchMinPrice(p);
+                var maxPrice = GetPitchMaxPrice(p);
+                var displayPrice = priceSort == PriceSort.Highest ? maxPrice : minPrice;
+                var matchingSlots = p.TimeSlots
+                    .Where(ts => IsSlotAvailableForCriteria(ts, targetDate, requestedTime, budget))
+                    .OrderBy(ts => ts.TimeRange.StartTime)
+                    .ToList();
+
+                if ((requestedTime.HasValue || budget.HasValue) && !matchingSlots.Any())
+                {
+                    return null;
+                }
 
                 if (MatchesSport(normalizedQuery, p.Type))
                 {
@@ -361,10 +402,44 @@ Quy tắc trả lời:
                     reasons.Add($"Đúng môn {GetSportLabel(p.Type)} bạn đang tìm.");
                 }
 
+                if (!MatchesSport(normalizedQuery, p.Type) && behavior.TypeWeights.TryGetValue(p.Type, out var typeWeight))
+                {
+                    score += Math.Min(typeWeight * 10m, 16m);
+                    reasons.Add($"Phù hợp thói quen hay đặt {GetSportLabel(p.Type)} của bạn.");
+                }
+
                 if (budget.HasValue && minPrice.HasValue && minPrice <= budget.Value)
                 {
                     score += 15m;
                     reasons.Add($"Giá từ {minPrice:N0} VND, nằm trong ngân sách bạn nêu.");
+                }
+
+                if (priceSort == PriceSort.Highest && maxPrice.HasValue)
+                {
+                    score = 60m + Math.Min(maxPrice.Value / 10000m, 35m);
+                    reasons.Insert(0, $"Giá cao nhất trong các khung giờ là {maxPrice.Value:N0} VND.");
+                }
+                else if (priceSort == PriceSort.Lowest && minPrice.HasValue)
+                {
+                    score = 95m - Math.Min(minPrice.Value / 10000m, 45m);
+                    reasons.Insert(0, $"Giá thấp nhất trong các khung giờ là {minPrice.Value:N0} VND.");
+                }
+
+                if (requestedTime.HasValue && matchingSlots.Any())
+                {
+                    var slot = matchingSlots.First();
+                    score += 18m;
+                    reasons.Add($"Có khung {slot.TimeRange.StartTime:hh\\:mm}-{slot.TimeRange.EndTime:hh\\:mm} phù hợp giờ bạn hỏi.");
+                }
+
+                if (!budget.HasValue && behavior.AverageBudget.HasValue && minPrice.HasValue)
+                {
+                    var budgetDistance = Math.Abs(minPrice.Value - behavior.AverageBudget.Value) / Math.Max(behavior.AverageBudget.Value, 1m);
+                    score += Math.Max(0m, 9m - budgetDistance * 9m);
+                    if (budgetDistance <= 0.25m)
+                    {
+                        reasons.Add("Mức giá gần với thói quen chi tiêu trước đây của bạn.");
+                    }
                 }
 
                 if (p.AverageRating > 0)
@@ -378,20 +453,90 @@ Quy tắc trả lời:
                     reasons.Add("Có sân trong nhà.");
                 }
 
+                if (behavior.CenterWeights.TryGetValue(p.SportCenterId, out var centerWeight))
+                {
+                    score += Math.Min(centerWeight * 6m, 12m);
+                    reasons.Add("Bạn từng đặt sân tại trung tâm này hoặc trung tâm tương tự.");
+                }
+
+                var activeSlots = p.TimeSlots.Count(ts => ts.IsActive);
+                if (activeSlots > 0)
+                {
+                    score += Math.Min(activeSlots, 6) * 1.25m;
+                }
+
                 if (!reasons.Any())
                 {
                     reasons.Add("Sân đang hoạt động và phù hợp để tham khảo.");
                 }
 
-                return ToRecommendedPitch(p, Math.Min(score, 98m), reasons);
+                return ToRecommendedPitch(p, Math.Min(score, 98m), reasons, displayPrice);
             })
-            .OrderByDescending(p => p.Score)
-            .ThenBy(p => p.EstimatedPrice ?? decimal.MaxValue)
-            .Take(5)
+            .Where(p => p != null)
+            .Select(p => p!)
+            .OrderBy(p => priceSort == PriceSort.Lowest ? p.EstimatedPrice ?? decimal.MaxValue : decimal.Zero)
+            .ThenByDescending(p => priceSort == PriceSort.Highest ? p.EstimatedPrice ?? decimal.Zero : p.Score)
+            .ThenByDescending(p => p.Score)
+            .Take(12)
+            .ToList();
+
+        return DiversifyRecommendations(candidates, 5);
+    }
+
+    private static bool UseLocalRecommendationRanking() => true;
+
+    private static List<RecommendedPitch> DiversifyRecommendations(List<RecommendedPitch> candidates, int limit)
+    {
+        return candidates
+            .GroupBy(item => item.PitchId)
+            .Select(group => group.First())
+            .OrderByDescending(item => item.Score)
+            .Take(limit)
             .ToList();
     }
 
-    private static RecommendedPitch ToRecommendedPitch(Pitch pitch, decimal score, List<string>? reasons = null)
+    private sealed class UserTrainingProfile
+    {
+        public Dictionary<PitchType, decimal> TypeWeights { get; } = new();
+        public Dictionary<Guid, decimal> CenterWeights { get; } = new();
+        public decimal? AverageBudget { get; private init; }
+
+        public static UserTrainingProfile From(UserPreference? preference, List<Booking> bookings)
+        {
+            var profile = new UserTrainingProfile
+            {
+                AverageBudget = preference?.AverageBudget ?? bookings
+                    .Where(booking => booking.TotalPrice.Amount > 0)
+                    .Select(booking => (decimal?)booking.TotalPrice.Amount)
+                    .DefaultIfEmpty()
+                    .Average()
+            };
+
+            if (preference?.PreferredPitchTypes.Any() == true)
+            {
+                foreach (var typeValue in preference.PreferredPitchTypes)
+                {
+                    if (Enum.IsDefined(typeof(PitchType), typeValue))
+                    {
+                        profile.TypeWeights[(PitchType)typeValue] = profile.TypeWeights.GetValueOrDefault((PitchType)typeValue) + 1.4m;
+                    }
+                }
+            }
+
+            foreach (var booking in bookings)
+            {
+                var pitch = booking.TimeSlot?.Pitch;
+                if (pitch == null) continue;
+
+                profile.TypeWeights[pitch.Type] = profile.TypeWeights.GetValueOrDefault(pitch.Type) + 1m;
+                profile.CenterWeights[pitch.SportCenterId] = profile.CenterWeights.GetValueOrDefault(pitch.SportCenterId) + 1m;
+            }
+
+            return profile;
+        }
+    }
+
+    private static RecommendedPitch ToRecommendedPitch(Pitch pitch, decimal score, List<string>? reasons = null, decimal? estimatedPrice = null)
     {
         return new RecommendedPitch
         {
@@ -400,7 +545,7 @@ Quy tắc trả lời:
             Score = Math.Clamp(score, 0m, 100m),
             Reasons = reasons?.Where(r => !string.IsNullOrWhiteSpace(r)).Take(3).ToList()
                 ?? new List<string> { "Sân đang hoạt động", "Phù hợp để đặt lịch nhanh" },
-            EstimatedPrice = GetPitchMinPrice(pitch)
+            EstimatedPrice = estimatedPrice ?? GetPitchMinPrice(pitch)
         };
     }
 
@@ -426,7 +571,8 @@ Quy tắc trả lời:
 
     private async Task<PitchRecommendationResponse> GetFallbackRecommendationsAsync(Guid userId, string? userQuery)
     {
-        var allPitches = (await _pitchRepository.GetAllAsync()).ToList();
+        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var allPitches = (await _pitchRepository.GetActiveForRecommendationsAsync(targetDate)).ToList();
         var recommendations = BuildSmartFallbackRecommendations(allPitches, userQuery);
 
         return new PitchRecommendationResponse
@@ -455,6 +601,50 @@ Quy tắc trả lời:
         if (mathAnswer != null)
         {
             return mathAnswer;
+        }
+
+        if (normalized.Contains("pendingdeposit") || normalized.Contains("confirmed") ||
+            normalized.Contains("completed") || normalized.Contains("cancelled") ||
+            normalized.Contains("noshow") || normalized.Contains("trang thai"))
+        {
+            return "Các trạng thái chính: PendingDeposit là chờ thanh toán cọc; Confirmed là đã xác nhận; Completed là đã hoàn thành; Cancelled là đã hủy; NoShow là không đến sân. Với đơn cụ thể, hãy xem trong hồ sơ/lịch sử đặt sân để lấy trạng thái mới nhất.";
+        }
+
+        if (normalized.Contains("check-in") || normalized.Contains("checkin") ||
+            normalized.Contains("ma check") || normalized.Contains("qr"))
+        {
+            return "Mã check-in nằm trong chi tiết đặt sân sau khi hệ thống ghi nhận đơn theo quy trình thanh toán. Khi tới sân, bạn đưa mã này cho chủ sân hoặc nhân viên để xác nhận lịch.";
+        }
+
+        if (normalized.Contains("chu san") || normalized.Contains("owner") ||
+            normalized.Contains("doanh thu") || normalized.Contains("khung gio") ||
+            normalized.Contains("them san") || normalized.Contains("sua san"))
+        {
+            return "Chủ sân có thể quản lý sân, ảnh, khung giờ, giá từng khung, booking, dịch vụ, đánh giá và doanh thu. Giá hệ thống dùng đúng giá từng TimeSlot chủ sân đã tạo, không tự cộng phụ phí giờ tối.";
+        }
+
+        if (normalized.Contains("staff") || normalized.Contains("nhan vien"))
+        {
+            return "Staff hỗ trợ vận hành sân theo phân quyền của chủ sân: theo dõi lịch đặt, hỗ trợ khách tại sân, kiểm tra mã check-in và xử lý các việc hằng ngày.";
+        }
+
+        if (normalized.Contains("admin") || normalized.Contains("duyet") ||
+            normalized.Contains("doi tac") || normalized.Contains("hoa hong") ||
+            normalized.Contains("kiem duyet"))
+        {
+            return "Admin quản lý toàn nền tảng: duyệt đối tác/sân/dịch vụ, quản lý người dùng, kiểm duyệt nội dung, cấu hình hệ thống, theo dõi doanh thu nền tảng và hoa hồng.";
+        }
+
+        if (normalized.Contains("dich vu") || normalized.Contains("thue vot") ||
+            normalized.Contains("nuoc uong") || normalized.Contains("phu kien"))
+        {
+            return "Dịch vụ đi kèm do chủ sân cấu hình riêng, ví dụ thuê vợt, nước uống hoặc phụ kiện. Khi đặt sân, người chơi có thể chọn thêm dịch vụ đang hoạt động và còn hàng.";
+        }
+
+        if (normalized.Contains("danh gia") || normalized.Contains("review") ||
+            normalized.Contains("phan hoi"))
+        {
+            return "Sau khi lịch hoàn thành, người chơi có thể đánh giá sân trong hồ sơ/lịch sử đặt sân. Chủ sân có thể xem và phản hồi đánh giá trong trang quản lý.";
         }
 
         if (normalized.Contains("day san bong da") ||
@@ -547,9 +737,51 @@ Quy tắc trả lời:
         return prices.Any() ? prices.Min() : null;
     }
 
+    private static decimal? GetPitchMaxPrice(Pitch pitch)
+    {
+        var prices = pitch.TimeSlots
+            .Where(ts => ts.IsActive)
+            .Select(ts => ts.Price.Amount)
+            .ToList();
+
+        return prices.Any() ? prices.Max() : null;
+    }
+
+    private static PriceSort ExtractPriceSort(string normalizedQuery)
+    {
+        if (normalizedQuery.Contains("cao nhat") ||
+            normalizedQuery.Contains("dat nhat") ||
+            normalizedQuery.Contains("mac nhat") ||
+            normalizedQuery.Contains("gia cao") ||
+            normalizedQuery.Contains("max price") ||
+            normalizedQuery.Contains("highest price"))
+        {
+            return PriceSort.Highest;
+        }
+
+        if (normalizedQuery.Contains("re nhat") ||
+            normalizedQuery.Contains("thap nhat") ||
+            normalizedQuery.Contains("gia re") ||
+            normalizedQuery.Contains("gia thap") ||
+            normalizedQuery.Contains("min price") ||
+            normalizedQuery.Contains("lowest price"))
+        {
+            return PriceSort.Lowest;
+        }
+
+        return PriceSort.None;
+    }
+
+    private enum PriceSort
+    {
+        None,
+        Highest,
+        Lowest
+    }
+
     private static decimal? ExtractBudget(string normalizedQuery)
     {
-        var match = Regex.Match(normalizedQuery, @"(\d+)\s*(k|nghin|ngan|000|vnd|d)?");
+        var match = Regex.Match(normalizedQuery, @"(\d+)\s*(k|nghin|ngan|000|vnd|d)");
         if (!match.Success || !decimal.TryParse(match.Groups[1].Value, out var value))
         {
             return null;
@@ -562,6 +794,92 @@ Quy tắc trả lời:
         }
 
         return value;
+    }
+
+    private static TimeSpan? ExtractRequestedTime(string normalizedQuery)
+    {
+        var match = Regex.Match(
+            normalizedQuery,
+            @"(?:luc\s*)?(\d{1,2})(?:\s*(?:h|gio|:)\s*(\d{1,2}))?");
+
+        if (!match.Success || !int.TryParse(match.Groups[1].Value, out var hour))
+        {
+            return null;
+        }
+
+        var minute = 0;
+        if (match.Groups[2].Success)
+        {
+            int.TryParse(match.Groups[2].Value, out minute);
+        }
+
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+        {
+            return null;
+        }
+
+        return new TimeSpan(hour, minute, 0);
+    }
+
+    private static PitchType? ExtractSportType(string normalizedQuery)
+    {
+        if (normalizedQuery.Contains("cau long") || normalizedQuery.Contains("badminton"))
+            return PitchType.Badminton;
+        if (normalizedQuery.Contains("tennis"))
+            return PitchType.Tennis;
+        if (normalizedQuery.Contains("pickleball"))
+            return PitchType.Pickleball;
+        if (normalizedQuery.Contains("bong ro") || normalizedQuery.Contains("basketball"))
+            return PitchType.Basketball;
+        if (normalizedQuery.Contains("bong chuyen") || normalizedQuery.Contains("volleyball"))
+            return PitchType.Volleyball;
+        if (normalizedQuery.Contains("bong ban") || normalizedQuery.Contains("table tennis"))
+            return PitchType.TableTennis;
+        if (normalizedQuery.Contains("san 11"))
+            return PitchType.Football11;
+        if (normalizedQuery.Contains("san 7"))
+            return PitchType.Football7;
+        if (normalizedQuery.Contains("bong da") || normalizedQuery.Contains("football") || normalizedQuery.Contains("san 5"))
+            return PitchType.Football5;
+
+        return null;
+    }
+
+    private static bool IsSlotAvailableForCriteria(TimeSlot slot, DateOnly targetDate, TimeSpan? requestedTime, decimal? budget)
+    {
+        if (!slot.IsActive)
+        {
+            return false;
+        }
+
+        if (requestedTime.HasValue && !slot.TimeRange.Contains(requestedTime.Value))
+        {
+            return false;
+        }
+
+        if (budget.HasValue && slot.Price.Amount > budget.Value)
+        {
+            return false;
+        }
+
+        return !slot.Bookings.Any(booking =>
+            booking.BookingDate == targetDate &&
+            booking.Status is BookingStatus.PendingDeposit or BookingStatus.Confirmed or BookingStatus.Completed);
+    }
+
+    private static bool SportMatchesRequestedType(PitchType pitchType, PitchType? requestedType)
+    {
+        if (!requestedType.HasValue)
+        {
+            return true;
+        }
+
+        if (requestedType.Value == PitchType.Football5)
+        {
+            return pitchType is PitchType.Football5 or PitchType.Football7 or PitchType.Football11;
+        }
+
+        return pitchType == requestedType.Value;
     }
 
     private static bool MatchesSport(string normalizedQuery, PitchType type)

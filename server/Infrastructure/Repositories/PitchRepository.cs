@@ -30,7 +30,27 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .Include(p => p.SportCenter)
             .Include(p => p.TimeSlots)
             .Include(p => p.Images)
-            .Include(p => p.Reviews)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Pitch>> GetActiveForRecommendationsAsync(
+        DateOnly targetDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Pitches
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(p => p.Status == PitchStatus.Active)
+            .OrderByDescending(p => p.AverageRating)
+            .ThenBy(p => p.Name)
+            .Take(40)
+            .Include(p => p.SportCenter)
+            .Include(p => p.Images.Where(image => image.IsPrimary))
+            .Include(p => p.TimeSlots.Where(slot => slot.IsActive))
+                .ThenInclude(slot => slot.Bookings.Where(booking =>
+                    booking.BookingDate == targetDate &&
+                    booking.Status != BookingStatus.Cancelled &&
+                    booking.Status != BookingStatus.NoShow))
             .ToListAsync(cancellationToken);
     }
 
@@ -97,7 +117,16 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             query = query.Where(p => p.Type == type.Value);
         }
 
+        var latRange = radiusKm / 111.0;
+        var lonRange = radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180.0));
+
         var pitches = await query
+            .Where(p =>
+                p.SportCenter != null &&
+                p.SportCenter.Address.Latitude >= latitude - latRange &&
+                p.SportCenter.Address.Latitude <= latitude + latRange &&
+                p.SportCenter.Address.Longitude >= longitude - lonRange &&
+                p.SportCenter.Address.Longitude <= longitude + lonRange)
             .Include(p => p.Images)
             .Include(p => p.SportCenter)
             .Include(p => p.Reviews)
@@ -145,8 +174,7 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Pitches
-            .Include(p => p.SportCenter)
-            .Include(p => p.Images)
+            .AsNoTracking()
             .Where(p => p.Status == PitchStatus.Active)
             .AsQueryable();
 
@@ -211,6 +239,8 @@ public class PitchRepository : BaseRepository<Pitch>, IPitchRepository
             .ThenByDescending(p => p.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Include(p => p.SportCenter)
+            .Include(p => p.Images)
             .Include(p => p.Reviews)
             .ToListAsync(cancellationToken);
 

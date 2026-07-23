@@ -175,7 +175,7 @@ const MyPitches: React.FC = () => {
     if (!a || !b) return Math.max(a.length, b.length);
     if (a === b) return 0;
 
-    const matrix = Array.from({ length: a.length + 1 }, (_, row) => Array(b.length + 1).fill(0));
+    const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
 
     for (let i = 0; i <= a.length; i += 1) matrix[i][0] = i;
     for (let j = 0; j <= b.length; j += 1) matrix[0][j] = j;
@@ -257,8 +257,6 @@ const MyPitches: React.FC = () => {
         const category = getPitchCategory(pitch);
         const typeId = getPitchTypeId(pitch);
         const price = getMinPrice(pitch);
-        const slotCount = getActiveSlotCount(pitch);
-
         const searchableText = [
           pitch.name,
           pitch.address,

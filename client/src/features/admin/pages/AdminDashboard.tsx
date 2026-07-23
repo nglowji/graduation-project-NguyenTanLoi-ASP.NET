@@ -5,7 +5,6 @@ import {
   CalendarCheck2,
   CheckCircle2,
   CircleDollarSign,
-  Clock3,
   Flag,
   Loader2,
   MapPinned,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { useAuth } from '../../../contexts/AuthContext';
 
 type AdminStats = {
   totalUsers: number;
@@ -43,12 +41,13 @@ type GrowthPoint = {
 const number = (value?: number) => Number(value || 0).toLocaleString('vi-VN');
 const money = (value?: number) => `${number(value)}đ`;
 
-const shortMoney = (value?: number) => {
-  const amount = Number(value || 0);
-  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `${Math.round(amount / 1_000)}K`;
-  return number(amount);
+const safeAdminRequest = async <T,>(label: string, request: Promise<T>, fallback: T): Promise<T> => {
+  try {
+    return await request;
+  } catch (error) {
+    console.error(`Admin dashboard: failed to load ${label}`, error);
+    return fallback;
+  }
 };
 
 const MiniBarChart: React.FC<{ data: GrowthPoint[]; type: 'users' | 'bookings' }> = ({ data, type }) => {
@@ -150,7 +149,6 @@ const ApprovalDonut: React.FC<{ approved: number; pending: number; rejected: num
 };
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -163,14 +161,17 @@ const AdminDashboard: React.FC = () => {
     setError('');
 
     try {
-      const [statsRes, serviceRes] = await Promise.all([
-        api.get('/dashboard/admin/stats') as Promise<AdminStats>,
+      const statsRes = await api.get('/dashboard/admin/stats') as AdminStats;
+      const serviceRes = await safeAdminRequest(
+        'pending service approvals',
         api.get('/admin/service-approvals', { params: { status: 'pending' } }) as Promise<any[]>,
-      ]);
+        [],
+      );
 
       setStats(statsRes);
       setPendingServices(Array.isArray(serviceRes) ? serviceRes.length : 0);
-    } catch {
+    } catch (loadError) {
+      console.error('Admin dashboard: failed to load stats', loadError);
       setError('Không thể tải tổng quan quản trị. Vui lòng kiểm tra kết nối API và quyền admin.');
     } finally {
       setLoading(false);
@@ -324,7 +325,7 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+    <div className="mx-auto max-w-350 space-y-6 pb-16">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">TRUNG TÂM ĐIỀU HÀNH</p>

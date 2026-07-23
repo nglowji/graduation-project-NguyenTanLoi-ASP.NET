@@ -92,6 +92,7 @@ public record OwnerBookingDto(
     Guid Id,
     string CustomerName,
     string CustomerPhone,
+    Guid SportCenterId,
     string PitchName,
     string PitchType,
     string BookingDate,
@@ -138,5 +139,6 @@ public record PitchApprovalDto(
     string SubmittedAt,
     string PitchType,
     string Address,
+    string? ImageUrl,
     string Status
 );

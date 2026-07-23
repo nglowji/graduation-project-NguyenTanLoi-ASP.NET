@@ -1,5 +1,7 @@
 using System.Reflection;
 using Application.Common.Behaviours;
+using Application.Common.Interfaces;
+using Application.Common.Services;
 using Domain.Services;
 using FluentValidation;
 using MediatR;
@@ -24,6 +26,7 @@ public static class DependencyInjection
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
         
         services.AddScoped<PricingDomainService>();
+        services.AddScoped<ISystemSettingService, SystemSettingService>();
 
         return services;
     }

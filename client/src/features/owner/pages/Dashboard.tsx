@@ -12,7 +12,6 @@ import {
   Package,
   RefreshCw,
   Star,
-  TrendingUp,
   Wallet,
   Wrench,
 } from 'lucide-react';
@@ -95,6 +94,15 @@ const unwrapObject = <T,>(response: unknown): T => {
   return data as T;
 };
 
+const safeDashboardRequest = async <T,>(label: string, request: Promise<T>, fallback: T): Promise<T> => {
+  try {
+    return await request;
+  } catch (error) {
+    console.error(`Owner dashboard: failed to load ${label}`, error);
+    return fallback;
+  }
+};
+
 const dateKey = (value?: string) => {
   if (!value) return '';
   const raw = String(value).trim().split('T')[0].split(' ')[0];
@@ -109,7 +117,7 @@ const dateKey = (value?: string) => {
 };
 
 const normalizeStatus = (value?: string) => String(value || '').toLowerCase();
-const isCompletedBooking = (booking: any) => normalizeStatus(booking.status).includes('complete') || normalizeStatus(booking.status).includes('confirm');
+const isCompletedBooking = (booking: any) => normalizeStatus(booking.status).includes('complete');
 const isPendingBooking = (booking: any) => normalizeStatus(booking.status).includes('pending');
 const isCancelledBooking = (booking: any) => normalizeStatus(booking.status).includes('cancel');
 const bookingAmount = (booking: any) => Number(booking.totalAmount ?? booking.totalPrice ?? booking.amount ?? booking.finalAmount ?? booking.payment?.amount ?? 0);
@@ -287,13 +295,22 @@ const Dashboard: React.FC = () => {
 
     try {
       const [bookings, revenue, pitches, services] = await Promise.all([
-        api.get('/bookings/owner') as any,
-        api.get('/dashboard/owner/revenue') as any,
-        api.get('/pitches/my') as any,
-        api.get('/additional-services/my') as any,
+        safeDashboardRequest('bookings', api.get('/bookings/owner', { params: { pageNumber: 1, pageSize: 250 } }) as any, []),
+        safeDashboardRequest('revenue', api.get('/dashboard/owner/revenue') as any, {}),
+        safeDashboardRequest('pitches', api.get('/pitches/my') as any, []),
+        safeDashboardRequest('services', api.get('/additional-services/my') as any, []),
       ]);
 
-      setData(buildDashboard(unwrapItems<any>(bookings), unwrapObject<any>(revenue), unwrapItems<any>(pitches), unwrapItems<any>(services)));
+      const revenueData = unwrapObject<any>(revenue);
+      const ownerBookings = unwrapItems<any>(bookings);
+      const revenueBookings = Array.isArray(revenueData?.recentBookings) ? revenueData.recentBookings : [];
+
+      setData(buildDashboard(
+        ownerBookings.length > 0 ? ownerBookings : revenueBookings,
+        revenueData,
+        unwrapItems<any>(pitches),
+        unwrapItems<any>(services),
+      ));
     } catch {
       setData(null);
     } finally {

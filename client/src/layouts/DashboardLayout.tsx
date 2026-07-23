@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BellRing,
@@ -15,6 +15,7 @@ import {
   MapPin,
   Menu,
   ShieldCheck,
+  Settings,
   Star,
   TrendingUp,
   Users,
@@ -29,7 +30,6 @@ interface NavItem {
   label: string;
   path: string;
 }
-
 const ownerNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Tổng quan', path: '/dashboard/owner' },
   { icon: MapPin, label: 'Quản lý sân', path: '/dashboard/owner/pitches' },
@@ -46,10 +46,10 @@ const adminNavItems: NavItem[] = [
   { icon: ShieldCheck, label: 'Quản lý chủ sân', path: '/dashboard/admin/approvals' },
   { icon: Flag, label: 'Kiểm duyệt nội dung', path: '/dashboard/admin/moderation' },
   { icon: DollarSign, label: 'Doanh thu nền tảng', path: '/dashboard/admin/revenue' },
+  { icon: Settings, label: 'Cấu hình hệ thống', path: '/dashboard/admin/system' },
 ];
-
 interface DashboardLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   role?: 'admin' | 'owner';
 }
 
@@ -57,6 +57,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
+  const contentRef = useRef<HTMLElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -83,6 +84,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
   const accentBg = isAdmin ? 'bg-indigo-50' : 'bg-blue-50';
 
   useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
     if (isAdmin) return;
 
     let mounted = true;
@@ -97,13 +102,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
     };
 
     fetchBookingNotifications();
-    const timer = window.setInterval(fetchBookingNotifications, 60000);
+    const timer = window.setInterval(fetchBookingNotifications, 180000);
+    window.addEventListener('focus', fetchBookingNotifications);
 
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      window.removeEventListener('focus', fetchBookingNotifications);
     };
-  }, [isAdmin, location.pathname]);
+  }, [isAdmin]);
 
   const notificationItems = useMemo(() => {
     return bookingNotifications.slice(0, 8);
@@ -371,7 +378,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
           </div>
         </header>
 
-        <main className="custom-scrollbar relative flex-1 overflow-y-auto bg-slate-100 px-3 pb-3 pt-5 sm:px-5 lg:px-6">
+        <main ref={contentRef} className="custom-scrollbar relative flex-1 overflow-y-auto bg-slate-100 px-3 pb-3 pt-5 sm:px-5 lg:px-6">
           <div className="mx-auto min-h-full max-w-400 py-2 pb-24 sm:pb-24">
             <AnimatePresence mode="wait">
               <motion.div
@@ -381,7 +388,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, role = 'own
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                {children}
+                {children ?? <Outlet />}
               </motion.div>
             </AnimatePresence>
           </div>

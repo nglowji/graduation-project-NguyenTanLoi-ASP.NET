@@ -52,6 +52,13 @@ public class Booking : BaseEntity, IAggregateRoot
         MarkAsUpdated();
     }
 
+    public void AddIncidentalService(Guid serviceId, string name, Money price, int quantity = 1, string? addedByName = null)
+    {
+        _services.Add(BookingService.Create(Id, serviceId, name, price, quantity, addedByName));
+        TotalPrice = TotalPrice.Add(price.Multiply(quantity));
+        MarkAsUpdated();
+    }
+
     public static Booking Create(Guid userId, Guid timeSlotId, DateOnly bookingDate, Money totalPrice, Money depositAmount)
     {
         ValidateCreationParameters(userId, timeSlotId, bookingDate, totalPrice, depositAmount);

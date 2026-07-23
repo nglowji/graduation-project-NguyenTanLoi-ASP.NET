@@ -22,7 +22,12 @@ public class AdditionalServiceConfiguration : IEntityTypeConfiguration<Additiona
 
         builder.Property(s => s.IsActive)
             .IsRequired()
-            .HasDefaultValue(true);
+            .HasDefaultValue(false);
+
+        builder.Property(s => s.Status)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasDefaultValue(Domain.Enums.AdditionalServiceStatus.PendingApproval);
 
         builder.OwnsOne(s => s.Price, price =>
         {
@@ -44,6 +49,7 @@ public class AdditionalServiceConfiguration : IEntityTypeConfiguration<Additiona
 
         builder.HasIndex(s => s.SportCenterId);
         builder.HasIndex(s => s.IsActive);
+        builder.HasIndex(s => s.Status);
 
         builder.HasQueryFilter(s => !s.IsDeleted);
     }

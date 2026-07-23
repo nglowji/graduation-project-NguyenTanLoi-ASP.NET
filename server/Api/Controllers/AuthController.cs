@@ -205,6 +205,51 @@ public class AuthController : ApiControllerBase
         return OkResponse(result.Value);
     }
 
+    [HttpGet("owner-registration-status")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<OwnerRegistrationStatusResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOwnerRegistrationStatus(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == userId, cancellationToken);
+        if (user == null)
+            return BadRequestResponse("User not found");
+
+        var center = await _context.SportCenters
+            .AsNoTracking()
+            .Where(item => item.OwnerId == userId)
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(item => new
+            {
+                item.Id,
+                item.Name,
+                item.IsActive,
+                item.CreatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var hasSubmitted = user.HasSubmittedOwnerRegistration || center != null || user.Role == Domain.Enums.UserRole.PitchOwner;
+        var status = user.Role == Domain.Enums.UserRole.PitchOwner || center?.IsActive == true
+            ? "approved"
+            : center != null
+                ? "pending"
+                : hasSubmitted
+                    ? "submitted"
+                    : "none";
+
+        return OkResponse(new OwnerRegistrationStatusResponse(
+            hasSubmitted,
+            status,
+            center?.Id,
+            center?.Name,
+            center?.CreatedAt));
+    }
+
     [HttpPost("refresh-token")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
@@ -244,3 +289,9 @@ public class AuthController : ApiControllerBase
 public record ForgotPasswordRequest(string Email);
 public record VerifyResetOtpRequest(string Email, string Otp);
 public record ResetPasswordRequest(string Email, string ResetToken, string NewPassword);
+public record OwnerRegistrationStatusResponse(
+    bool HasSubmitted,
+    string Status,
+    Guid? SportCenterId,
+    string? SportCenterName,
+    DateTime? SubmittedAt);

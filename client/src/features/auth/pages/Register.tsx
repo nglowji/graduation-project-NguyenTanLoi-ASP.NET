@@ -17,10 +17,26 @@ const Register: React.FC = () => {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+    
+    // Validate password match
     if (form.password !== form.confirm) {
       setError('Mật khẩu xác nhận không khớp.');
       return;
     }
+    
+    // Validate password strength
+    const passwordErrors: string[] = [];
+    if (form.password.length < 8) passwordErrors.push('Mật khẩu phải có ít nhất 8 ký tự');
+    if (!/[A-Z]/.test(form.password)) passwordErrors.push('Phải có ít nhất 1 chữ hoa');
+    if (!/[a-z]/.test(form.password)) passwordErrors.push('Phải có ít nhất 1 chữ thường');
+    if (!/[0-9]/.test(form.password)) passwordErrors.push('Phải có ít nhất 1 chữ số');
+    if (!/[\W_]/.test(form.password)) passwordErrors.push('Phải có ít nhất 1 ký tự đặc biệt (!@#$%...)');
+    
+    if (passwordErrors.length > 0) {
+      setError('Mật khẩu không hợp lệ: ' + passwordErrors.join(', '));
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await authService.register({
@@ -37,7 +53,9 @@ const Register: React.FC = () => {
         alert('Tài khoản đã được tạo. Bạn hãy cập nhật địa chỉ trong hồ sơ để đặt sân thuận tiện hơn.');
       }, 250);
     } catch (err: any) {
-      setError(err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+      // Extract detailed validation errors if available
+      const errorMsg = err.response?.data?.message || err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -56,6 +74,14 @@ const Register: React.FC = () => {
         </div>
         <AuthInput required type="password" label="Mật khẩu" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" icon={<Lock size={16} />} />
         <AuthInput required type="password" label="Xác nhận mật khẩu" value={form.confirm} onChange={e => set('confirm', e.target.value)} placeholder="••••••••" icon={<Lock size={16} />} />
+        <div className="sm:col-span-2 text-xs text-slate-600 -mt-2">
+          <p className="font-semibold mb-1">Mật khẩu phải có:</p>
+          <ul className="space-y-0.5 ml-4 list-disc">
+            <li>Ít nhất 8 ký tự</li>
+            <li>Ít nhất 1 chữ hoa, 1 chữ thường</li>
+            <li>Ít nhất 1 chữ số và 1 ký tự đặc biệt (!@#$%...)</li>
+          </ul>
+        </div>
         <button disabled={loading} className="sm:col-span-2 flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 text-sm font-black text-white hover:bg-blue-800 disabled:opacity-50">
           {loading ? 'Đang tạo tài khoản...' : <>Tạo tài khoản <ArrowRight size={17} /></>}
         </button>

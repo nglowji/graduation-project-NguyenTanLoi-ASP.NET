@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
-  MapPin, Star, CheckCircle2, ShieldCheck,
-  Loader2, Calendar, ArrowRight, ChevronLeft, ChevronRight,
-  User, ArrowLeft, Navigation, Clock, Wifi, Car, Shield,
-  Coffee, Package, Trophy, Zap, Phone, Share2, Heart,
-  Lock, Headphones,
+  MapPin, Star, ShieldCheck,
+  Loader2, ArrowRight, ChevronLeft, ChevronRight,
+  User, Navigation, Clock, Wifi, Car, Shield,
+  Coffee, Package, Zap, Phone,
+  Lock, Calendar, Sun, Sunset, Moon, X,
+  CheckCircle2, BadgeCheck, Ban
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -12,7 +13,6 @@ import { pitchService, type PitchResponse, type ReviewResponse } from '../../../
 import { signalRService } from '../../../services/signalRService';
 import api from '../../../services/api';
 import { formatCompactAddress } from '../../../utils/address';
-import Pagination from '../../../components/Pagination';
 
 declare global {
   interface Window { L?: any; }
@@ -187,30 +187,34 @@ const StarRow: React.FC<{ rating: number; size?: number }> = ({ rating, size = 1
 const FieldDetails: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
   const navigate = useNavigate();
-  const guidMatch = (slug || '').match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/);
-  const pitchId = id || guidMatch?.[0];
+  const routeValue = id || slug || '';
+  const guidMatch = routeValue.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/);
+  const pitchId = guidMatch?.[0];
 
   const [pitch, setPitch] = useState<PitchResponse | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+  const [slotStatusMap, setSlotStatusMap] = useState<Record<string, string>>({});
   const [selectedDate, setSelectedDate] = useState(getVietnamDateInputValue());
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [reviewFilter, setReviewFilter] = useState(0);
   const [reviewPage, setReviewPage] = useState(1);
-  const [saved, setSaved] = useState(false);
   const reviewPageSize = 4;
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
   const mapLayerGroupRef = useRef<any>(null);
+  const mapResizeObserverRef = useRef<ResizeObserver | null>(null);
   const [pitchLocation, setPitchLocation] = useState<Coordinates | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [routeLine, setRouteLine] = useState<Coordinates[]>([]);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
-  const [routeError, setRouteError] = useState('');
+  const [, setRouteError] = useState('');
   const [isRouting, setIsRouting] = useState(false);
+  const [showRouteSteps, setShowRouteSteps] = useState(false);
 
   const formatMoney = (value?: number | null) =>
     new Intl.NumberFormat('vi-VN').format(Number(value || 0));
@@ -258,6 +262,14 @@ const FieldDetails: React.FC = () => {
         L.control.zoom({ position: 'bottomright' }).addTo(mapInstanceRef.current);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(mapInstanceRef.current);
         mapLayerGroupRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+
+        // Tự động vẽ lại bản đồ mỗi khi khung chứa đổi kích thước (đổi bố cục, thu/phóng cửa sổ, ...)
+        if (typeof ResizeObserver !== 'undefined' && !mapResizeObserverRef.current) {
+          mapResizeObserverRef.current = new ResizeObserver(() => {
+            mapInstanceRef.current?.invalidateSize(true);
+          });
+          mapResizeObserverRef.current.observe(mapContainerRef.current);
+        }
       }
       const map = mapInstanceRef.current; const layers = mapLayerGroupRef.current;
       layers.clearLayers();
@@ -288,11 +300,17 @@ const FieldDetails: React.FC = () => {
   }, [pitchLocation, userLocation, routeLine, pitch?.name]);
 
   useEffect(() => () => {
+    if (mapResizeObserverRef.current) { mapResizeObserverRef.current.disconnect(); mapResizeObserverRef.current = null; }
     if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; mapLayerGroupRef.current = null; }
   }, []);
 
   useEffect(() => {
-    if (!pitchId) return;
+    if (!pitchId) {
+      setIsLoading(false);
+      setLoadError('Đường dẫn sân không hợp lệ.');
+      return;
+    }
+    setLoadError('');
     fetchPitchDetails(pitchId);
     fetchSlots(pitchId);
     const setup = async () => {
@@ -300,26 +318,65 @@ const FieldDetails: React.FC = () => {
         await signalRService.startConnection();
         await signalRService.joinPitchGroup(pitchId);
         signalRService.onTimeSlotStatusChanged((tsId, status, date) => {
-          if (date === selectedDate) setAvailableSlots(p => p.map(s => s.id === tsId ? { ...s, isAvailable: status === 'Available' } : s));
+          if (date !== selectedDate) return;
+          const normalizedStatus = status || 'Available';
+          setSlotStatusMap((current) => ({ ...current, [getSlotStatusKey(tsId, date)]: normalizedStatus }));
+          setAvailableSlots((current) => current.map((slot) => (
+            slot.id === tsId
+              ? { ...slot, status: normalizedStatus, isAvailable: normalizedStatus === 'Available' }
+              : slot
+          )));
         });
         signalRService.onBookingCreated((_pid, tsId, date) => {
-          if (date === selectedDate) setAvailableSlots(p => p.map(s => s.id === tsId ? { ...s, isAvailable: false } : s));
+          if (date !== selectedDate) return;
+          setSlotStatusMap((current) => ({ ...current, [getSlotStatusKey(tsId, date)]: 'Booked' }));
+          setAvailableSlots((current) => current.map((slot) => (
+            slot.id === tsId
+              ? { ...slot, status: 'Booked', isAvailable: false }
+              : slot
+          )));
         });
       } catch (e) { console.error('SignalR error', e); }
     };
     setup();
-    return () => { signalRService.leavePitchGroup(pitchId); signalRService.off('TimeSlotStatusChanged'); signalRService.off('BookingCreated'); };
+    return () => {
+      void signalRService.leavePitchGroup(pitchId);
+      signalRService.off('TimeSlotStatusChanged');
+      signalRService.off('BookingCreated');
+      void signalRService.stopConnection();
+    };
+  }, [pitchId, selectedDate]);
+
+  useEffect(() => {
+    if (!pitchId) return;
+    fetchSlots(pitchId);
+    setSelectedTimes([]);
   }, [pitchId, selectedDate]);
 
   const fetchPitchDetails = async (cid: string) => {
     setIsLoading(true);
+    setLoadError('');
     try {
       const data = await pitchService.getById(cid);
+      const initialReviews = data.reviews ?? [];
+      setPitch({ ...data, reviews: initialReviews });
+      setIsLoading(false);
+
       const reviewResult = await pitchService.getReviews(cid).catch(() => null);
-      const reviews = reviewResult?.items?.map(normalizeReview) ?? data.reviews ?? [];
-      const avg = reviews.length ? reviews.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviews.length : 0;
-      setPitch({ ...data, reviews, averageRating: avg, totalReviews: reviewResult?.totalCount ?? reviews.length });
-    } catch (e) { console.error(e); } finally { setIsLoading(false); }
+      if (!reviewResult) return;
+
+      const reviews = reviewResult.items?.map(normalizeReview) ?? [];
+      const avg = reviews.length
+        ? reviews.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviews.length
+        : Number(data.averageRating || 0);
+      setPitch((current) => current?.id === data.id
+        ? { ...current, reviews, averageRating: avg, totalReviews: reviewResult.totalCount ?? reviews.length }
+        : current);
+    } catch (e) {
+      console.error(e);
+      setLoadError('Không thể tải thông tin sân. Vui lòng thử lại hoặc quay về trang khám phá sân.');
+      setIsLoading(false);
+    } finally { setIsLoading(false); }
   };
 
   const normalizeReview = (r: ReviewResponse): ReviewResponse => ({
@@ -333,13 +390,36 @@ const FieldDetails: React.FC = () => {
   const fetchSlots = async (cid: string) => {
     try {
       const r = await api.get(`/pitches/${cid}/available-slots`, { params: { date: selectedDate } });
-      setAvailableSlots(r.data || []);
+      const data = r.data || [];
+      setAvailableSlots(data.map((slot: any) => {
+        const status = slotStatusMap[getSlotStatusKey(slot.id, selectedDate)] ?? (slot.isAvailable ? 'Available' : 'Booked');
+        return { ...slot, status };
+      }));
     } catch (e) { console.error(e); }
   };
 
   const parseSlotMinutes = (v?: string) => {
     const [h, m] = String(v || '00:00').split(':').map(Number);
     return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+  };
+
+  const getSlotStatusKey = (slotId: string, date = selectedDate) => `${date}:${slotId}`;
+
+  const isSlotPast = (slot: any) => {
+    if (slot.isExpired || slot.isPast) return true;
+    const today = getVietnamDateInputValue();
+    if (selectedDate < today) return true;
+    if (selectedDate > today) return false;
+
+    const nowParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const hour = Number(nowParts.find((part) => part.type === 'hour')?.value || 0);
+    const minute = Number(nowParts.find((part) => part.type === 'minute')?.value || 0);
+    return slot.start <= hour * 60 + minute;
   };
 
   const timelineSlots = availableSlots
@@ -356,6 +436,10 @@ const FieldDetails: React.FC = () => {
     }));
   }, [availableSlots]);
 
+  useEffect(() => {
+    setSelectedTimes([]);
+  }, [selectedDate]);
+
   const toggleSlot = (slot: any) => {
     if (!slot.isAvailable) return;
 
@@ -370,7 +454,7 @@ const FieldDetails: React.FC = () => {
     if (selectedSlots.length === 0) return;
     setIsBooking(true);
 
-    try {
+    try { // Attempt to handle booking
       const sortedSlots = [...selectedSlots].sort((a, b) => parseSlotMinutes(a.startTime) - parseSlotMinutes(b.startTime));
       const firstSlot = sortedSlots[0];
       const lastSlot = sortedSlots[sortedSlots.length - 1];
@@ -410,7 +494,7 @@ const FieldDetails: React.FC = () => {
   const handleUseCurrentLocation = async () => {
     if (!navigator.geolocation) { setRouteError('Trình duyệt không hỗ trợ vị trí.'); return; }
     if (!pitchLocation) { setRouteError('Chưa xác định được vị trí sân.'); return; }
-    setIsRouting(true); setRouteError(''); setUserLocation(null); setRouteLine([]); setRouteInfo(null);
+    setIsRouting(true); setRouteError(''); setUserLocation(null); setRouteLine([]); setRouteInfo(null); setShowRouteSteps(false);
     try {
       const pos = await getBestBrowserPosition();
       let ul = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -434,7 +518,6 @@ const FieldDetails: React.FC = () => {
     } catch (e: any) { setRouteError(e?.message || 'Không thể lấy vị trí.'); } finally { setIsRouting(false); }
   };
 
-  // ── loading / not-found ───────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 pt-20">
@@ -450,7 +533,7 @@ const FieldDetails: React.FC = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 pt-20">
         <div className="text-center">
-          <p className="text-base font-semibold text-slate-700">Không tìm thấy sân phù hợp.</p>
+          <p className="text-base font-semibold text-slate-700">{loadError || 'Không tìm thấy sân phù hợp.'}</p>
           <button onClick={() => navigate('/explore')} className="mt-4 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
             Quay lại khám phá
           </button>
@@ -466,43 +549,44 @@ const FieldDetails: React.FC = () => {
   const venueType = (pitch as any).isIndoor === true ? 'Trong nhà' : (pitch as any).isIndoor === false ? 'Ngoài trời' : null;
   const avgRating = Number(pitch.averageRating ?? 0);
   const availableCount = timelineSlots.filter((slot) => slot.isAvailable).length;
-  const bookedCount = timelineSlots.filter((slot) => !slot.isAvailable).length;
-  const selectedCount = selectedSlots.length;
-  const totalSlotCount = timelineSlots.length;
+
+  const selectedSlotText = [...selectedSlots]
+    .sort((a, b) => parseSlotMinutes(a.startTime) - parseSlotMinutes(b.startTime))
+    .map((slot) => `${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}`)
+    .join(' • ');
+
+  const selectedDateLabel = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${selectedDate}T00:00:00`));
+
+  const shiftSelectedDate = (deltaDays: number) => {
+    const nextDate = new Date(`${selectedDate}T12:00:00`);
+    nextDate.setDate(nextDate.getDate() + deltaDays);
+    setSelectedDate(toDateInputValue(nextDate));
+    setSelectedTimes([]);
+  };
+
+  const daySessions = [
+    { title: 'Sáng', range: '06:00 - 12:00', Icon: Sun, bandColor: 'bg-amber-50', iconColor: 'text-amber-500', min: 6 * 60, max: 12 * 60 },
+    { title: 'Chiều', range: '12:00 - 18:00', Icon: Sunset, bandColor: 'bg-teal-50', iconColor: 'text-teal-600', min: 12 * 60, max: 18 * 60 },
+    { title: 'Tối', range: '18:00 - 23:00', Icon: Moon, bandColor: 'bg-violet-50', iconColor: 'text-violet-500', min: 18 * 60, max: 23 * 60 + 1 },
+  ].map((session) => ({
+    ...session,
+    slots: timelineSlots.filter((slot) => slot.start >= session.min && slot.start < session.max),
+  }));
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pt-20 text-slate-900" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-[#f8fafc] pt-20 text-slate-900" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
 
-      {/* ── TOP NAV BAR ──────────────────────────────────────────────────── */}
-      <div className="sticky top-20 z-30 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between px-5">
-          <button
-            onClick={() => navigate('/explore')}
-            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft size={16} /> Danh sách sân
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSaved(s => !s)}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${saved ? 'border-red-200 bg-red-50 text-red-500' : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600'}`}
-            >
-              <Heart size={15} className={saved ? 'fill-red-500' : ''} />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:text-slate-600 transition">
-              <Share2 size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-[1280px] px-5 pb-5">
+      <div className="mx-auto max-w-[1440px] px-5 pb-5">
 
         {/* ── IMAGE GALLERY ─────────────────────────────────────────────── */}
-        <div className="mb-5 grid h-[360px] grid-cols-[1fr_240px] gap-2 overflow-hidden rounded-xl">
-          {/* Main image */}
-          <div className="relative overflow-hidden rounded-l-xl">
+        <div className="mb-5 grid gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm lg:grid-cols-[minmax(0,1.3fr)_220px]">
+          <div className="relative aspect-[16/10] min-h-[240px] overflow-hidden rounded-xl bg-slate-100">
             <AnimatePresence mode="wait">
               <motion.img
                 key={activeImageIndex}
@@ -515,54 +599,235 @@ const FieldDetails: React.FC = () => {
                 className="h-full w-full object-cover"
               />
             </AnimatePresence>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/10 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-3 p-3.5 text-white">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">Ảnh sân</p>
+                <h2 className="mt-1 truncate text-lg font-black leading-tight">{pitch.name}</h2>
+                <p className="mt-1 text-xs text-white/80">
+                  {activeImageIndex + 1}/{pitchImages.length} ảnh, kéo hoặc bấm để xem thêm.
+                </p>
+              </div>
+              <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
+                {pitchImages.length} ảnh
+              </div>
+            </div>
             {pitchImages.length > 1 && (
               <>
                 <button
                   onClick={() => setActiveImageIndex(i => i > 0 ? i - 1 : pitchImages.length - 1)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm hover:bg-white transition"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/90 text-slate-700 shadow-lg transition hover:bg-white"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={() => setActiveImageIndex(i => i < pitchImages.length - 1 ? i + 1 : 0)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm hover:bg-white transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/90 text-slate-700 shadow-lg transition hover:bg-white"
                 >
                   <ChevronRight size={16} />
                 </button>
               </>
             )}
           </div>
-          {/* Thumb column */}
-          <div className="flex flex-col gap-2 rounded-r-xl overflow-hidden">
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-1 lg:grid-rows-2">
             {pitchImages.slice(1, 3).map((img, i) => (
               <div
                 key={i}
-                className="relative flex-1 cursor-pointer overflow-hidden"
+                className={`group relative min-h-[118px] cursor-pointer overflow-hidden rounded-xl border bg-slate-100 transition ${activeImageIndex === i + 1 ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200 hover:border-slate-300'}`}
                 onClick={() => setActiveImageIndex(i + 1)}
               >
-                <img src={img.imageUrl} className="h-full w-full object-cover hover:scale-105 transition-transform duration-300" alt="" />
+                <img src={img.imageUrl} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-transparent opacity-80 transition group-hover:opacity-100" />
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2 text-white">
+                  <span className="truncate text-[11px] font-semibold">Ảnh phụ {i + 1}</span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm">
+                    Xem
+                  </span>
+                </div>
                 {i === 1 && pitchImages.length > 3 && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
-                    <span className="text-sm font-semibold text-white">+{pitchImages.length - 3} ảnh</span>
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                    <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">+{pitchImages.length - 3} ảnh</span>
                   </div>
                 )}
               </div>
             ))}
             {pitchImages.length < 2 && (
-              <div className="flex-1 bg-slate-200 rounded-r-xl" />
+              <div className="min-h-[118px] rounded-xl border border-slate-200 bg-slate-100" />
             )}
           </div>
         </div>
 
-        {/* ── MAIN BODY: left content + right booking ────────────────────── */}
-        <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
+        {/* ── LỊCH ĐẶT SÂN DẠNG THỜI KHÓA BIỂU ──────────────────────────────── */}
+        <div className="mb-5 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-blue-700 px-6 py-4">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-blue-100">Lịch đặt sân</h2>
+              <p className="mt-0.5 text-xs font-bold text-blue-50">{pitch.name} · Chọn khung giờ trống để đặt sân</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-black text-white">
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={14} strokeWidth={3} className="text-emerald-200" /> Trống</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={14} strokeWidth={3} className="text-white" /> Đã chọn</span>
+              <span className="inline-flex items-center gap-1.5"><BadgeCheck size={14} strokeWidth={3} className="text-blue-100" /> Đã đặt</span>
+              <span className="inline-flex items-center gap-1.5"><Lock size={14} strokeWidth={3} className="text-amber-200" /> Đang giữ</span>
+              <span className="inline-flex items-center gap-1.5"><Ban size={14} strokeWidth={3} className="text-slate-200" /> Quá hạn</span>
+            </div>
+          </div>
+
+          {timelineSlots.length === 0 ? (
+            <div className="py-14 text-center text-sm font-semibold text-slate-400">
+              Chưa có khung giờ nào được thiết lập cho ngày này.
+            </div>
+          ) : (
+            <div className="space-y-5 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Ngày chơi</p>
+                    <p className="mt-1 flex items-center gap-2 text-base font-black text-slate-900">
+                      <Calendar size={16} className="text-teal-600" />
+                      {selectedDateLabel}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedDate(-1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100"
+                      aria-label="Ngày trước"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      min={getVietnamDateInputValue()}
+                      onChange={(event) => setSelectedDate(event.target.value)}
+                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-teal-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => shiftSelectedDate(1)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100"
+                      aria-label="Ngày sau"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-slate-500">Chỉ hiển thị các khung giờ trong ngày đã chọn. Khi đổi ngày, các khung giờ đang chọn sẽ được làm mới.</p>
+              </div>
+
+              {daySessions.some((session) => session.slots.length > 0) ? (
+                <div className="overflow-hidden rounded-2xl border border-slate-100">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="sticky left-0 z-20 w-[104px] min-w-[104px] border border-slate-200 bg-slate-100 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
+                            Buổi \ Giờ
+                          </th>
+                          {timelineSlots.map((slot) => (
+                            <th
+                              key={slot.id}
+                              scope="col"
+                              className="min-w-[76px] border border-slate-200 bg-slate-50 px-1.5 py-2.5 text-center text-[11px] font-black leading-tight text-slate-600"
+                            >
+                              {slot.startTime.slice(0, 5)}
+                              <span className="block text-[9px] font-semibold text-slate-400">{slot.endTime.slice(0, 5)}</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {daySessions.map((session) => (
+                          <tr key={session.title}>
+                            <th
+                              scope="row"
+                              className={`${session.bandColor} sticky left-0 z-10 border border-slate-200 px-3 py-3 text-left align-top`}
+                            >
+                              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                                <session.Icon size={13} className={session.iconColor} />
+                                {session.title}
+                              </div>
+                              <p className="mt-1 text-[9px] font-bold text-slate-400">{session.range}</p>
+                            </th>
+                            {timelineSlots.map((slot) => {
+                              const inSession = slot.start >= session.min && slot.start < session.max;
+                              if (!inSession) {
+                                return (
+                                  <td key={slot.id} className="border border-slate-200 bg-white" />
+                                );
+                              }
+
+                              const isSelected = selectedTimes.includes(slot.id);
+                              const isPast = isSlotPast(slot);
+                              const isHolding = (slot as any).status === 'Holding' || (slot as any).status === 'Locked';
+                              const isBooked = (slot as any).status === 'Booked' || (!slot.isAvailable && !isPast && !isHolding);
+                              const disabled = isBooked || isPast || isHolding;
+
+                              let cellStyles = 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500';
+                              let label = 'Trống';
+                              let SlotIcon = CheckCircle2;
+                              let iconStyles = 'text-emerald-600';
+                              if (isSelected) {
+                                cellStyles = 'border border-blue-600 bg-blue-600 text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500';
+                                label = 'Đã chọn';
+                                SlotIcon = CheckCircle2;
+                                iconStyles = 'text-white';
+                              } else if (isPast) {
+                                cellStyles = 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-500';
+                                label = 'Quá hạn';
+                                SlotIcon = Ban;
+                                iconStyles = 'text-slate-500';
+                              } else if (isHolding) {
+                                cellStyles = 'cursor-not-allowed border border-amber-200 bg-amber-50 text-amber-700';
+                                label = 'Đang giữ';
+                                SlotIcon = Lock;
+                                iconStyles = 'text-amber-600';
+                              } else if (isBooked) {
+                                cellStyles = 'cursor-not-allowed border border-blue-200 bg-blue-50 text-blue-700';
+                                label = 'Đã đặt';
+                                SlotIcon = BadgeCheck;
+                                iconStyles = 'text-blue-600';
+                              }
+
+                              return (
+                                <td key={slot.id} className="border border-slate-200 bg-white p-1 text-center">
+                                  <button
+                                    type="button"
+                                    disabled={disabled}
+                                    onClick={() => toggleSlot(slot)}
+                                    title={`${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}`}
+                                    className={`flex h-14 w-full flex-col items-center justify-center gap-1 rounded-md text-[10px] font-bold leading-none transition-all duration-150 ${cellStyles}`}
+                                  >
+                                    <SlotIcon size={13} strokeWidth={2.5} className={iconStyles} />
+                                    <span>{label}</span>
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-400">
+                  Không có khung giờ trống cho ngày này. Hãy chọn ngày khác.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── MAIN BODY ──────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-[minmax(0,1fr)_580px] gap-6 items-start">
 
           {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
           <div className="flex flex-col gap-4">
-
             {/* Title card */}
             <div className="rounded-xl border border-slate-200 bg-white p-5">
-              {/* Tags */}
               <div className="mb-3 flex flex-wrap gap-1.5">
                 <span className="rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{pitch.typeDisplay}</span>
                 {venueType && <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{venueType}</span>}
@@ -598,7 +863,7 @@ const FieldDetails: React.FC = () => {
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <h2 className="mb-2 text-base font-semibold text-slate-800">Giới thiệu sân</h2>
               <p className="text-sm leading-relaxed text-slate-500">
-                {pitch.description || 'Sân sạch sẽ, không gian thoáng đãng, lịch trống được cập nhật liên tục để bạn yên tâm chọn giờ phù hợp. Hệ thống ánh sáng đầy đủ, cỏ nhân tạo thế hệ 3 được bảo dưỡng định kỳ, phù hợp cho cả giờ cao điểm ban ngày lẫn buổi tối.'}
+                {pitch.description || 'Sân sạch sẽ, không gian thoáng đãng, lịch trống được cập nhật liên tục để bạn yên tâm chọn giờ phù hợp. Hệ thống ánh sáng đầy đủ, cỏ nhân tạo thế hệ 3 được bảo dưỡng định kỳ.'}
               </p>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {AMENITIES.map(({ icon: Icon, label, sub }) => (
@@ -637,14 +902,16 @@ const FieldDetails: React.FC = () => {
                   <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                     ⏱ {Math.max(1, Math.round(routeInfo.durationMin))} phút
                   </span>
-                  <span className="max-w-[240px] truncate rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-500">
-                    Từ: {routeInfo.userAddress}
-                  </span>
+                  {routeInfo.steps.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRouteSteps((value) => !value)}
+                      className="rounded-lg border border-blue-100 bg-white px-2.5 py-1 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+                    >
+                      {showRouteSteps ? 'Thu gọn' : 'Xem thêm'}
+                    </button>
+                  )}
                 </div>
-              )}
-
-              {routeError && (
-                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{routeError}</p>
               )}
 
               <div className="overflow-hidden rounded-lg border border-slate-200">
@@ -657,41 +924,14 @@ const FieldDetails: React.FC = () => {
               <div className="mb-4 flex items-start justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-slate-800">Đánh giá</h2>
-                  <p className="mt-0.5 text-sm text-slate-400">{pitch.totalReviews || 0} lượt nhận xét từ khách đặt sân</p>
+                  <p className="mt-0.5 text-sm text-slate-400">{pitch.totalReviews || 0} lượt nhận xét</p>
                 </div>
                 <div className="flex flex-col items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
                   <span className="text-2xl font-bold text-amber-500">{avgRating.toFixed(1)}</span>
                   <StarRow rating={avgRating} />
-                  <span className="mt-0.5 text-[10px] text-amber-600">/ 5 sao</span>
                 </div>
               </div>
 
-              {/* Rating bars */}
-              <div className="mb-4 space-y-1.5">
-                {[5, 4, 3, 2, 1].map(r => {
-                  const count = (pitch.reviews || []).filter(rv => Number(rv.rating) === r).length;
-                  const total = Math.max(pitch.totalReviews || pitch.reviews?.length || 0, 1);
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => setReviewFilter(r)}
-                      className="flex w-full items-center gap-2 text-left"
-                    >
-                      <span className="w-10 text-right text-xs text-slate-500">{r} sao</span>
-                      <div className="flex-1 overflow-hidden rounded-full bg-slate-100" style={{ height: 5 }}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(count / total) * 100}%` }}
-                          className="h-full rounded-full bg-amber-400"
-                        />
-                      </div>
-                      <span className="w-6 text-right text-xs text-slate-400">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Filter chips */}
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {[0, 5, 4, 3, 2, 1].map(r => (
                   <button
@@ -706,7 +946,6 @@ const FieldDetails: React.FC = () => {
                 ))}
               </div>
 
-              {/* Review list */}
               <div className="divide-y divide-slate-100">
                 {pagedReviews.length > 0 ? pagedReviews.map(rev => (
                   <article key={rev.id} className="py-4 first:pt-0">
@@ -723,12 +962,6 @@ const FieldDetails: React.FC = () => {
                           </div>
                         </div>
                         <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{rev.comment || 'Khách hàng hài lòng về dịch vụ.'}</p>
-                        {rev.ownerReply && (
-                          <div className="mt-2.5 rounded-lg border-l-2 border-blue-400 bg-blue-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Phản hồi từ chủ sân</p>
-                            <p className="mt-1 text-xs leading-relaxed text-slate-600">{rev.ownerReply}</p>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </article>
@@ -738,216 +971,100 @@ const FieldDetails: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {filteredReviews.length > reviewPageSize && (
-                <Pagination
-                  page={reviewPage}
-                  totalItems={filteredReviews.length}
-                  pageSize={reviewPageSize}
-                  onPageChange={setReviewPage}
-                  label="đánh giá"
-                />
-              )}
             </div>
           </div>
 
-          {/* ── RIGHT: BOOKING CARD (sticky) ────────────────────────────── */}
-          <div className="sticky top-[8.75rem]">
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-
-              {/* Price header */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Giá thuê / giờ</p>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-slate-900">{formatMoney(pitch.minPrice)}</span>
-                    <span className="text-sm text-slate-400">đ</span>
+          {/* ── RIGHT COLUMN: BOOKING CARD ── */}
+          <div className="sticky top-[150px]">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-100/70">
+              <div className="bg-blue-700 px-6 py-4 text-white">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-widest">Lịch đặt sân</h3>
+                    <p className="mt-1 text-xs font-medium text-blue-50">Chọn khung giờ trong lịch thời khóa biểu phía trên</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-100">Từ</p>
+                    <p className="text-lg font-black">{formatMoney(pitch.minPrice)}đ</p>
                   </div>
                 </div>
-                <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                  <CheckCircle2 size={12} /> Còn chỗ
-                </span>
               </div>
 
-              <div className="px-5 py-4">
-                {/* Date picker */}
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Chọn ngày</p>
-                <div className="grid grid-cols-7 gap-1">
-                  {Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date(); d.setDate(d.getDate() + i);
-                    const v = toDateInputValue(d);
-                    const sel = selectedDate === v;
-                    return (
-                      <button
-                        key={v}
-                        onClick={() => { setSelectedDate(v); setSelectedTimes([]); }}
-                        className={`flex flex-col items-center rounded-lg py-2 text-center transition ${
-                          sel ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span className={`text-[9px] font-medium ${sel ? 'text-blue-200' : 'text-slate-400'}`}>
-                          {new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(d)}
-                        </span>
-                        <span className="mt-0.5 text-sm font-semibold">{d.getDate()}</span>
-                      </button>
-                    );
-                  })}
+              <div className="p-6">
+                {/* Ngày đang xem */}
+                <div className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-bold capitalize text-slate-700">
+                    <Calendar size={15} className="text-blue-600" />
+                    {new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(new Date(`${selectedDate}T00:00:00`))}
+                  </span>
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-400">{availableCount} khung giờ trống</span>
                 </div>
 
-                {/* Time slots */}
-                <div className="mt-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Khung giờ</p>
-                      <p className="mt-1 text-[11px] font-medium text-slate-400">Có thể chọn nhiều khung giờ cùng lúc</p>
-                    </div>
+                {/* Khung giờ đã chọn */}
+                <div className="mb-6">
+                  <span className="mb-3 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+                    <Clock size={15} className="text-blue-600" />
+                    Khung giờ đã chọn
+                  </span>
 
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Trống
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        Đang chọn
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
-                        <span className="h-2 w-2 rounded-full bg-red-400" />
-                        Đã đặt
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-lg bg-emerald-50 px-2 py-2">
-                      <p className="text-sm font-black text-emerald-700">{availableCount}</p>
-                      <p className="text-[10px] font-bold text-emerald-600">Trống</p>
-                    </div>
-                    <div className="rounded-lg bg-blue-50 px-2 py-2">
-                      <p className="text-sm font-black text-blue-700">{selectedCount}</p>
-                      <p className="text-[10px] font-bold text-blue-600">Đang chọn</p>
-                    </div>
-                    <div className="rounded-lg bg-red-50 px-2 py-2">
-                      <p className="text-sm font-black text-red-600">{bookedCount}</p>
-                      <p className="text-[10px] font-bold text-red-500">Đã đặt</p>
-                    </div>
-                  </div>
-
-                  {timelineSlots.length > 0 ? (
-                    <div className="grid max-h-[300px] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
-                      {timelineSlots.map((slot) => {
-                        const isSelected = selectedTimes.includes(slot.id);
-                        const isBooked = !slot.isAvailable;
-                        const isPast = slot.isExpired || slot.isPast || false;
-                        const price = Number(slot.price ?? pitch.minPrice ?? 0);
-
-                        return (
+                  {selectedSlots.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[...selectedSlots]
+                        .sort((a, b) => parseSlotMinutes(a.startTime) - parseSlotMinutes(b.startTime))
+                        .map((slot) => (
                           <button
                             key={slot.id}
                             type="button"
-                            disabled={isBooked || isPast}
                             onClick={() => toggleSlot(slot)}
-                            className={`relative rounded-lg border px-2.5 py-2.5 text-left transition ${
-                              isSelected
-                                ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                                : isBooked
-                                  ? 'cursor-not-allowed border-red-100 bg-red-50 text-red-300'
-                                  : isPast
-                                    ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300'
-                                    : 'border-emerald-200 bg-white text-slate-800 hover:border-emerald-400 hover:bg-emerald-50'
-                            }`}
+                            className="group inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="text-xs font-black leading-tight">
-                                  {slot.startTime.slice(0, 5)} - {slot.endTime.slice(0, 5)}
-                                </p>
-                                <p className={`mt-1 text-[10px] font-bold ${
-                                  isSelected
-                                    ? 'text-blue-100'
-                                    : isBooked
-                                      ? 'text-red-300'
-                                      : isPast
-                                        ? 'text-slate-300'
-                                        : 'text-emerald-600'
-                                }`}>
-                                  {isBooked ? 'Sân đã đặt' : isPast ? 'Hết khung giờ' : 'Còn trống'}
-                                </p>
-                              </div>
-
-                              <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                                isSelected ? 'bg-white' : isBooked ? 'bg-red-400' : isPast ? 'bg-slate-300' : 'bg-emerald-500'
-                              }`} />
-                            </div>
-
-                            {!isBooked && !isPast && (
-                              <p className={`mt-2 text-[10px] font-bold ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
-                                {formatMoney(price)}đ
-                              </p>
-                            )}
+                            {slot.startTime.slice(0, 5)} - {slot.endTime.slice(0, 5)}
+                            <X size={12} className="opacity-60 transition group-hover:opacity-100" />
                           </button>
-                        );
-                      })}
+                        ))}
                     </div>
                   ) : (
-                    <div className="rounded-lg bg-slate-50 py-6 text-center text-xs text-slate-400">
-                      Không có khung giờ trong ngày này
+                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-7 text-center text-xs font-semibold text-slate-400">
+                      Chọn khung giờ trống trong lịch thời khóa biểu phía trên để tiếp tục
                     </div>
                   )}
                 </div>
 
-                {/* Selected slot summary */}
-                {selectedSlots.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={13} />
-                      Đã chọn {selectedSlots.length} khung giờ
+                {/* Footer hành động */}
+                <div className="border-t border-slate-100 pt-6">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div className="min-w-0 pt-1">
+                      <span className="text-sm font-bold text-slate-500">Tổng cộng:</span>
+                      <p className="mt-1 max-w-[230px] truncate text-xs font-medium text-slate-400">
+                        {selectedSlots.length > 0 ? selectedSlotText : 'Chưa chọn khung giờ'}
+                      </p>
                     </div>
-                    <div className="mt-1 truncate text-[11px] text-blue-600">
-                      {[...selectedSlots]
-                        .sort((a, b) => parseSlotMinutes(a.startTime) - parseSlotMinutes(b.startTime))
-                        .map((slot) => `${slot.startTime.slice(0, 5)}-${slot.endTime.slice(0, 5)}`)
-                        .join(', ')}
+                    <div className="shrink-0 text-right">
+                      <span className="text-2xl font-black text-blue-600">{formatMoney(selectedTotal)}đ</span>
+                      <p className="mt-1 text-[11px] font-semibold text-slate-400">{selectedSlots.length} khung giờ</p>
                     </div>
-                  </motion.div>
-                )}
-
-                {/* Total & CTA */}
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <span className="text-sm text-slate-500">Tổng tiền</span>
-                    <span className="text-xl font-bold text-blue-600">
-                      {selectedSlots.length > 0 ? `${formatMoney(selectedTotal || Number(pitch.minPrice || 0) * selectedSlots.length)}đ` : '—'}
-                    </span>
                   </div>
+
                   <button
                     onClick={handleBooking}
                     disabled={selectedSlots.length === 0 || isBooking}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                   >
-                    {isBooking ? <Loader2 size={15} className="animate-spin" /> : <>Đặt sân ngay <ArrowRight size={15} /></>}
+                    {isBooking ? <Loader2 size={16} className="animate-spin" /> : <>Đặt sân ngay <ArrowRight size={16} /></>}
                   </button>
                 </div>
-
-                {/* Trust signals */}
-                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                {/* Cam kết tin cậy */}
+                <div className="mt-4 space-y-2 border-t border-slate-100 pt-3.5">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
                     <ShieldCheck size={13} className="shrink-0 text-emerald-500" />
-                    Hoàn tiền trong 24 giờ nếu hủy đúng hạn
+                    Đảm bảo giữ sân tức thì sau khi thanh toán thành công
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Lock size={13} className="shrink-0 text-blue-400" />
-                    Thanh toán bảo mật, mã hóa SSL
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Headphones size={13} className="shrink-0 text-violet-400" />
-                    Hỗ trợ 24/7 qua SmartSport Chat
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <Lock size={13} className="shrink-0 text-slate-400" />
+                    Thanh toán bảo mật trực tuyến mã hóa SSL
                   </div>
                 </div>
+
               </div>
             </div>
           </div>

@@ -12,4 +12,5 @@ public record UserProfileDto
     public string? MapLink { get; init; }
     public UserRole Role { get; init; }
     public bool EmailConfirmed { get; init; }
+    public bool HasSubmittedOwnerRegistration { get; init; }
 }

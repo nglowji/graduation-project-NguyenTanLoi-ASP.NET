@@ -102,8 +102,9 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
 
         if (!string.IsNullOrWhiteSpace(province))
         {
+            var provinceAliases = GetProvinceAliases(province);
             filtered = filtered.Where(p => p.SportCenter != null && 
-                (p.SportCenter.Address.City == province ||
+                (provinceAliases.Contains(p.SportCenter.Address.City) ||
                  p.SportCenter.Address.City.Contains(province) ||
                  EF.Functions.Like(p.SportCenter.Address.City, $"%{province}%")));
         }
@@ -168,6 +169,41 @@ public class SearchPitchesQueryHandler : IRequestHandler<SearchPitchesQuery, Res
         }
 
         return normalized;
+    }
+
+    private static string[] GetProvinceAliases(string province)
+    {
+        var normalized = NormalizeLocationFilter(province) ?? province;
+        var aliases = normalized switch
+        {
+            "Hồ Chí Minh" => new[] { "Thành phố Hồ Chí Minh", "Hồ Chí Minh", "Tỉnh Bình Dương", "Bình Dương", "Tỉnh Bà Rịa - Vũng Tàu", "Bà Rịa - Vũng Tàu" },
+            "Hải Phòng" => new[] { "Thành phố Hải Phòng", "Hải Phòng", "Tỉnh Hải Dương", "Hải Dương" },
+            "Đà Nẵng" => new[] { "Thành phố Đà Nẵng", "Đà Nẵng", "Tỉnh Quảng Nam", "Quảng Nam" },
+            "Huế" => new[] { "Thành phố Huế", "Huế", "Tỉnh Thừa Thiên Huế", "Thừa Thiên Huế" },
+            "Cần Thơ" => new[] { "Thành phố Cần Thơ", "Cần Thơ", "Tỉnh Sóc Trăng", "Sóc Trăng", "Tỉnh Hậu Giang", "Hậu Giang" },
+            "Tuyên Quang" => new[] { "Tỉnh Tuyên Quang", "Tuyên Quang", "Tỉnh Hà Giang", "Hà Giang" },
+            "Lào Cai" => new[] { "Tỉnh Lào Cai", "Lào Cai", "Tỉnh Yên Bái", "Yên Bái" },
+            "Thái Nguyên" => new[] { "Tỉnh Thái Nguyên", "Thái Nguyên", "Tỉnh Bắc Kạn", "Bắc Kạn" },
+            "Bắc Ninh" => new[] { "Tỉnh Bắc Ninh", "Bắc Ninh", "Tỉnh Bắc Giang", "Bắc Giang" },
+            "Phú Thọ" => new[] { "Tỉnh Phú Thọ", "Phú Thọ", "Tỉnh Vĩnh Phúc", "Vĩnh Phúc", "Tỉnh Hòa Bình", "Hòa Bình" },
+            "Hưng Yên" => new[] { "Tỉnh Hưng Yên", "Hưng Yên", "Tỉnh Thái Bình", "Thái Bình" },
+            "Ninh Bình" => new[] { "Tỉnh Ninh Bình", "Ninh Bình", "Tỉnh Hà Nam", "Hà Nam", "Tỉnh Nam Định", "Nam Định" },
+            "Quảng Trị" => new[] { "Tỉnh Quảng Trị", "Quảng Trị", "Tỉnh Quảng Bình", "Quảng Bình" },
+            "Quảng Ngãi" => new[] { "Tỉnh Quảng Ngãi", "Quảng Ngãi", "Tỉnh Kon Tum", "Kon Tum" },
+            "Gia Lai" => new[] { "Tỉnh Gia Lai", "Gia Lai", "Tỉnh Bình Định", "Bình Định" },
+            "Đắk Lắk" => new[] { "Tỉnh Đắk Lắk", "Đắk Lắk", "Tỉnh Phú Yên", "Phú Yên" },
+            "Khánh Hòa" => new[] { "Tỉnh Khánh Hòa", "Khánh Hòa", "Tỉnh Ninh Thuận", "Ninh Thuận" },
+            "Lâm Đồng" => new[] { "Tỉnh Lâm Đồng", "Lâm Đồng", "Tỉnh Đắk Nông", "Đắk Nông", "Tỉnh Bình Thuận", "Bình Thuận" },
+            "Đồng Nai" => new[] { "Tỉnh Đồng Nai", "Đồng Nai", "Tỉnh Bình Phước", "Bình Phước" },
+            "Tây Ninh" => new[] { "Tỉnh Tây Ninh", "Tây Ninh", "Tỉnh Long An", "Long An" },
+            "Đồng Tháp" => new[] { "Tỉnh Đồng Tháp", "Đồng Tháp", "Tỉnh Tiền Giang", "Tiền Giang" },
+            "An Giang" => new[] { "Tỉnh An Giang", "An Giang", "Tỉnh Kiên Giang", "Kiên Giang" },
+            "Vĩnh Long" => new[] { "Tỉnh Vĩnh Long", "Vĩnh Long", "Tỉnh Bến Tre", "Bến Tre", "Tỉnh Trà Vinh", "Trà Vinh" },
+            "Cà Mau" => new[] { "Tỉnh Cà Mau", "Cà Mau", "Tỉnh Bạc Liêu", "Bạc Liêu" },
+            _ => new[] { province, normalized, $"Tỉnh {normalized}", $"Thành phố {normalized}" }
+        };
+
+        return aliases.Distinct().ToArray();
     }
 
     private static IOrderedQueryable<Domain.Entities.Pitch> ApplySorting(

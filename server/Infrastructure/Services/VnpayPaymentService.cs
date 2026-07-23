@@ -736,13 +736,25 @@ public class VnpayPaymentService : IPaymentService, IPaymentGateway
 
     private static string GetVnpayDateTimeFormat(DateTime? dateTime = null)
     {
-        var dt = dateTime ?? DateTime.Now;
+        var dt = dateTime ?? GetVietnamNow().DateTime;
         return dt.ToString("yyyyMMddHHmmss");
     }
 
     private static string GetVnpayExpirationDate()
     {
-        return DateTime.Now.AddMinutes(PAYMENT_EXPIRATION_MINUTES).ToString("yyyyMMddHHmmss");
+        return GetVietnamNow().AddMinutes(PAYMENT_EXPIRATION_MINUTES).DateTime.ToString("yyyyMMddHHmmss");
+    }
+
+    private static DateTimeOffset GetVietnamNow()
+    {
+        try
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"));
+        }
     }
 
     private static string BuildOrderInfo(Booking booking)

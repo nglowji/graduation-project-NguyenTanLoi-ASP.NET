@@ -21,6 +21,7 @@ public class AIController : ApiControllerBase
     }
 
     [HttpPost("chat")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<ChatWithAIResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Chat(
@@ -28,8 +29,6 @@ public class AIController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        if (userId == Guid.Empty)
-            return Unauthorized();
 
         var command = new ChatWithAICommand
         {

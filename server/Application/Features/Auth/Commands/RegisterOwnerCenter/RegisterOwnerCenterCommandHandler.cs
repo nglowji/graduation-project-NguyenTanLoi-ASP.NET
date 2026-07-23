@@ -34,13 +34,16 @@ public class RegisterOwnerCenterCommandHandler : IRequestHandler<RegisterOwnerCe
             return Result<AuthResponse>.Failure("User not found");
 
         if (user.Role != UserRole.Customer && user.Role != UserRole.PitchOwner)
-            return Result<AuthResponse>.Failure("Tài khoản này không thể đăng ký làm chủ sân.");
+            return Result<AuthResponse>.Failure("Tai khoan nay khong the dang ky lam chu san.");
+
+        if (user.HasSubmittedOwnerRegistration)
+            return Result<AuthResponse>.Failure("Tai khoan nay da tung gui ho so dang ky chu san.");
 
         var hasSportCenter = await _context.SportCenters
             .AnyAsync(center => center.OwnerId == user.Id, cancellationToken);
 
         if (hasSportCenter)
-            return Result<AuthResponse>.Failure("Tài khoản này đã có hồ sơ sân.");
+            return Result<AuthResponse>.Failure("Tai khoan nay da co ho so san.");
 
         var businessName = request.BusinessName.Trim();
         var phoneNumber = request.PhoneNumber.Trim();
@@ -50,15 +53,16 @@ public class RegisterOwnerCenterCommandHandler : IRequestHandler<RegisterOwnerCe
         var city = request.City.Trim();
 
         if (string.IsNullOrWhiteSpace(businessName))
-            return Result<AuthResponse>.Failure("Tên sân là bắt buộc.");
+            return Result<AuthResponse>.Failure("Ten san la bat buoc.");
 
         if (string.IsNullOrWhiteSpace(phoneNumber))
-            return Result<AuthResponse>.Failure("Số điện thoại là bắt buộc.");
+            return Result<AuthResponse>.Failure("So dien thoai la bat buoc.");
 
         if (string.IsNullOrWhiteSpace(street) || string.IsNullOrWhiteSpace(ward) || string.IsNullOrWhiteSpace(district) || string.IsNullOrWhiteSpace(city))
-            return Result<AuthResponse>.Failure("Địa chỉ sân là bắt buộc.");
+            return Result<AuthResponse>.Failure("Dia chi san la bat buoc.");
 
         var fullAddress = $"{street}, {ward}, {district}, {city}";
+        user.MarkOwnerRegistrationSubmitted();
         user.UpdateProfile(user.FullName, phoneNumber, fullAddress, user.MapLink);
 
         var sportCenterAddress = Address.Create(street, ward, district, city, 10.0, 106.0);
@@ -66,7 +70,7 @@ public class RegisterOwnerCenterCommandHandler : IRequestHandler<RegisterOwnerCe
             businessName,
             user.Id,
             sportCenterAddress,
-            "Cơ sở được tạo từ form đăng ký chủ sân.",
+            "Co so duoc tao tu form dang ky chu san.",
             phoneNumber
         );
 
@@ -76,8 +80,8 @@ public class RegisterOwnerCenterCommandHandler : IRequestHandler<RegisterOwnerCe
         _context.Notifications.Add(Notification.Create(
             user.Id,
             NotificationType.SystemAnnouncement,
-            "Hồ sơ chủ sân đang chờ duyệt",
-            "SmartSport đã nhận hồ sơ đăng ký sân của bạn. Bạn sẽ vào được trang quản lý sau khi admin phê duyệt."
+            "Ho so chu san dang cho duyet",
+            "SmartSport da nhan ho so dang ky san cua ban. Ban se vao duoc trang quan ly sau khi admin phe duyet."
         ));
         await _context.SaveChangesAsync(cancellationToken);
 

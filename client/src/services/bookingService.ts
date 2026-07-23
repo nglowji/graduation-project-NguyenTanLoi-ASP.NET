@@ -9,6 +9,20 @@ export interface CreateBookingRequest {
   }>;
 }
 
+export interface CreateMultiSlotBookingRequest {
+  timeSlots: Array<{
+    timeSlotId: string;
+    bookingDate: string;
+  }>;
+  selectedServices?: CreateBookingRequest['selectedServices'];
+}
+
+export interface BookingLockResponse {
+  lockId: string;
+  expiresAt?: string;
+  durationMinutes?: number;
+}
+
 export interface BookingResponse {
   id: string;
   userId?: string;
@@ -59,13 +73,24 @@ type CreateBookingApiResult = string | {
   value?: string;
 };
 
+type CreateMultiSlotBookingApiResult = string[] | {
+  data?: string[];
+  value?: string[];
+  bookingIds?: string[];
+};
+
 const extractBookingId = (result: CreateBookingApiResult) => {
   if (typeof result === 'string') return result;
   return result.id || result.data || result.value;
 };
 
+const extractBookingIds = (result: CreateMultiSlotBookingApiResult) => {
+  if (Array.isArray(result)) return result;
+  return result.bookingIds || result.data || result.value || [];
+};
+
 export const bookingService = {
-  lock: async (timeSlotId: string, bookingDate: string): Promise<{ lockId: string }> => {
+  lock: async (timeSlotId: string, bookingDate: string): Promise<BookingLockResponse> => {
     return await api.post('/bookings/lock', { timeSlotId, bookingDate });
   },
 
@@ -86,6 +111,17 @@ export const bookingService = {
 
   getById: async (id: string): Promise<BookingResponse> => {
     return await api.get(`/bookings/${id}`);
+  },
+
+  createMultiSlot: async (request: CreateMultiSlotBookingRequest): Promise<BookingResponse[]> => {
+    const bookingResult = await api.post('/bookings/multi-slot', request) as CreateMultiSlotBookingApiResult;
+    const bookingIds = extractBookingIds(bookingResult);
+
+    if (bookingIds.length === 0) {
+      throw new Error('Multi-slot booking was created but the API did not return booking ids.');
+    }
+
+    return await Promise.all(bookingIds.map((bookingId) => bookingService.getById(bookingId)));
   },
 
   getMyBookings: async (params?: { pageNumber?: number; pageSize?: number; status?: string }): Promise<any> => {

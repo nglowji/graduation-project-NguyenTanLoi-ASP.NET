@@ -11,17 +11,14 @@ import {
   Filter,
   Flag,
   Gift,
-  Info,
   Loader2,
   MapPin,
-  MessageCircle,
   Phone,
   Plus,
   Receipt,
   RefreshCw,
   Search,
   ShoppingBag,
-  ShoppingCart,
   Trash2,
   UserRound,
   X,
@@ -52,6 +49,7 @@ type BookingRow = {
   id: string;
   customerName?: string;
   customerPhone?: string;
+  sportCenterId?: string;
   user?: { fullName?: string; phoneNumber?: string; email?: string };
   pitchName?: string;
   pitchType?: string | number;
@@ -83,6 +81,8 @@ type ServiceItem = {
   price?: number;
   stockQuantity?: number;
   isActive?: boolean;
+  status?: string;
+  sportCenterId?: string;
 };
 
 type ApiResponse<T> =
@@ -106,7 +106,7 @@ type Suggestion = {
 };
 
 const PAGE_SIZE = 10;
-const API_PAGE_SIZE = 100;
+const API_PAGE_SIZE = 250;
 const SOON_MS = 1000 * 60 * 60 * 24 * 2;
 
 const statusText: Record<BookingStatus, string> = {
@@ -307,6 +307,10 @@ const Bookings: React.FC = () => {
   const isConfirmed = (b: BookingRow) => normalizeStatus(b.status) === 'confirmed';
   const isCompleted = (b: BookingRow) => normalizeStatus(b.status) === 'completed';
   const isCancelled = (b: BookingRow) => normalizeStatus(b.status) === 'cancelled';
+  const isFutureBooking = (b: BookingRow) => {
+    const bookingDate = getBookingDateKey(b);
+    return Boolean(bookingDate && bookingDate > todayKey);
+  };
 
   const counts = useMemo(() => ({
     total: bookings.length,
@@ -339,6 +343,16 @@ const Bookings: React.FC = () => {
   }, [bookings, filter, searchTerm, dateFilter, serviceFilter]);
 
   const visibleBookings = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+  const getAvailableServicesForBooking = (booking: BookingRow) =>
+    services.filter((sv) => {
+      const status = String(sv.status || 'Active').toLowerCase();
+      const canUseForIncident = status === 'active' || status === 'pendingapproval';
+      return (
+        canUseForIncident &&
+        Number(sv.stockQuantity || 0) > 0 &&
+        (!booking.sportCenterId || !sv.sportCenterId || sv.sportCenterId === booking.sportCenterId)
+      );
+    });
 
   useEffect(() => { setPage(1); }, [filter, searchTerm, dateFilter, serviceFilter]);
   useEffect(() => {
@@ -367,14 +381,20 @@ const Bookings: React.FC = () => {
   }, [services.length, stats, todayKey]);
 
   const handleStatusUpdate = async (id: string, newStatus: Exclude<BookingStatus, 'all'>) => {
+    const targetBooking = bookings.find((booking) => booking.id === id);
+    if (newStatus === 'completed' && targetBooking && isFutureBooking(targetBooking)) {
+      alert('Chỉ có thể hoàn thành đơn khi đã tới ngày đặt sân.');
+      return;
+    }
+
     setUpdating(id);
     try {
       if (newStatus === 'confirmed') await api.patch(`/bookings/${id}/confirm`);
       if (newStatus === 'completed') await api.patch(`/bookings/${id}/complete`);
       if (newStatus === 'cancelled') await api.patch(`/bookings/${id}/cancel`, { reason: 'Owner cancelled' });
       await fetchBookings();
-    } catch {
-      alert('Không thể cập nhật trạng thái');
+    } catch (error: any) {
+      alert(error?.message || error?.response?.data?.message || 'Không thể cập nhật trạng thái');
     } finally {
       setUpdating(null);
     }
@@ -398,7 +418,7 @@ const Bookings: React.FC = () => {
       await Promise.all([fetchBookings(), fetchServices()]);
       alert('Đã thêm dịch vụ phát sinh sau khi đặt');
     } catch (error: any) {
-      alert(error?.response?.data?.message || 'Không thể tạo hóa đơn phát sinh');
+      alert(error?.message || error?.response?.data?.message || 'Không thể tạo hóa đơn phát sinh');
     }
   };
 
@@ -550,6 +570,8 @@ const Bookings: React.FC = () => {
                 const tok = statusTokens(booking.status);
                 const bookedSvcs = getBookedServices(booking);
                 const incidentalSvcs = getIncidentalServices(booking);
+                const futureBooking = isFutureBooking(booking);
+                const availableIncidentServices = getAvailableServicesForBooking(booking);
 
                 return (
                   <article key={booking.id} className={`border-l-[4px] bg-white transition ${tok.line}`}>
@@ -678,22 +700,27 @@ const Bookings: React.FC = () => {
 
                               {isConfirmed(booking) && (
                                 <>
-                                  <button type="button" disabled={updating === booking.id} onClick={() => handleStatusUpdate(booking.id, 'completed')} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60">
+                                  <button type="button" disabled={updating === booking.id || futureBooking} onClick={() => handleStatusUpdate(booking.id, 'completed')} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
                                     {updating === booking.id ? <Loader2 className="animate-spin" size={14} /> : <Flag size={14} />} Hoàn thành & Thu tiền
                                   </button>
+                                  {futureBooking && (
+                                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-700">
+                                      Chỉ hoàn thành khi tới ngày đặt sân.
+                                    </p>
+                                  )}
 
                                   <div className="rounded-lg border border-slate-200 bg-white p-3">
                                     <p className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800"><Plus size={13} />Thêm hóa đơn phát sinh tại sân</p>
                                     <div className="grid grid-cols-[1fr_52px] gap-1.5">
                                       <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold outline-none">
-                                        <option value="">Chọn dịch vụ</option>
-                                        {services.filter((sv) => sv.isActive !== false && Number(sv.stockQuantity || 0) > 0).map((sv) => (
+                                        <option value="">{availableIncidentServices.length ? 'Chọn dịch vụ' : 'Chưa có dịch vụ phù hợp'}</option>
+                                        {availableIncidentServices.map((sv) => (
                                           <option key={sv.id} value={sv.id}>{sv.name}</option>
                                         ))}
                                       </select>
                                       <input type="number" min={1} value={serviceQty} onChange={(e) => setServiceQty(Number(e.target.value))} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-center text-sm font-bold outline-none" />
                                     </div>
-                                    <button type="button" disabled={!serviceId || serviceQty <= 0} onClick={() => addServiceToBooking(booking.id)} className="mt-1.5 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">Thêm phát sinh</button>
+                                    <button type="button" disabled={!serviceId || serviceQty <= 0 || availableIncidentServices.length === 0} onClick={() => addServiceToBooking(booking.id)} className="mt-1.5 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">Thêm phát sinh</button>
                                   </div>
                                 </>
                               )}

@@ -19,7 +19,11 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
-                b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)
+                b =>
+                {
+                    b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                    b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                }
             )
         );
 
@@ -90,6 +94,7 @@ public static class DependencyInjection
         
         // AI & Maps Services
         services.AddHttpClient<IGeminiAIService, GeminiAIService>();
+        services.AddHttpClient<IGeminiService, GeminiService>();
         services.AddHttpClient<IMapService, GoogleMapsService>();
 
         // MongoDB Registration

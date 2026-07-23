@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRight,
   Building2,
   CheckCircle2,
   Clock3,
+  Download,
   Eye,
   FileCheck2,
   Loader2,
@@ -12,7 +14,6 @@ import {
   Phone,
   RefreshCw,
   Search,
-  ShieldCheck,
   UserRound,
   X,
   XCircle,
@@ -30,12 +31,29 @@ type OwnerRegistration = {
   status: string;
 };
 
-type ApprovalStatus = 'pending' | 'approved';
+type ApprovalStatus = 'pending' | 'approved' | 'all';
 
 const formatDate = (value?: string) => {
   if (!value) return 'Chưa rõ ngày';
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Chưa rõ ngày' : date.toLocaleDateString('vi-VN');
+};
+
+const formatTimeAgo = (value: string | undefined, now: number) => {
+  if (!value) return 'Chưa rõ thời gian';
+
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return 'Chưa rõ thời gian';
+
+  const diff = Math.max((now || time) - time, 0);
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 60) return `${Math.max(minutes, 1)} phút trước`;
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${days} ngày trước`;
 };
 
 const initials = (value?: string) =>
@@ -48,8 +66,8 @@ const initials = (value?: string) =>
 
 const shortAddress = (value?: string) => {
   const text = String(value || '').trim();
-  if (text.length <= 78) return text || 'Chưa có địa chỉ';
-  return `${text.slice(0, 78)}...`;
+  if (text.length <= 90) return text || 'Chưa có địa chỉ';
+  return `${text.slice(0, 90)}...`;
 };
 
 const normalize = (value?: string) =>
@@ -61,18 +79,22 @@ const normalize = (value?: string) =>
 
 const statusLabel = (status?: string) => {
   const value = String(status || '').toLowerCase();
+
   if (value.includes('pending')) return 'Chờ duyệt';
   if (value.includes('approved')) return 'Đã duyệt';
   if (value.includes('reject')) return 'Từ chối';
+
   return 'Khác';
 };
 
 const statusColor = (status?: string) => {
   const value = String(status || '').toLowerCase();
-  if (value.includes('pending')) return 'bg-amber-100 text-amber-700';
-  if (value.includes('approved')) return 'bg-emerald-100 text-emerald-700';
-  if (value.includes('reject')) return 'bg-red-100 text-red-700';
-  return 'bg-slate-100 text-slate-600';
+
+  if (value.includes('pending')) return 'border-amber-100 bg-amber-50 text-amber-700';
+  if (value.includes('approved')) return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+  if (value.includes('reject')) return 'border-red-100 bg-red-50 text-red-600';
+
+  return 'border-slate-200 bg-slate-100 text-slate-600';
 };
 
 const unwrapApprovals = (response: any): OwnerRegistration[] => {
@@ -87,6 +109,8 @@ const unwrapApprovals = (response: any): OwnerRegistration[] => {
   return [];
 };
 
+const isPendingStatus = (status?: string) => String(status || '').toLowerCase().includes('pending');
+
 const Approvals: React.FC = () => {
   const [pending, setPending] = useState<OwnerRegistration[]>([]);
   const [approved, setApproved] = useState<OwnerRegistration[]>([]);
@@ -96,6 +120,8 @@ const Approvals: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState('');
   const [message, setMessage] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [now, setNow] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -119,30 +145,47 @@ const Approvals: React.FC = () => {
   };
 
   useEffect(() => {
+    setNow(new Date().getTime());
     void load();
   }, []);
 
-  const items = status === 'pending' ? pending : approved;
+  const allItems = useMemo(() => [...pending, ...approved], [pending, approved]);
+  const items = status === 'pending' ? pending : status === 'approved' ? approved : allItems;
 
   const filtered = useMemo(() => {
     const keyword = normalize(search);
-    if (!keyword) return items;
 
-    return items.filter((item) =>
-      [item.businessName, item.applicantName, item.applicantEmail, item.applicantPhone, item.address].some((value) =>
-        normalize(value).includes(keyword),
-      ),
-    );
-  }, [items, search]);
+    return items
+      .filter((item) => {
+        if (!keyword) return true;
+
+        return [item.businessName, item.applicantName, item.applicantEmail, item.applicantPhone, item.address].some((value) =>
+          normalize(value).includes(keyword),
+        );
+      })
+      .sort((a, b) => {
+        if (sortBy === 'name') return String(a.businessName || '').localeCompare(String(b.businessName || ''), 'vi');
+        if (sortBy === 'oldest') return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+  }, [items, search, sortBy]);
 
   const totalProfiles = pending.length + approved.length;
   const approvalRate = totalProfiles ? Math.round((approved.length / totalProfiles) * 100) : 0;
 
-  const recentPending = useMemo(
+  const oldPendingCount = useMemo(
     () =>
-      [...pending]
-        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-        .slice(0, 4),
+      pending.filter((item) => {
+        const submittedTime = new Date(item.submittedAt).getTime();
+        if (Number.isNaN(submittedTime)) return false;
+
+        return now > 0 && now - submittedTime > 1000 * 60 * 60 * 24 * 2;
+      }).length,
+    [now, pending],
+  );
+
+  const recentPending = useMemo(
+    () => [...pending].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 4),
     [pending],
   );
 
@@ -162,11 +205,33 @@ const Approvals: React.FC = () => {
     }
   };
 
+  const exportList = () => {
+    const rows = filtered.map((item) => ({
+      businessName: item.businessName,
+      applicantName: item.applicantName,
+      applicantEmail: item.applicantEmail,
+      applicantPhone: item.applicantPhone || '',
+      address: item.address,
+      submittedAt: formatDate(item.submittedAt),
+      status: statusLabel(item.status),
+    }));
+
+    const content = JSON.stringify(rows, null, 2);
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = 'owner-approvals.json';
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const kpis = [
     {
-      label: 'Chờ xét duyệt',
+      label: 'Chờ duyệt',
       value: pending.length,
-      detail: 'Cần kiểm tra',
+      detail: 'Cần xử lý',
       icon: Clock3,
       color: 'text-amber-600 bg-amber-50',
       onClick: () => setStatus('pending'),
@@ -182,10 +247,10 @@ const Approvals: React.FC = () => {
     {
       label: 'Tổng hồ sơ',
       value: totalProfiles,
-      detail: 'Tất cả đăng ký',
+      detail: 'Toàn hệ thống',
       icon: Building2,
       color: 'text-blue-600 bg-blue-50',
-      onClick: () => setStatus('pending'),
+      onClick: () => setStatus('all'),
     },
     {
       label: 'Tỷ lệ duyệt',
@@ -202,7 +267,7 @@ const Approvals: React.FC = () => {
       show: pending.length > 0,
       icon: AlertCircle,
       title: `${pending.length} hồ sơ đang chờ duyệt`,
-      desc: 'Nên xử lý hồ sơ trong ngày để chủ sân không phải chờ lâu.',
+      desc: oldPendingCount > 0 ? `${oldPendingCount} hồ sơ đã chờ hơn 2 ngày, nên ưu tiên xử lý trước.` : 'Nên kiểm tra trong ngày để chủ sân không chờ lâu.',
       color: 'text-amber-600 bg-amber-50',
       action: () => setStatus('pending'),
     },
@@ -225,25 +290,36 @@ const Approvals: React.FC = () => {
   ].filter((item) => item.show);
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <main className="mx-auto max-w-350 space-y-6 pb-16">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">QUẢN LÝ CHỦ SÂN</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Duyệt hồ sơ chủ sân</h1>
-          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-            Kiểm tra hồ sơ đăng ký trước khi nâng cấp tài khoản thành chủ sân. Admin chỉ xét duyệt quyền tham gia nền tảng, không can thiệp vào kinh doanh của chủ sân.
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Hồ sơ chủ sân</h1>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+            Theo dõi và xét duyệt các trung tâm đăng ký tham gia nền tảng. Admin chỉ kiểm tra quyền tham gia, không can thiệp hoạt động kinh doanh của chủ sân.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={load}
-          className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <RefreshCw size={16} />
-          Làm mới
-        </button>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw size={16} />
+            Làm mới
+          </button>
+
+          <button
+            type="button"
+            onClick={exportList}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <Download size={16} />
+            Xuất danh sách
+          </button>
+        </div>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => {
@@ -262,6 +338,7 @@ const Approvals: React.FC = () => {
                 </div>
                 <span className="text-xs font-semibold text-slate-400">{kpi.detail}</span>
               </div>
+
               <p className="text-xs font-semibold text-slate-600">{kpi.label}</p>
               <p className="mt-1 text-xl font-bold text-slate-900">{kpi.value}</p>
             </button>
@@ -269,44 +346,76 @@ const Approvals: React.FC = () => {
         })}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Khuyến nghị vận hành</h2>
-          <p className="text-sm text-slate-600">Gợi ý giúp admin xử lý hồ sơ nhất quán và đúng phạm vi quyền hạn.</p>
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900">Khuyến nghị vận hành</h2>
+            <p className="text-sm font-semibold text-slate-500">Gợi ý giúp admin xử lý hồ sơ nhất quán và đúng phạm vi quyền hạn.</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {recommendations.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={item.action}
+                  className="group flex items-start justify-between gap-3 rounded-lg bg-slate-50 p-4 text-left transition hover:bg-blue-50"
+                >
+                  <span className="flex gap-3">
+                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${item.color}`}>
+                      <Icon size={18} />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-black text-slate-900">{item.title}</span>
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{item.desc}</span>
+                    </span>
+                  </span>
+                  <ArrowRight size={17} className="mt-1 shrink-0 text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600" />
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
-          {recommendations.map((item) => {
-            const Icon = item.icon;
+        <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">QUY TRÌNH</p>
+            <h2 className="mt-1 text-lg font-black text-slate-950">Luồng xét duyệt</h2>
+          </div>
 
-            return (
-              <button
-                key={item.title}
-                type="button"
-                onClick={item.action}
-                className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:bg-slate-50 hover:shadow-sm"
-              >
-                <div className="flex gap-3">
-                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${item.color}`}>
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{item.title}</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.desc}</p>
-                  </div>
+          <div className="space-y-4">
+            {[
+              { title: 'Chủ sân gửi hồ sơ', desc: 'Cung cấp thông tin cơ sở và người đại diện.' },
+              { title: 'Admin kiểm tra', desc: 'Đối chiếu tên, liên hệ, địa chỉ và tính hợp lệ.' },
+              { title: 'Duyệt hoặc từ chối', desc: 'Tài khoản được nâng cấp nếu hồ sơ đạt yêu cầu.' },
+            ].map((item, index) => (
+              <div key={item.title} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
+                    {index + 1}
+                  </span>
+                  {index < 2 && <span className="mt-2 h-8 w-px bg-slate-200" />}
                 </div>
-              </button>
-            );
-          })}
-        </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">{item.title}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-3 lg:grid-cols-[auto_minmax(260px,1fr)_180px_auto] lg:items-center">
           <div className="flex rounded-lg bg-slate-100 p-1">
             {[
-              { id: 'pending', label: 'Chờ xét duyệt', count: pending.length },
-              { id: 'approved', label: 'Đã nâng cấp', count: approved.length },
+              { id: 'pending', label: 'Chờ duyệt', count: pending.length },
+              { id: 'approved', label: 'Đã duyệt', count: approved.length },
+              { id: 'all', label: 'Tất cả', count: totalProfiles },
             ].map((item) => (
               <button
                 key={item.id}
@@ -324,40 +433,44 @@ const Approvals: React.FC = () => {
             ))}
           </div>
 
-          <label className="relative min-w-0 flex-1">
+          <label className="relative min-w-0">
             <Search className="absolute left-4 top-3 text-slate-400" size={18} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm theo cơ sở, người đăng ký, email, SĐT hoặc địa chỉ..."
+              placeholder="Tìm cơ sở, người đăng ký, email, SĐT hoặc địa chỉ..."
               className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-11 pr-4 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
             />
           </label>
 
-          <span className="px-2 text-xs font-bold text-slate-400">{filtered.length} hồ sơ phù hợp</span>
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
+            className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50"
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="name">Tên A-Z</option>
+          </select>
+
+          <span className="text-sm font-bold text-slate-400">{filtered.length} hồ sơ</span>
         </div>
       </section>
 
       {message && (
-        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+        <section className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
           {message}
-        </div>
+        </section>
       )}
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="text-lg font-bold text-slate-900">
-            {status === 'pending' ? 'Hồ sơ chờ xét duyệt' : 'Hồ sơ đã nâng cấp'}
-          </h2>
-          <p className="text-sm text-slate-600">{filtered.length} hồ sơ đang hiển thị theo bộ lọc hiện tại</p>
-        </div>
-
-        <div className="hidden grid-cols-[1fr_1fr_1.15fr_130px_110px] gap-4 border-b border-slate-100 bg-white px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid">
-          <span>Cơ sở</span>
-          <span>Người đăng ký</span>
-          <span>Liên hệ</span>
-          <span>Trạng thái</span>
-          <span className="text-right">Thao tác</span>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              {status === 'pending' ? 'Hồ sơ chờ xét duyệt' : status === 'approved' ? 'Hồ sơ đã nâng cấp' : 'Tất cả hồ sơ'}
+            </h2>
+            <p className="text-sm font-semibold text-slate-500">{filtered.length} hồ sơ đang hiển thị theo bộ lọc hiện tại</p>
+          </div>
         </div>
 
         {loading ? (
@@ -374,17 +487,21 @@ const Approvals: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {filtered.map((item) => (
-              <article
-                key={item.id}
-                className="grid gap-4 px-5 py-4 transition hover:bg-slate-50 lg:grid-cols-[1fr_1fr_1.15fr_130px_110px] lg:items-center"
-              >
+              <article key={item.id} className="grid gap-4 px-5 py-4 transition hover:bg-slate-50 xl:grid-cols-[1.2fr_1fr_1.25fr_130px_120px] xl:items-center">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">{item.businessName}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">Gửi ngày {formatDate(item.submittedAt)}</p>
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-blue-50 text-sm font-black text-blue-700">
+                      <Building2 size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-950">{item.businessName}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Gửi {formatTimeAgo(item.submittedAt, now)}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-sm font-bold text-blue-700">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm font-black text-slate-700">
                     {initials(item.applicantName)}
                   </span>
                   <div className="min-w-0">
@@ -405,54 +522,31 @@ const Approvals: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(item.status)}`}>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusColor(item.status)}`}>
                     {statusLabel(item.status)}
                   </span>
                 </div>
 
-                <div className="flex justify-start gap-1 lg:justify-end">
-                  <button
-                    type="button"
-                    title="Xem chi tiết"
-                    aria-label="Xem chi tiết"
-                    onClick={() => setSelected(item)}
-                    className="group relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                  >
-                    <Eye size={17} />
-                    <span className="pointer-events-none absolute -top-9 right-0 z-20 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white shadow-lg group-hover:block">
-                      Xem chi tiết
-                    </span>
-                  </button>
+                <div className="flex justify-start gap-1 xl:justify-end">
+                  <IconButton label="Xem hồ sơ" onClick={() => setSelected(item)} icon={<Eye size={17} />} />
 
-                  {String(item.status).toLowerCase().includes('pending') && (
+                  {isPendingStatus(item.status) && (
                     <>
-                      <button
-                        type="button"
-                        title="Từ chối hồ sơ"
-                        aria-label="Từ chối hồ sơ"
-                        disabled={processingId === item.id}
+                      <IconButton
+                        label="Từ chối"
                         onClick={() => decide(item, 'reject')}
-                        className="group relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      >
-                        {processingId === item.id ? <Loader2 className="animate-spin" size={17} /> : <XCircle size={17} />}
-                        <span className="pointer-events-none absolute -top-9 right-0 z-20 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white shadow-lg group-hover:block">
-                          Từ chối
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Duyệt hồ sơ"
-                        aria-label="Duyệt hồ sơ"
+                        icon={processingId === item.id ? <Loader2 className="animate-spin" size={17} /> : <XCircle size={17} />}
                         disabled={processingId === item.id}
+                        danger
+                      />
+
+                      <IconButton
+                        label="Duyệt"
                         onClick={() => decide(item, 'approve')}
-                        className="group relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
-                      >
-                        {processingId === item.id ? <Loader2 className="animate-spin" size={17} /> : <CheckCircle2 size={17} />}
-                        <span className="pointer-events-none absolute -top-9 right-0 z-20 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white shadow-lg group-hover:block">
-                          Duyệt hồ sơ
-                        </span>
-                      </button>
+                        icon={processingId === item.id ? <Loader2 className="animate-spin" size={17} /> : <CheckCircle2 size={17} />}
+                        disabled={processingId === item.id}
+                        success
+                      />
                     </>
                   )}
                 </div>
@@ -463,57 +557,107 @@ const Approvals: React.FC = () => {
       </section>
 
       {selected && (
-        <button
-          type="button"
+        <div
           className="fixed inset-0 z-50 flex cursor-default items-end justify-end bg-slate-950/35 p-3 text-left backdrop-blur-sm sm:p-5"
           onClick={() => setSelected(null)}
         >
           <aside
-            className="h-full w-full max-w-lg cursor-auto overflow-y-auto rounded-lg bg-white p-6 shadow-2xl"
+            className="h-full w-full max-w-2xl cursor-auto overflow-y-auto rounded-lg bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-blue-600">Hồ sơ đăng ký chủ sân</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-950">{selected.businessName}</h2>
-                <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusColor(selected.status)}`}>
-                  {statusLabel(selected.status)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {[
-                { icon: UserRound, label: 'Người đăng ký', value: selected.applicantName },
-                { icon: Mail, label: 'Email', value: selected.applicantEmail },
-                { icon: Phone, label: 'Số điện thoại', value: selected.applicantPhone || 'Chưa cập nhật' },
-                { icon: MapPin, label: 'Địa chỉ cơ sở', value: selected.address },
-                { icon: Clock3, label: 'Ngày gửi hồ sơ', value: formatDate(selected.submittedAt) },
-              ].map((row) => {
-                const Icon = row.icon;
-
-                return (
-                  <div key={row.label} className="flex gap-3 rounded-lg bg-slate-50 p-4">
-                    <Icon size={18} className="mt-0.5 shrink-0 text-blue-600" />
-                    <div>
-                      <p className="text-xs font-bold text-slate-500">{row.label}</p>
-                      <p className="mt-1 text-sm font-bold leading-6 text-slate-700">{row.value}</p>
-                    </div>
+            <div className="sticky top-0 z-10 border-b border-slate-100 bg-white px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">Hồ sơ đăng ký chủ sân</p>
+                  <h2 className="mt-2 truncate text-2xl font-black text-slate-950">{selected.businessName}</h2>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusColor(selected.status)}`}>
+                      {statusLabel(selected.status)}
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                      Gửi ngày {formatDate(selected.submittedAt)}
+                    </span>
                   </div>
-                );
-              })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            {String(selected.status).toLowerCase().includes('pending') && (
-              <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="space-y-5 p-6">
+              <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-4">
+                  <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-blue-600 text-xl font-black text-white">
+                    {initials(selected.businessName)}
+                  </span>
+                  <div>
+                    <p className="text-sm font-black text-slate-950">{selected.businessName}</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{selected.address}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid gap-4 md:grid-cols-2">
+                <InfoCard icon={UserRound} title="Người đại diện" value={selected.applicantName} />
+                <InfoCard icon={Mail} title="Email" value={selected.applicantEmail} />
+                <InfoCard icon={Phone} title="Số điện thoại" value={selected.applicantPhone || 'Chưa cập nhật'} />
+                <InfoCard icon={Clock3} title="Ngày gửi hồ sơ" value={formatDate(selected.submittedAt)} />
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-5">
+                <div className="mb-4">
+                  <h3 className="text-sm font-black text-slate-950">Checklist kiểm tra</h3>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Admin nên đối chiếu các thông tin này trước khi duyệt.</p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    'Tên cơ sở rõ ràng',
+                    'Email người đại diện hợp lệ',
+                    'Số điện thoại có thể liên hệ',
+                    'Địa chỉ cơ sở đầy đủ',
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                      <CheckCircle2 size={16} className="text-emerald-600" />
+                      <span className="text-xs font-bold text-slate-600">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-5">
+                <div className="mb-4">
+                  <h3 className="text-sm font-black text-slate-950">Tiến trình xử lý</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { title: 'Đã gửi hồ sơ', done: true },
+                    { title: 'Admin đang kiểm tra', done: true },
+                    { title: isPendingStatus(selected.status) ? 'Chờ quyết định' : statusLabel(selected.status), done: !isPendingStatus(selected.status) },
+                  ].map((step, index) => (
+                    <div key={step.title} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-black ${step.done ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          {index + 1}
+                        </span>
+                        {index < 2 && <span className="mt-2 h-6 w-px bg-slate-200" />}
+                      </div>
+                      <p className="pt-1 text-sm font-bold text-slate-700">{step.title}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {isPendingStatus(selected.status) && (
+              <div className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-slate-100 bg-white p-5">
                 <button
                   type="button"
                   disabled={processingId === selected.id}
@@ -536,10 +680,66 @@ const Approvals: React.FC = () => {
               </div>
             )}
           </aside>
-        </button>
+        </div>
       )}
-    </div>
+    </main>
   );
 };
+
+const IconButton = ({
+  icon,
+  label,
+  onClick,
+  disabled,
+  danger,
+  success,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  success?: boolean;
+}) => {
+  const color = danger
+    ? 'hover:bg-red-50 hover:text-red-600'
+    : success
+      ? 'hover:bg-emerald-50 hover:text-emerald-600'
+      : 'hover:bg-blue-50 hover:text-blue-600';
+
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`group relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition disabled:opacity-50 ${color}`}
+    >
+      {icon}
+      <span className="pointer-events-none absolute -top-9 right-0 z-20 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white shadow-lg group-hover:block">
+        {label}
+      </span>
+    </button>
+  );
+};
+
+const InfoCard = ({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: React.ElementType;
+  title: string;
+  value: string;
+}) => (
+  <div className="flex gap-3 rounded-lg bg-slate-50 p-4">
+    <Icon size={18} className="mt-0.5 shrink-0 text-blue-600" />
+    <div className="min-w-0">
+      <p className="text-xs font-bold text-slate-500">{title}</p>
+      <p className="mt-1 wrap-break-word text-sm font-bold leading-6 text-slate-700">{value}</p>
+    </div>
+  </div>
+);
 
 export default Approvals;

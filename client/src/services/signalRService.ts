@@ -7,9 +7,11 @@ const signalRUrl =
 
 class SignalRService {
   private connection: HubConnection | null = null;
+  private reconnectTimer: number | null = null;
 
   async startConnection() {
     if (this.connection) return;
+    this.clearReconnectTimer();
 
     this.connection = new HubConnectionBuilder()
       .withUrl(signalRUrl)
@@ -22,8 +24,21 @@ class SignalRService {
       console.log('SignalR Connected.');
     } catch (err) {
       console.error('SignalR Connection Error: ', err);
-      setTimeout(() => this.startConnection(), 5000);
+      this.connection = null;
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null;
+        void this.startConnection();
+      }, 5000);
     }
+  }
+
+  async stopConnection() {
+    this.clearReconnectTimer();
+    if (!this.connection) return;
+
+    const currentConnection = this.connection;
+    this.connection = null;
+    await currentConnection.stop().catch(() => undefined);
   }
 
   async joinPitchGroup(pitchId: string) {
@@ -52,6 +67,12 @@ class SignalRService {
 
   off(methodName: string) {
     this.connection?.off(methodName);
+  }
+
+  private clearReconnectTimer() {
+    if (this.reconnectTimer === null) return;
+    window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
   }
 }
 

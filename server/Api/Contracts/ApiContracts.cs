@@ -37,12 +37,22 @@ public record OwnerCreateStaffRequest(
 public record LockTimeSlotRequest(
     Guid TimeSlotId,
     DateOnly BookingDate,
-    int LockDurationMinutes = 10
+    int? LockDurationMinutes = null
 );
 
 public record CreateBookingRequest(
     Guid TimeSlotId,
     DateOnly BookingDate,
+    List<Application.Features.Bookings.Commands.CreateBooking.BookingServiceRequest>? SelectedServices = null
+);
+
+public record BookingSlotRequestDto(
+    Guid TimeSlotId,
+    DateOnly BookingDate
+);
+
+public record CreateMultiSlotBookingRequest(
+    List<BookingSlotRequestDto> TimeSlots,
     List<Application.Features.Bookings.Commands.CreateBooking.BookingServiceRequest>? SelectedServices = null
 );
 

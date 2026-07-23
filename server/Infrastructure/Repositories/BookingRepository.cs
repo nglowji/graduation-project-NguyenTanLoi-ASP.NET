@@ -25,6 +25,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
+            .AsSplitQuery()
             .OrderByDescending(b => b.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -187,11 +188,6 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     {
         var query = _context.Bookings
             .AsNoTracking()
-            .AsSplitQuery()
-            .Include(b => b.User)
-            .Include(b => b.TimeSlot)
-                .ThenInclude(ts => ts.Pitch)
-            .Include(b => b.Services)
             .Where(b => b.TimeSlot.Pitch.OwnerId == ownerId);
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<BookingStatus>(status, true, out var statusEnum))
@@ -199,10 +195,15 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
+            .AsSplitQuery()
             .OrderByDescending(b => b.BookingDate)
             .ThenByDescending(b => b.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Include(b => b.User)
+            .Include(b => b.TimeSlot)
+                .ThenInclude(ts => ts.Pitch)
+            .Include(b => b.Services)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Booking>(items, totalCount, pageNumber, pageSize);

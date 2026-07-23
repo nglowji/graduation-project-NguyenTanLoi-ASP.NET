@@ -18,7 +18,6 @@ import {
   BarChart3,
   CheckCircle2,
   ChevronRight,
-  CircleDollarSign,
   Download,
   Filter,
   Loader2,
@@ -85,20 +84,8 @@ type Report = {
 
 type RangeMode = 'week' | 'month' | 'quarter' | 'year' | 'all';
 
-const today = new Date();
-const pad = (value: number) => String(value).padStart(2, '0');
-const toIsoDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 const money = (value?: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
-const shortMoney = (value?: number) => {
-  const amount = Number(value || 0);
-
-  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(amount % 1_000_000 ? 1 : 0)}M`;
-  if (amount >= 1_000) return `${Math.round(amount / 1_000)}K`;
-
-  return `${amount}`;
-};
 
 const dateLabel = (value?: string) => {
   if (!value) return '--';
@@ -461,7 +448,7 @@ const PlatformRevenue: React.FC = () => {
   }
 
   return (
-    <main className="mx-auto max-w-[1400px] space-y-6 pb-16">
+    <main className="mx-auto max-w-350 space-y-6 pb-16">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">BÁO CÁO DOANH THU</p>
@@ -742,7 +729,7 @@ const PlatformRevenue: React.FC = () => {
           <div className="space-y-3">
             {[
               { label: 'Tổng tiền sân', value: money(grossRevenue), note: 'Toàn bộ giá trị đơn sân trong kỳ' },
-              { label: 'Chủ sân nhận', value: money(ownerRevenue), note: 'Phần còn lại sau khi trừ hoa hồng' },
+              { label: 'Chủ sân nhận từ tiền sân', value: money(ownerRevenue), note: 'Phần còn lại sau khi trừ hoa hồng' },
               { label: 'Nền tảng nhận', value: money(platformCommission), note: 'Hoa hồng từ đơn đặt sân thành công' },
               { label: 'Tỷ lệ hoa hồng', value: `${Math.round(commissionRate * 100)}%`, note: 'Không tính dịch vụ ngoài sân' },
             ].map((item) => (
@@ -777,7 +764,7 @@ const PlatformRevenue: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">Chủ sân</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">Loại sân</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">Trạng thái</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-slate-700">Tổng tiền</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-slate-700">Tiền sân</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-slate-700">Hoa hồng</th>
               </tr>
             </thead>

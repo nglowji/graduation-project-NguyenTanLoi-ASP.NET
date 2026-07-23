@@ -3,6 +3,7 @@ using Application.Common.Interfaces;
 using Application.Common.DTOs;
 using Application.Features.Bookings.Events;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Exceptions;
 using Domain.Services;
 using Domain.ValueObjects;
@@ -13,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Features.Bookings.Commands.CreateBooking;
 
 /// <summary>
-/// Handles booking creation with lock verification and dynamic pricing.
+/// Handles booking creation with lock verification and owner-configured slot pricing.
 /// Side effects (email, cache, real-time) are handled by notification handlers.
 /// </summary>
 public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand, Result<Guid>>
@@ -85,7 +86,7 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
                 return Result<Guid>.Failure("Time slot is no longer available");
             }
 
-            // 3. Create booking with dynamic pricing
+            // 3. Create booking with the exact configured slot price
             var booking = await CreateBookingAsync(request, timeSlot, cancellationToken);
 
             // 4. Release lock and persist
@@ -203,7 +204,9 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 
         var serviceIds = requestedQuantities.Keys.ToList();
         var additionalServices = await _context.AdditionalServices
-            .Where(service => serviceIds.Contains(service.Id) && service.IsActive)
+            .Where(service => serviceIds.Contains(service.Id)
+                && service.IsActive
+                && service.Status == AdditionalServiceStatus.Active)
             .ToListAsync(cancellationToken);
 
         if (additionalServices.Count != requestedQuantities.Count)

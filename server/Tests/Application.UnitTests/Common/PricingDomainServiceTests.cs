@@ -33,37 +33,37 @@ public class PricingDomainServiceTests
     }
 
     [Fact]
-    public void CalculateEffectivePrice_ShouldApplyPeakMultiplier_WhenPeakHour()
+    public void CalculateEffectivePrice_ShouldReturnConfiguredPrice_WhenEveningHour()
     {
         // Arrange
         var date = new DateOnly(2024, 5, 8); // Wednesday
         var basePrice = Money.Create(200000, "VND");
-        var timeSlot = CreateTimeSlot(new TimeSpan(18, 0, 0), basePrice); // 6 PM is peak
+        var timeSlot = CreateTimeSlot(new TimeSpan(18, 0, 0), basePrice);
 
         // Act
         var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(260000); // 200k * 1.3
+        result.Amount.Should().Be(200000);
     }
 
     [Fact]
-    public void CalculateEffectivePrice_ShouldApplyOffPeakMultiplier_WhenLateNight()
+    public void CalculateEffectivePrice_ShouldReturnConfiguredPrice_WhenLateNight()
     {
         // Arrange
         var date = new DateOnly(2024, 5, 8); // Wednesday
         var basePrice = Money.Create(200000, "VND");
-        var timeSlot = CreateTimeSlot(new TimeSpan(23, 0, 0), basePrice); // 11 PM is off-peak
+        var timeSlot = CreateTimeSlot(new TimeSpan(23, 0, 0), basePrice);
 
         // Act
         var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(160000); // 200k * 0.8
+        result.Amount.Should().Be(200000);
     }
 
     [Fact]
-    public void CalculateEffectivePrice_ShouldApplyWeekendMultiplier_WhenSaturday()
+    public void CalculateEffectivePrice_ShouldReturnConfiguredPrice_WhenSaturday()
     {
         // Arrange
         var date = new DateOnly(2024, 5, 11); // Saturday
@@ -74,7 +74,7 @@ public class PricingDomainServiceTests
         var result = _sut.CalculateEffectivePrice(timeSlot, date);
 
         // Assert
-        result.Amount.Should().Be(220000); // 200k * 1.1
+        result.Amount.Should().Be(200000);
     }
 
     [Fact]

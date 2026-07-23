@@ -18,6 +18,6 @@ export interface ChatResponse {
 
 export const aiService = {
   chat: async (message: string, sessionId?: string): Promise<ChatResponse> => {
-    return await api.post('/ai/chat', { message, sessionId });
+    return await api.post('/ai/chat', { message, sessionId }, { timeout: 8000 });
   },
 };

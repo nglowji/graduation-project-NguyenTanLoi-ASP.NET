@@ -290,7 +290,7 @@ const Users: React.FC = () => {
   ];
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+    <div className="mx-auto max-w-350 space-y-6 pb-16">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-600">QUẢN TRỊ HỆ THỐNG</p>

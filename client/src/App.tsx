@@ -1,53 +1,80 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import AppToast from './components/AppToast';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import LandingPage from './features/landing/pages/LandingPage';
-import ExploreFields from './features/customer/pages/ExploreFields';
-import FieldDetails from './features/customer/pages/FieldDetails';
-import Login from './features/auth/pages/Login';
-import Register from './features/auth/pages/Register';
-import PasswordReset from './features/auth/pages/PasswordReset';
-import PartnerPortal from './features/owner/pages/PartnerPortal';
-import Dashboard from './features/owner/pages/Dashboard';
-import AdminDashboard from './features/admin/pages/AdminDashboard';
-import PaymentResult from './features/customer/pages/PaymentResult';
-import Profile from './features/customer/pages/Profile';
-import BookingReview from './features/customer/pages/BookingReview';
 import DashboardLayout from './layouts/DashboardLayout';
-import Contact from './features/landing/pages/Contact';
 
 const AIChatBox = lazy(() => import('./components/AIChatBox'));
+const LandingPage = lazy(() => import('./features/landing/pages/LandingPage'));
+const Contact = lazy(() => import('./features/landing/pages/Contact'));
+const ExploreFields = lazy(() => import('./features/customer/pages/ExploreFields'));
+const FieldDetails = lazy(() => import('./features/customer/pages/FieldDetails'));
+const PaymentResult = lazy(() => import('./features/customer/pages/PaymentResult'));
+const Profile = lazy(() => import('./features/customer/pages/Profile'));
+const BookingReview = lazy(() => import('./features/customer/pages/BookingReview'));
+const Login = lazy(() => import('./features/auth/pages/Login'));
+const Register = lazy(() => import('./features/auth/pages/Register'));
+const PasswordReset = lazy(() => import('./features/auth/pages/PasswordReset'));
+const PartnerPortal = lazy(() => import('./features/owner/pages/PartnerPortal'));
+const Dashboard = lazy(() => import('./features/owner/pages/Dashboard'));
+const MyPitches = lazy(() => import('./features/owner/pages/MyPitches'));
+const Bookings = lazy(() => import('./features/owner/pages/Bookings'));
+const Revenue = lazy(() => import('./features/owner/pages/Revenue'));
+const Reviews = lazy(() => import('./features/owner/pages/Reviews'));
+const StaffManagement = lazy(() => import('./features/owner/pages/StaffManagement'));
+const Services = lazy(() => import('./features/owner/pages/Services'));
+const PitchEditor = lazy(() => import('./features/owner/pages/PitchEditor'));
+const AdminDashboard = lazy(() => import('./features/admin/pages/AdminDashboard'));
+const Users = lazy(() => import('./features/admin/pages/Users'));
+const Approvals = lazy(() => import('./features/admin/pages/Approvals'));
+const PlatformRevenue = lazy(() => import('./features/admin/pages/PlatformRevenue'));
+const ContentModeration = lazy(() => import('./features/admin/pages/ContentModeration'));
+const SystemManagement = lazy(() => import('./features/admin/pages/SystemManagement'));
+const CustomerSupport = lazy(() => import('./features/admin/pages/CustomerSupport'));
 
-// Owner Sub-pages
-import MyPitches from './features/owner/pages/MyPitches';
-import Bookings from './features/owner/pages/Bookings';
-import Revenue from './features/owner/pages/Revenue';
-import Reviews from './features/owner/pages/Reviews';
-import StaffManagement from './features/owner/pages/StaffManagement';
-import Services from './features/owner/pages/Services';
-import PitchEditor from './features/owner/pages/PitchEditor';
+const PageLoader = () => (
+  <div className="grid min-h-[45vh] place-items-center px-6 py-20 text-sm font-bold text-slate-500">
+    Đang tải...
+  </div>
+);
 
-// Admin Sub-pages
-import Users from './features/admin/pages/Users';
-import Approvals from './features/admin/pages/Approvals';
-import PlatformRevenue from './features/admin/pages/PlatformRevenue';
-import Reports from './features/admin/pages/Reports';
-import ContentModeration from './features/admin/pages/ContentModeration';
-import SystemManagement from './features/admin/pages/SystemManagement';
-import CustomerSupport from './features/admin/pages/CustomerSupport';
+const ScrollToTop = () => {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname, search]);
+
+  return null;
+};
 
 function App() {
+  const [showAIChat, setShowAIChat] = useState(false);
+
+  useEffect(() => {
+    const scheduleIdle = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => window.setTimeout(callback, 1600));
+    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout;
+    const id = scheduleIdle(() => setShowAIChat(true), { timeout: 2500 });
+
+    return () => cancelIdle(id);
+  }, []);
+
   return (
     <BrowserRouter>
+      <ScrollToTop />
+      <AppToast />
       <ThemeProvider>
         <AuthProvider>
           <ErrorBoundary>
             <div className="min-h-screen bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-slate-100 selection:bg-primary/30 selection:text-primary transition-colors duration-300">
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<><Navbar /><LandingPage /></>} />
@@ -68,25 +95,28 @@ function App() {
               } />
 
               {/* Owner Dashboard */}
-              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Dashboard /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/pitches" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><MyPitches /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/bookings" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Bookings /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/revenue" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Revenue /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/reviews" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner"><Reviews /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/staff" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><StaffManagement /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/services" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><Services /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/pitches/create" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><PitchEditor /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/owner/pitches/edit/:id" element={<ProtectedRoute requiredRole={2}><DashboardLayout role="owner"><PitchEditor /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/owner" element={<ProtectedRoute requiredRole={[2, 4]}><DashboardLayout role="owner" /></ProtectedRoute>}>
+                <Route index element={<Dashboard />} />
+                <Route path="bookings" element={<ProtectedRoute requiredRole={[2, 4]}><Bookings /></ProtectedRoute>} />
+                <Route path="reviews" element={<ProtectedRoute requiredRole={[2, 4]}><Reviews /></ProtectedRoute>} />
+                <Route path="pitches" element={<ProtectedRoute requiredRole={2}><MyPitches /></ProtectedRoute>} />
+                <Route path="revenue" element={<ProtectedRoute requiredRole={2}><Revenue /></ProtectedRoute>} />
+                <Route path="staff" element={<ProtectedRoute requiredRole={2}><StaffManagement /></ProtectedRoute>} />
+                <Route path="services" element={<ProtectedRoute requiredRole={2}><Services /></ProtectedRoute>} />
+                <Route path="pitches/create" element={<ProtectedRoute requiredRole={2}><PitchEditor /></ProtectedRoute>} />
+                <Route path="pitches/edit/:id" element={<ProtectedRoute requiredRole={2}><PitchEditor /></ProtectedRoute>} />
+              </Route>
 
               {/* Admin Dashboard */}
-              <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><AdminDashboard /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/users" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Users /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/approvals" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Approvals /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/moderation" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><ContentModeration /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/system" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><SystemManagement /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/support" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><CustomerSupport /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/revenue" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><PlatformRevenue /></DashboardLayout></ProtectedRoute>} />
-              <Route path="/dashboard/admin/reports" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin"><Reports /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/dashboard/admin" element={<ProtectedRoute requiredRole={3}><DashboardLayout role="admin" /></ProtectedRoute>}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="users" element={<Users />} />
+                <Route path="approvals" element={<Approvals />} />
+                <Route path="moderation" element={<ContentModeration />} />
+                <Route path="system" element={<SystemManagement />} />
+                <Route path="support" element={<CustomerSupport />} />
+                <Route path="revenue" element={<PlatformRevenue />} />
+              </Route>
 
               {/* Fallback /dashboard → redirect dựa vào role trong ProtectedRoute */}
               <Route path="/dashboard" element={
@@ -97,9 +127,12 @@ function App() {
                 </ProtectedRoute>
               } />
             </Routes>
-            <Suspense fallback={<div className="p-2">Đang tải trợ lý AI…</div>}>
-              <AIChatBox />
             </Suspense>
+            {showAIChat && (
+              <Suspense fallback={null}>
+                <AIChatBox />
+              </Suspense>
+            )}
             </div>
           </ErrorBoundary>
         </AuthProvider>

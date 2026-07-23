@@ -32,6 +32,7 @@ public class User : BaseEntity, IAggregateRoot
     public string PasswordHash { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
     public Guid? OwnerId { get; private set; }
+    public bool HasSubmittedOwnerRegistration { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
 
@@ -110,6 +111,12 @@ public class User : BaseEntity, IAggregateRoot
             throw new DomainException("Only customer accounts can register as pitch owners");
 
         Role = UserRole.PitchOwner;
+        MarkAsUpdated();
+    }
+
+    public void MarkOwnerRegistrationSubmitted()
+    {
+        HasSubmittedOwnerRegistration = true;
         MarkAsUpdated();
     }
 

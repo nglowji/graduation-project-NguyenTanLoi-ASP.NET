@@ -22,8 +22,11 @@ public class SystemConfigurationRepository : BaseRepository<SystemConfiguration>
     {
         try
         {
-            var config = await GetByKeyAsync(key, cancellationToken);
-            return config?.Value ?? defaultValue;
+            return await _context.Set<SystemConfiguration>()
+                .AsNoTracking()
+                .Where(c => c.Key == key)
+                .Select(c => c.Value)
+                .FirstOrDefaultAsync(cancellationToken) ?? defaultValue;
         }
         catch (InvalidOperationException)
         {

@@ -89,7 +89,7 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
     private List<TopServiceDto> CalculateTopServices(IReadOnlyList<Domain.Entities.Booking> bookings)
     {
         return bookings
-            .Where(b => b.Status != BookingStatus.Cancelled)
+            .Where(b => b.Status == BookingStatus.Completed)
             .SelectMany(b => b.Services)
             .GroupBy(service => new { service.ServiceId, service.ServiceName })
             .Select(group => new TopServiceDto
@@ -131,9 +131,8 @@ public class GetOwnerDashboardQueryHandler : IRequestHandler<GetOwnerDashboardQu
         var occupiedBookings = filteredBookings.Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed).ToList();
         
         var totalRevenue = completedBookings.Sum(b => b.TotalPrice.Amount);
-        var validServiceBookings = filteredBookings.Where(b => b.Status != BookingStatus.Cancelled).ToList();
-        var serviceRevenue = validServiceBookings.SelectMany(b => b.Services).Sum(service => service.Price.Amount * service.Quantity);
-        var servicesSold = validServiceBookings.SelectMany(b => b.Services).Sum(service => service.Quantity);
+        var serviceRevenue = completedBookings.SelectMany(b => b.Services).Sum(service => service.Price.Amount * service.Quantity);
+        var servicesSold = completedBookings.SelectMany(b => b.Services).Sum(service => service.Quantity);
 
         // Calculate Occupancy Rate
         // Total slots available = (active slots per pitch) * (days)

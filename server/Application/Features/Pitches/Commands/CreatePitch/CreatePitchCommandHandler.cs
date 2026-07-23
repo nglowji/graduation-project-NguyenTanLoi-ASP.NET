@@ -98,8 +98,7 @@ public class CreatePitchCommandHandler : IRequestHandler<CreatePitchCommand, Res
             request.MapLink?.Trim()
         );
 
-        // Kích hoạt sân ngay để hiển thị trên trang khám phá
-        pitch.Activate();
+        // New pitches stay pending until an admin reviews them.
 
         // Thêm TimeSlots (Khung giờ)
         if (request.TimeSlots != null && request.TimeSlots.Any())

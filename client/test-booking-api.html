@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Booking API</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #166534;
+        }
+        .error {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        label {
+            font-weight: 600;
+            color: #334155;
+            display: block;
+            margin-top: 15px;
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .info {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #1e40af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Booking API</h1>
+        <p style="color: #64748b;">Test các endpoint booking để tìm nguyên nhân lỗi 405</p>
+
+        <div class="info">
+            <strong>⚠️ Quan trọng:</strong> Trước khi test, hãy:
+            <ol style="margin: 10px 0 0 20px;">
+                <li>Đăng nhập vào ứng dụng chính</li>
+                <li>Mở DevTools (F12) của trang đăng nhập</li>
+                <li>Vào Console, gõ: <code>localStorage.getItem('token')</code></li>
+                <li>Copy token và paste vào ô bên dưới</li>
+            </ol>
+        </div>
+
+        <label>API Base URL:</label>
+        <input type="text" id="apiUrl" value="http://localhost:5164/api/v1" />
+
+        <label>Token (từ localStorage):</label>
+        <input type="text" id="token" placeholder="Paste token here..." />
+
+        <label>Time Slot ID (GUID):</label>
+        <input type="text" id="timeSlotId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+
+        <label>Booking Date (YYYY-MM-DD):</label>
+        <input type="date" id="bookingDate" />
+
+        <div style="margin-top: 20px;">
+            <button onclick="testSingleBooking()">Test Single Slot Booking</button>
+            <button onclick="testMultiSlotBooking()">Test Multi Slot Booking</button>
+            <button onclick="testLockSlot()">Test Lock Slot</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Set default date to today
+        document.getElementById('bookingDate').value = new Date().toISOString().split('T')[0];
+
+        function getConfig() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const token = document.getElementById('token').value.trim();
+            const timeSlotId = document.getElementById('timeSlotId').value.trim();
+            const bookingDate = document.getElementById('bookingDate').value;
+
+            if (!token) {
+                alert('Vui lòng nhập token!');
+                throw new Error('Token missing');
+            }
+
+            if (!timeSlotId) {
+                alert('Vui lòng nhập Time Slot ID!');
+                throw new Error('TimeSlotId missing');
+            }
+
+            return { apiUrl, token, timeSlotId, bookingDate };
+        }
+
+        function showResult(content, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = isError ? 'result error' : 'result success';
+            resultDiv.textContent = content;
+        }
+
+        async function testLockSlot() {
+            try {
+                const { apiUrl, token, timeSlotId, bookingDate } = getConfig();
+                
+                showResult('⏳ Testing lock slot endpoint...');
+
+                const response = await fetch(`${apiUrl}/bookings/lock`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        timeSlotId,
+                        bookingDate,
+                        lockDurationMinutes: 10
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(`✅ Lock thành công!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult(`❌ Lock thất bại!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}\n\n${error.stack}`, true);
+            }
+        }
+
+        async function testSingleBooking() {
+            try {
+                const { apiUrl, token, timeSlotId, bookingDate } = getConfig();
+                
+                showResult('⏳ Testing single booking endpoint...');
+
+                const response = await fetch(`${apiUrl}/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        timeSlotId,
+                        bookingDate,
+                        selectedServices: []
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(`✅ Single booking thành công!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult(`❌ Single booking thất bại!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}\n\n${error.stack}`, true);
+            }
+        }
+
+        async function testMultiSlotBooking() {
+            try {
+                const { apiUrl, token, timeSlotId, bookingDate } = getConfig();
+                
+                showResult('⏳ Testing multi-slot booking endpoint...');
+
+                const response = await fetch(`${apiUrl}/bookings/multi-slot`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        timeSlots: [
+                            {
+                                timeSlotId,
+                                bookingDate
+                            }
+                        ],
+                        selectedServices: []
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(`✅ Multi-slot booking thành công!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult(`❌ Multi-slot booking thất bại!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}\n\n${error.stack}`, true);
+            }
+        }
+    </script>
+</body>
+</html>

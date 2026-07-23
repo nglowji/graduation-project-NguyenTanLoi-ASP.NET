@@ -41,6 +41,13 @@ public class GetAvailableTimeSlotsQueryHandler
         GetAvailableTimeSlotsQuery request,
         CancellationToken cancellationToken)
     {
+        var cacheKey = $"available_slots_{request.PitchId}_{request.Date:yyyyMMdd}";
+        var cached = await _cacheService.GetAsync<List<TimeSlotDto>>(cacheKey, cancellationToken);
+        if (cached is not null)
+        {
+            return Result<List<TimeSlotDto>>.Success(cached);
+        }
+
         var timeSlots = await _timeSlotRepository.GetAvailableByPitchIdAsync(
             request.PitchId,
             request.Date,
@@ -67,12 +74,14 @@ public class GetAvailableTimeSlotsQueryHandler
             var isLocked = lockedSlotIds.Contains(ts.Id);
             dto.IsAvailable = ts.IsActive && !isPastDate && !isPastTime && !isBooked && !isLocked;
             
-            // Apply dynamic pricing
+            // Price must match the exact amount configured by the pitch owner for this slot.
             var effectivePrice = _pricingService.CalculateEffectivePrice(ts, request.Date);
             dto.Price = effectivePrice.Amount;
             
             timeSlotDtos.Add(dto);
         }
+
+        await _cacheService.SetAsync(cacheKey, timeSlotDtos, TimeSpan.FromSeconds(30), cancellationToken);
 
         return Result<List<TimeSlotDto>>.Success(timeSlotDtos);
     }

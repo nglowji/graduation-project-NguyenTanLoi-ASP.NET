@@ -37,6 +37,29 @@ const starterQuestions = [
   'Có sân cầu lông vào tối nay không?',
 ];
 
+const systemScenarioQuestions = [
+  'Sân bóng đá dưới 300k còn giờ tối không?',
+  'Có sân cầu lông 19h hôm nay không?',
+  'Gợi ý sân tennis trong nhà giá tốt',
+  'Sân pickleball nào đang hoạt động?',
+  'Tìm sân bóng rổ gần Quận 1',
+  'Giá thuê sân bóng 7 người là bao nhiêu?',
+  'Đặt sân cần cọc bao nhiêu phần trăm?',
+  'Thanh toán VNPAY xong thì nhận gì?',
+  'Tôi muốn hủy lịch thì làm thế nào?',
+  'PendingDeposit và Confirmed khác nhau sao?',
+  'Mã check-in dùng ở đâu?',
+  'Chủ sân thêm khung giờ và giá thế nào?',
+  'Chủ sân xem doanh thu ở đâu?',
+  'Staff có thể hỗ trợ những việc gì?',
+  'Admin duyệt sân và đối tác thế nào?',
+  'Làm sao thêm dịch vụ thuê vợt/nước uống?',
+  'Tôi xem lịch sử đặt sân ở đâu?',
+  'Tôi đánh giá sân sau khi chơi thế nào?',
+  'Luật việt vị là gì?',
+  'Nên khởi động thế nào trước khi đá bóng?',
+];
+
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 
 const normalize = (value: string) =>
@@ -89,12 +112,46 @@ const isBackendFailureMessage = (value?: string) => {
   );
 };
 
+const includesAny = (text: string, keywords: string[]) => keywords.some((keyword) => text.includes(keyword));
+
 const buildLocalAnswer = (message: string, isAuthenticated: boolean) => {
   const text = normalize(message);
   const mathAnswer = answerSimpleMath(message);
   const authHint = isAuthenticated ? '' : '\n\nĐăng nhập sẽ giúp mình gợi ý theo dữ liệu sân và lịch sử đặt sân của bạn.';
 
   if (mathAnswer) return `${mathAnswer}${authHint}`;
+
+  if (includesAny(text, ['pendingdeposit', 'confirmed', 'completed', 'cancelled', 'noshow', 'trang thai'])) {
+    return `Các trạng thái chính: PendingDeposit là chờ thanh toán cọc, Confirmed là đã xác nhận sau khi cọc thành công, Completed là đã hoàn thành, Cancelled là đã hủy, NoShow là không đến sân. Nếu bạn hỏi về một đơn cụ thể, hãy mở hồ sơ/lịch sử đặt sân để xem trạng thái mới nhất.${authHint}`;
+  }
+
+  if (includesAny(text, ['check-in', 'checkin', 'ma check', 'qr'])) {
+    return `Sau khi đơn được ghi nhận và thanh toán theo yêu cầu, hệ thống hiển thị mã check-in trong chi tiết đặt sân. Khi đến sân, bạn đưa mã này cho chủ sân hoặc nhân viên để xác nhận lịch.${authHint}`;
+  }
+
+  if (includesAny(text, ['chu san', 'owner', 'doanh thu', 'khung gio', 'them san', 'sua san', 'quan ly san'])) {
+    return `Với chủ sân, SmartSport hỗ trợ quản lý sân, ảnh, khung giờ, giá từng khung, dịch vụ đi kèm, booking, đánh giá và doanh thu. Giá hiển thị sẽ lấy đúng giá của từng khung giờ chủ sân đã tạo.${authHint}`;
+  }
+
+  if (includesAny(text, ['staff', 'nhan vien'])) {
+    return `Staff hỗ trợ chủ sân xử lý vận hành hằng ngày như theo dõi lịch đặt, hỗ trợ khách tại sân, kiểm tra mã check-in và cập nhật các việc được chủ sân phân quyền.${authHint}`;
+  }
+
+  if (includesAny(text, ['admin', 'duyet', 'doi tac', 'nguoi dung', 'hoa hong', 'bao cao'])) {
+    return `Admin quản lý toàn nền tảng: duyệt đối tác/sân/dịch vụ, quản lý người dùng, theo dõi doanh thu nền tảng, cấu hình hệ thống và xử lý nội dung cần kiểm duyệt.${authHint}`;
+  }
+
+  if (includesAny(text, ['dich vu', 'thue vot', 'nuoc uong', 'ao bib', 'phu kien'])) {
+    return `Dịch vụ đi kèm như thuê vợt, nước uống hoặc phụ kiện được chủ sân cấu hình riêng. Khi đặt sân, bạn có thể chọn thêm dịch vụ nếu sân đó đang bật và còn hàng.${authHint}`;
+  }
+
+  if (includesAny(text, ['danh gia', 'review', 'phan hoi'])) {
+    return `Sau khi lịch hoàn thành, bạn có thể vào hồ sơ/lịch sử đặt sân để đánh giá trải nghiệm. Chủ sân có thể xem và phản hồi đánh giá trong trang quản lý.${authHint}`;
+  }
+
+  if (includesAny(text, ['lich su', 'ho so', 'profile', 'don cua toi', 'booking cua toi'])) {
+    return `Bạn có thể xem lịch sử đặt sân, trạng thái thanh toán, mã check-in, hủy lịch và đánh giá trong trang hồ sơ cá nhân. Đăng nhập sẽ giúp hệ thống lấy đúng dữ liệu đơn của bạn.${authHint}`;
+  }
 
   if (text.includes('offside') || text.includes('viet vi')) {
     return `Luật việt vị: cầu thủ tấn công đứng gần khung thành đối phương hơn bóng và hậu vệ áp chót tại thời điểm đồng đội chuyền bóng, rồi tham gia vào pha bóng. Không tính việt vị khi nhận bóng từ phạt góc, ném biên hoặc phát bóng lên.${authHint}`;
@@ -116,7 +173,13 @@ const buildLocalAnswer = (message: string, isAuthenticated: boolean) => {
     text.includes('goi y') ||
     text.includes('tim san') ||
     text.includes('san nao') ||
+    text.includes('duoi') ||
+    text.includes('con trong') ||
+    text.includes('gio trong') ||
+    text.includes('gia') ||
     text.includes('bong da') ||
+    text.includes('bong ro') ||
+    text.includes('bong chuyen') ||
     text.includes('cau long') ||
     text.includes('tennis') ||
     text.includes('pickleball')
@@ -144,21 +207,6 @@ const renderMessageText = (content: string) =>
 const AIChatBox: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-
-  // Hide chatbox on auth and dashboard pages
-  const shouldHideChatbox = useMemo(() => {
-    const path = location.pathname.toLowerCase();
-    return (
-      path.startsWith('/login') ||
-      path.startsWith('/register') ||
-      path.startsWith('/forgot-password') ||
-      path.startsWith('/dashboard')
-    );
-  }, [location.pathname]);
-
-  if (shouldHideChatbox) {
-    return null;
-  }
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
@@ -188,6 +236,17 @@ const AIChatBox: React.FC = () => {
   const messageHeight = isExpanded ? 'max-h-[560px] min-h-[300px]' : 'max-h-[430px] min-h-[300px]';
   const panelAlign = typeof window !== 'undefined' && position.x < window.innerWidth / 2 ? 'left-0' : 'right-0';
   const panelVertical = typeof window !== 'undefined' && position.y < window.innerHeight * 0.45 ? 'top-[72px]' : 'bottom-[72px]';
+
+  // Hide chatbox on auth and dashboard pages
+  const shouldHideChatbox = useMemo(() => {
+    const path = location.pathname.toLowerCase();
+    return (
+      path.startsWith('/login') ||
+      path.startsWith('/register') ||
+      path.startsWith('/forgot-password') ||
+      path.startsWith('/dashboard')
+    );
+  }, [location.pathname]);
 
   const clampPosition = (x: number, y: number) => {
     if (typeof window === 'undefined') return { x, y };
@@ -277,27 +336,24 @@ const AIChatBox: React.FC = () => {
     setIsSending(true);
     setMessages((prev) => [...prev, { role: 'user', content: rawText }]);
 
-    if (!isAuthenticated) {
-      window.setTimeout(() => {
-        appendAssistantMessage(buildLocalAnswer(rawText, false));
-        setIsSending(false);
-      }, 220);
-      return;
-    }
-
     try {
       const result = await aiService.chat(text, sessionId);
       setSessionId(result.sessionId);
       appendAssistantMessage(
-        isBackendFailureMessage(result.response) ? buildLocalAnswer(rawText, true) : result.response,
+        isBackendFailureMessage(result.response) ? buildLocalAnswer(rawText, isAuthenticated) : result.response,
         result.recommendations,
       );
     } catch {
-      appendAssistantMessage(buildLocalAnswer(rawText, true));
+      appendAssistantMessage(buildLocalAnswer(rawText, isAuthenticated));
     } finally {
       setIsSending(false);
     }
   };
+
+  // Early return after all hooks
+  if (shouldHideChatbox) {
+    return null;
+  }
 
   return (
     <div ref={wrapperRef} className="fixed z-[120] font-sans" style={{ left: position.x, top: position.y }}>
@@ -501,7 +557,7 @@ const AIWelcome = ({ onPrompt }: { onPrompt: (prompt: string) => void }) => (
     </div>
 
     <div className="space-y-2">
-      {starterQuestions.map((question) => (
+      {[...starterQuestions, ...systemScenarioQuestions].map((question) => (
         <button
           key={question}
           type="button"

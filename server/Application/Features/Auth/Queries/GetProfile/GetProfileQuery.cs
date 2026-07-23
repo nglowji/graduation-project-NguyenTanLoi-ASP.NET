@@ -35,7 +35,8 @@ public class GetProfileQueryHandler : IRequestHandler<GetProfileQuery, Result<Us
             Address = user.Address,
             MapLink = user.MapLink,
             Role = user.Role,
-            EmailConfirmed = false // Assuming email confirmation logic is elsewhere or not yet implemented
+            EmailConfirmed = false, // Assuming email confirmation logic is elsewhere or not yet implemented
+            HasSubmittedOwnerRegistration = user.HasSubmittedOwnerRegistration
         });
     }
 }

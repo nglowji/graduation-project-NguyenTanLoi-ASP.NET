@@ -1,4 +1,4 @@
-using Application.Common.DTOs;
+﻿using Application.Common.DTOs;
 using Application.Common.Interfaces;
 using Application.Features.Auth.Commands.Register;
 using Application.Features.Dashboard.DTOs;
@@ -6,6 +6,7 @@ using Application.Features.Dashboard.Queries;
 using Api.Contracts;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Exceptions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,13 @@ using Microsoft.EntityFrameworkCore;
 namespace Api.Controllers;
 
 public record UpdateCommissionSettingRequest(decimal Percentage);
+public record UpdateBookingHoldSettingRequest(int Minutes);
+
+internal static class SystemSettingDescriptions
+{
+    public const string PlatformCommissionPercentage = "Platform commission percentage applied to valid booking revenue.";
+    public const string BookingLockDurationMinutes = "How many minutes a selected time slot is held during checkout.";
+}
 
 [Route("api/v1/admin")]
 [Authorize(Roles = "Admin")]
@@ -22,15 +30,18 @@ public class AdminController : ApiControllerBase
     private readonly IMediator _mediator;
     private readonly IUserRepository _userRepository;
     private readonly IApplicationDbContext _context;
+    private readonly ISystemSettingService _settingService;
 
     public AdminController(
         IMediator mediator,
         IUserRepository userRepository,
-        IApplicationDbContext context)
+        IApplicationDbContext context,
+        ISystemSettingService settingService)
     {
         _mediator = mediator;
         _userRepository = userRepository;
         _context = context;
+        _settingService = settingService;
     }
 
     [HttpGet("users")]
@@ -117,20 +128,18 @@ public class AdminController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCommissionSetting(CancellationToken cancellationToken = default)
     {
-        var config = await _context.SystemConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                item => item.Key == SystemConfiguration.Keys.PlatformCommissionPercentage,
-                cancellationToken);
-
-        var value = decimal.TryParse(config?.Value, out var percentage) ? percentage : 10m;
-        value = Math.Clamp(value, 0m, 100m);
+        var value = await _settingService.GetDecimalAsync(
+            SystemConfiguration.Keys.PlatformCommissionPercentage,
+            10m,
+            0m,
+            100m,
+            cancellationToken);
 
         return OkResponse(new
         {
             key = SystemConfiguration.Keys.PlatformCommissionPercentage,
             percentage = value,
-            description = config?.Description ?? "Mức hoa hồng nền tảng tính trên doanh thu đơn hợp lệ."
+            description = SystemSettingDescriptions.PlatformCommissionPercentage
         });
     }
 
@@ -141,37 +150,77 @@ public class AdminController : ApiControllerBase
         [FromBody] UpdateCommissionSettingRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.Percentage < 0 || request.Percentage > 100)
-            return BadRequestResponse("Commission percentage must be between 0 and 100.");
-
-        var config = await _context.SystemConfigurations
-            .FirstOrDefaultAsync(
-                item => item.Key == SystemConfiguration.Keys.PlatformCommissionPercentage,
+        try
+        {
+            var config = await _settingService.UpsertDecimalAsync(
+                SystemConfiguration.Keys.PlatformCommissionPercentage,
+                request.Percentage,
+                0m,
+                100m,
+                SystemSettingDescriptions.PlatformCommissionPercentage,
                 cancellationToken);
 
-        var value = request.Percentage.ToString("0.##");
-        if (config == null)
-        {
-            config = SystemConfiguration.Create(
-                SystemConfiguration.Keys.PlatformCommissionPercentage,
-                value,
-                "Mức hoa hồng nền tảng tính trên doanh thu đơn hợp lệ."
-            );
-            _context.SystemConfigurations.Add(config);
+            return OkResponse(new
+            {
+                key = config.Key,
+                percentage = request.Percentage,
+                description = config.Description
+            }, "Commission setting updated successfully.");
         }
-        else
+        catch (DomainException ex)
         {
-            config.UpdateValue(value);
+            return BadRequestResponse(ex.Message);
         }
+    }
 
-        await _context.SaveChangesAsync(cancellationToken);
+
+    [HttpGet("system/booking-hold")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetBookingHoldSetting(CancellationToken cancellationToken = default)
+    {
+        var minutes = await _settingService.GetIntAsync(
+            SystemConfiguration.Keys.BookingLockDurationMinutes,
+            10,
+            1,
+            60,
+            cancellationToken);
 
         return OkResponse(new
         {
-            key = config.Key,
-            percentage = request.Percentage,
-            description = config.Description
-        }, "Commission setting updated successfully.");
+            key = SystemConfiguration.Keys.BookingLockDurationMinutes,
+            minutes,
+            description = SystemSettingDescriptions.BookingLockDurationMinutes
+        });
+    }
+
+    [HttpPatch("system/booking-hold")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateBookingHoldSetting(
+        [FromBody] UpdateBookingHoldSettingRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var config = await _settingService.UpsertIntAsync(
+                SystemConfiguration.Keys.BookingLockDurationMinutes,
+                request.Minutes,
+                1,
+                60,
+                SystemSettingDescriptions.BookingLockDurationMinutes,
+                cancellationToken);
+
+            return OkResponse(new
+            {
+                key = config.Key,
+                minutes = request.Minutes,
+                description = config.Description
+            }, "Booking hold setting updated successfully.");
+        }
+        catch (DomainException ex)
+        {
+            return BadRequestResponse(ex.Message);
+        }
     }
 
     [HttpGet("pitch-approvals")]
@@ -280,6 +329,20 @@ public class AdminController : ApiControllerBase
         return OkResponse<object?>(null, "Pitch registration rejected.");
     }
 
+    [HttpPatch("pitch-approvals/{id:guid}/hide")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> HidePitch(Guid id, CancellationToken cancellationToken = default)
+    {
+        var command = new HidePitchCommand(id);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+            return BadRequestResponse(result.ErrorMessage ?? "Failed to hide pitch");
+
+        return OkResponse<object?>(null, "Pitch hidden successfully.");
+    }
+
     [HttpGet("service-approvals")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetServiceApprovals(
@@ -287,11 +350,20 @@ public class AdminController : ApiControllerBase
         [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var showActive = status.Equals("approved", StringComparison.OrdinalIgnoreCase);
+        var baseUrl = $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
+        var normalizedStatus = status.Trim().ToLowerInvariant();
         var query = _context.AdditionalServices
             .AsNoTracking()
             .Include(service => service.SportCenter)
-            .Where(service => service.IsActive == showActive);
+            .AsQueryable();
+
+        query = normalizedStatus switch
+        {
+            "approved" => query.Where(service => service.Status == AdditionalServiceStatus.Active),
+            "pending" => query.Where(service => service.Status == AdditionalServiceStatus.PendingApproval),
+            "hidden" => query.Where(service => service.Status == AdditionalServiceStatus.Hidden),
+            _ => query.Where(_ => false)
+        };
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -315,13 +387,48 @@ public class AdminController : ApiControllerBase
                 service.StockQuantity,
                 SportCenterName = service.SportCenter.Name,
                 OwnerId = service.SportCenter.OwnerId,
-                Status = service.IsActive ? "approved" : "pending",
+                Status = service.Status == AdditionalServiceStatus.PendingApproval
+                    ? "pending"
+                    : service.Status == AdditionalServiceStatus.Hidden
+                        ? "hidden"
+                        : "approved",
                 service.CreatedAt,
                 service.UpdatedAt
             })
             .ToListAsync(cancellationToken);
 
-        return OkResponse(items);
+        var normalized = items
+            .Select(service => new
+            {
+                service.Id,
+                service.Name,
+                service.Price,
+                service.Icon,
+                ImageUrl = BuildAbsoluteUrl(service.ImageUrl, baseUrl),
+                service.StockQuantity,
+                service.SportCenterName,
+                service.OwnerId,
+                service.Status,
+                service.CreatedAt,
+                service.UpdatedAt
+            })
+            .ToList();
+
+        return OkResponse(normalized);
+    }
+
+    private static string? BuildAbsoluteUrl(string? imageUrl, string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out _))
+            return imageUrl;
+
+        if (imageUrl.StartsWith("/", StringComparison.Ordinal))
+            return $"{baseUrl}{imageUrl}";
+
+        return $"{baseUrl}/{imageUrl}";
     }
 
     [HttpPatch("service-approvals/{id:guid}/approve")]
@@ -335,16 +442,39 @@ public class AdminController : ApiControllerBase
         if (service == null)
             return NotFoundResponse("Service not found");
 
-        service.ToggleActive(true);
+        service.Approve();
         _context.Notifications.Add(Notification.Create(
             service.SportCenter.OwnerId,
             NotificationType.SystemAnnouncement,
-            "Dịch vụ đã được duyệt",
-            $"Dịch vụ {service.Name} đã được admin duyệt và có thể bán kèm khi đặt sân."
+            "Dá»‹ch vá»¥ Ä‘Ă£ Ä‘Æ°á»£c duyá»‡t",
+            $"Dá»‹ch vá»¥ {service.Name} Ä‘Ă£ Ä‘Æ°á»£c admin duyá»‡t vĂ  cĂ³ thá»ƒ bĂ¡n kĂ¨m khi Ä‘áº·t sĂ¢n."
         ));
 
         await _context.SaveChangesAsync(cancellationToken);
         return OkResponse<object?>(null, "Service approved successfully.");
+    }
+
+    [HttpPatch("service-approvals/{id:guid}/hide")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> HideService(Guid id, CancellationToken cancellationToken = default)
+    {
+        var service = await _context.AdditionalServices
+            .Include(item => item.SportCenter)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (service == null)
+            return NotFoundResponse("Service not found");
+
+        service.ToggleActive(false);
+        _context.Notifications.Add(Notification.Create(
+            service.SportCenter.OwnerId,
+            NotificationType.SystemAnnouncement,
+            "Dịch vụ đã được tạm ẩn",
+            $"Dịch vụ {service.Name} đã được admin tạm ẩn và sẽ không hiển thị khi khách đặt sân."
+        ));
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return OkResponse<object?>(null, "Service hidden successfully.");
     }
 
     [HttpDelete("service-approvals/{id:guid}")]
@@ -361,8 +491,8 @@ public class AdminController : ApiControllerBase
         _context.Notifications.Add(Notification.Create(
             service.SportCenter.OwnerId,
             NotificationType.SystemAnnouncement,
-            "Dịch vụ chưa được duyệt",
-            $"Dịch vụ {service.Name} đã bị gỡ khỏi hệ thống. Vui lòng kiểm tra lại thông tin trước khi tạo mới."
+            "Dá»‹ch vá»¥ chÆ°a Ä‘Æ°á»£c duyá»‡t",
+            $"Dá»‹ch vá»¥ {service.Name} Ä‘Ă£ bá»‹ gá»¡ khá»i há»‡ thá»‘ng. Vui lĂ²ng kiá»ƒm tra láº¡i thĂ´ng tin trÆ°á»›c khi táº¡o má»›i."
         ));
         _context.AdditionalServices.Remove(service);
 

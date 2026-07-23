@@ -42,10 +42,10 @@ public class ServiceHandlers :
         if (sportCenterIds.Count == 0) return Result<List<ServiceDto>>.Success(new List<ServiceDto>());
 
         var services = await _context.AdditionalServices
-            .Where(s => sportCenterIds.Contains(s.SportCenterId)
-                || s.SportCenter.OwnerId == request.OwnerId
-                || s.SportCenter.Pitches.Any(p => p.OwnerId == request.OwnerId))
-            .Select(s => new ServiceDto(s.Id, s.Name, s.Price.Amount, s.Icon, s.StockQuantity, s.ImageUrl, s.IsActive))
+            .AsNoTracking()
+            .Where(s => sportCenterIds.Contains(s.SportCenterId))
+            .OrderByDescending(s => s.UpdatedAt ?? s.CreatedAt)
+            .Select(s => new ServiceDto(s.Id, s.Name, s.Price.Amount, s.Icon, s.StockQuantity, s.ImageUrl, s.IsActive, s.Status.ToString(), s.SportCenterId))
             .ToListAsync(cancellationToken);
 
         return Result<List<ServiceDto>>.Success(services);
@@ -65,7 +65,7 @@ public class ServiceHandlers :
             request.ImageUrl);
             
         // New services must be reviewed by admin before they are sold publicly.
-        service.ToggleActive(false);
+        service.SubmitForApproval();
             
         _context.AdditionalServices.Add(service);
         await _context.SaveChangesAsync(cancellationToken);
@@ -80,16 +80,12 @@ public class ServiceHandlers :
 
         if (service == null) return Result<Unit>.Failure("Service not found");
 
-        service.Update(
+        service.UpdateAndSubmitForApproval(
             request.Name, 
             Money.Create(request.Price), 
             request.Icon,
             request.StockQuantity,
             request.ImageUrl);
-            
-        // Owners can update stock and content, but publishing stays under admin control.
-        if (!request.IsActive)
-            service.ToggleActive(false);
 
         await _context.SaveChangesAsync(cancellationToken);
         return Result<Unit>.Success(Unit.Value);

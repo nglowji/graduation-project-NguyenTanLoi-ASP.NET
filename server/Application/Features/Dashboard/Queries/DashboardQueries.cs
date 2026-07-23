@@ -26,3 +26,5 @@ public record SuspendUserCommand(Guid UserId) : IRequest<Result<bool>>;
 public record ApprovePitchCommand(Guid PitchId) : IRequest<Result<bool>>;
 
 public record RejectPitchCommand(Guid PitchId) : IRequest<Result<bool>>;
+
+public record HidePitchCommand(Guid PitchId) : IRequest<Result<bool>>;

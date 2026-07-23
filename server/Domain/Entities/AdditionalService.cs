@@ -1,4 +1,5 @@
 using Domain.Common;
+using Domain.Enums;
 using Domain.Exceptions;
 using Domain.ValueObjects;
 
@@ -19,7 +20,8 @@ public class AdditionalService : BaseEntity
         Icon = icon;
         StockQuantity = stockQuantity;
         ImageUrl = imageUrl;
-        IsActive = true;
+        IsActive = false;
+        Status = AdditionalServiceStatus.PendingApproval;
     }
 
     public Guid SportCenterId { get; private set; }
@@ -30,6 +32,7 @@ public class AdditionalService : BaseEntity
     public string? ImageUrl { get; private set; }
     public int StockQuantity { get; private set; }
     public bool IsActive { get; private set; }
+    public AdditionalServiceStatus Status { get; private set; } = AdditionalServiceStatus.Active;
 
     public static AdditionalService Create(Guid sportCenterId, string name, Money price, string icon, int stockQuantity, string? imageUrl)
     {
@@ -52,9 +55,44 @@ public class AdditionalService : BaseEntity
         MarkAsUpdated();
     }
 
+    public void UpdateAndSubmitForApproval(string name, Money price, string icon, int stockQuantity, string? imageUrl)
+    {
+        Update(name, price, icon, stockQuantity, imageUrl);
+        SubmitForApproval();
+    }
+
     public void ToggleActive(bool isActive)
     {
         IsActive = isActive;
+        Status = isActive ? AdditionalServiceStatus.Active : AdditionalServiceStatus.Hidden;
+        MarkAsUpdated();
+    }
+
+    public void SubmitForApproval()
+    {
+        IsActive = false;
+        Status = AdditionalServiceStatus.PendingApproval;
+        MarkAsUpdated();
+    }
+
+    public void Approve()
+    {
+        IsActive = true;
+        Status = AdditionalServiceStatus.Active;
+        MarkAsUpdated();
+    }
+
+    public void SetOwnerVisibility(bool isVisible)
+    {
+        if (Status == AdditionalServiceStatus.PendingApproval)
+        {
+            IsActive = false;
+            MarkAsUpdated();
+            return;
+        }
+
+        IsActive = isVisible;
+        Status = isVisible ? AdditionalServiceStatus.Active : AdditionalServiceStatus.Hidden;
         MarkAsUpdated();
     }
 
